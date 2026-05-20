@@ -1,0 +1,4 @@
+/* Minimal global reset — all styling lives in App.css */
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; }
+select { font-family: inherit; }
