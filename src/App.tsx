@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { loadSettings, saveSettings } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
@@ -6,6 +6,7 @@ import TrainingPlan from './components/TrainingPlan'
 import VdotPaces from './components/VdotPaces'
 import Analysis from './components/Analysis'
 import Settings from './components/Settings'
+import { hasToken, fetchSync } from './lib/githubSync'
 import './App.css'
 
 type Tab = 'today' | 'analyse' | 'plan' | 'paces' | 'settings'
@@ -21,6 +22,39 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 export default function App() {
   const [tab, setTab]           = useState<Tab>('today')
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
+
+  // On startup: pull sync data from GitHub and apply
+  useEffect(() => {
+    if (!hasToken()) return
+    fetchSync().then(result => {
+      if (!result) return
+      const { data } = result
+      // Apply remote settings if they exist (remote wins on first load)
+      if (data.settings) {
+        const merged = { ...loadSettings(), ...data.settings } as AppSettings
+        saveSettings(merged)
+        setSettings(merged)
+      }
+      // Apply week overrides from remote into localStorage
+      if (data.weekOverrides) {
+        Object.entries(data.weekOverrides).forEach(([weekKey, map]) => {
+          const lsKey = `week_override_${weekKey}`
+          // Convert map {originalDay -> currentDay} back to DayAssignment array
+          // We need to know all days — re-build from existing or skip if already set
+          const existing = localStorage.getItem(lsKey)
+          const arr: Array<{ originalDay: string; currentDay: string }> = existing ? JSON.parse(existing) : []
+          const days = ['Mo','Di','Mi','Do','Fr','Sa','So']
+          const updated = days
+            .filter(d => arr.some(a => a.originalDay === d) || map[d])
+            .map(d => {
+              const found = arr.find(a => a.originalDay === d)
+              return { originalDay: d, currentDay: map[d] ?? found?.currentDay ?? d }
+            })
+          if (updated.length > 0) localStorage.setItem(lsKey, JSON.stringify(updated))
+        })
+      }
+    }).catch(() => { /* silent — sync is best-effort */ })
+  }, [])
 
   function handleSettingsUpdate(s: AppSettings) {
     saveSettings(s)

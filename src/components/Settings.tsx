@@ -6,6 +6,7 @@ import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
   syncActivities, loadTokens,
 } from '../lib/strava'
+import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
 interface Props {
   settings: AppSettings
@@ -15,6 +16,39 @@ interface Props {
 export default function Settings({ settings, onUpdate }: Props) {
   const [s, setS] = useState(settings)
   const [saved, setSaved] = useState(false)
+
+  // GitHub Sync state
+  const [ghToken,    setGhToken]   = useState(getToken())
+  const [ghSyncing,  setGhSyncing] = useState(false)
+  const [ghMsg,      setGhMsg]     = useState<string | null>(null)
+  const [ghErr,      setGhErr]     = useState<string | null>(null)
+  const [_ghSha,     setGhSha]     = useState<string | null>(null)
+
+  async function handleGhSync() {
+    setGhSyncing(true); setGhErr(null); setGhMsg(null)
+    try {
+      const result = await fetchSync()
+      if (result) {
+        setGhSha(result.sha)
+        setGhMsg(`Synced — zuletzt geändert: ${result.data.lastDevice ?? '?'} ${result.data.lastModified ? new Date(result.data.lastModified).toLocaleString('de-AT') : ''}`)
+      } else {
+        setGhMsg('Noch keine Sync-Daten vorhanden.')
+      }
+    } catch (e) { setGhErr(String(e)) }
+    finally { setGhSyncing(false) }
+  }
+
+  function handleSaveToken() {
+    setToken(ghToken)
+    setGhMsg('Token gespeichert.')
+    setTimeout(() => setGhMsg(null), 2000)
+  }
+
+  function handleClearToken() {
+    clearToken()
+    setGhToken('')
+    setGhMsg(null)
+  }
 
   // Strava state
   const [authed,    setAuthed]   = useState(isAuthenticated())
@@ -68,11 +102,21 @@ export default function Settings({ settings, onUpdate }: Props) {
     setSaved(false)
   }
 
-  function handleSave() {
+  async function handleSave() {
     saveSettings(s)
     onUpdate(s)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
+    if (hasToken()) {
+      try {
+        const current = await fetchSync()
+        await pushSync(
+          { settings: s as unknown as Record<string, unknown>, weekOverrides: current?.data.weekOverrides },
+          current?.sha
+        )
+        setGhSha(null)
+      } catch { /* sync failure is non-critical */ }
+    }
   }
 
   // Quick VDOT from a recent race result
@@ -138,6 +182,49 @@ export default function Settings({ settings, onUpdate }: Props) {
           {stravaErr && <div className="error-box">{stravaErr}</div>}
         </div>
       )}
+
+      {/* GitHub Sync section */}
+      <div className="section-title">Geräte-Sync (GitHub)</div>
+      <div className="settings-group">
+        {!hasToken() ? (
+          <>
+            <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.5 }}>
+              Einstellungen und Trainingstausche zwischen iPhone und Mac synchronisieren.
+            </p>
+            <label className="setting-label">
+              GitHub Token
+              <input
+                type="password"
+                className="setting-input"
+                value={ghToken}
+                placeholder="github_pat_..."
+                onChange={e => setGhToken(e.target.value)}
+              />
+            </label>
+            <button className="btn-primary" onClick={handleSaveToken} disabled={!ghToken}>
+              Token speichern
+            </button>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '18px' }}>🔗</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 700, fontSize: '14px' }}>Sync aktiv</div>
+                <div style={{ fontSize: '12px', color: 'var(--text2)' }}>Einstellungen & Trainingstausch werden automatisch gespeichert</div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button className="btn-primary" onClick={handleGhSync} disabled={ghSyncing} style={{ flex: 1 }}>
+                {ghSyncing ? '⏳ Prüfe…' : '🔄 Status prüfen'}
+              </button>
+              <button className="btn-small btn-danger" onClick={handleClearToken}>Entfernen</button>
+            </div>
+          </>
+        )}
+        {ghMsg && <div style={{ fontSize: '12px', color: 'var(--green)' }}>{ghMsg}</div>}
+        {ghErr && <div className="error-box">{ghErr}</div>}
+      </div>
 
       <div className="section-title">Fitness</div>
 

@@ -3,6 +3,7 @@ import { generatePlan, allWeekSessions } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
 import { getCachedActivities, thisWeekKm } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
+import { hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
 interface Props { settings: AppSettings }
 
@@ -59,23 +60,35 @@ export default function TodayWorkout({ settings }: Props) {
   )
   const [swapping, setSwapping] = useState<string | null>(null) // originalDay currently being moved
 
+  async function pushOverridesToGitHub(overrides: DayAssignment[]) {
+    if (!hasToken()) return
+    try {
+      const current = await fetchSync()
+      const map: Record<string, string> = {}
+      overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
+      const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }
+      await pushSync({ settings: current?.data.settings, weekOverrides: allWeekOverrides }, current?.sha)
+    } catch { /* sync failure is non-critical */ }
+  }
+
   function handleSwap(originalDay: string, targetDay: string) {
     const next = assignments.map(a => ({ ...a }))
     const moving    = next.find(a => a.originalDay === originalDay)!
     const displaced = next.find(a => a.currentDay === targetDay && a.originalDay !== originalDay)
-    if (displaced) displaced.currentDay = moving.currentDay  // displaced session takes vacated slot
+    if (displaced) displaced.currentDay = moving.currentDay
     moving.currentDay = targetDay
     setAssignments(next)
     saveOverrides(wKey, next)
     setSwapping(null)
-    // Also re-open the moved session on its new day
     setExpanded(targetDay)
+    pushOverridesToGitHub(next)
   }
 
   function resetOverrides() {
     setAssignments(defaultAssignments)
     saveOverrides(wKey, defaultAssignments)
     setSwapping(null)
+    pushOverridesToGitHub(defaultAssignments)
   }
 
   // Apply current assignments to sessions and sort by calendar order
