@@ -4,18 +4,18 @@ import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
 import VdotPaces from './components/VdotPaces'
-import StravaSync from './components/StravaSync'
+import Analysis from './components/Analysis'
 import Settings from './components/Settings'
 import './App.css'
 
-type Tab = 'today' | 'plan' | 'paces' | 'strava' | 'settings'
+type Tab = 'today' | 'analyse' | 'plan' | 'paces' | 'settings'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'today',    label: 'Heute',    icon: '🏃' },
-  { id: 'plan',     label: 'Plan',     icon: '📅' },
-  { id: 'paces',    label: 'Paces',    icon: '⚡' },
-  { id: 'strava',   label: 'Strava',   icon: '🟠' },
-  { id: 'settings', label: 'Settings', icon: '⚙️' },
+  { id: 'today',    label: 'Heute',   icon: '🏃' },
+  { id: 'analyse',  label: 'Analyse', icon: '📊' },
+  { id: 'plan',     label: 'Plan',    icon: '📅' },
+  { id: 'paces',    label: 'Paces',   icon: '⚡' },
+  { id: 'settings', label: 'Settings',icon: '⚙️' },
 ]
 
 export default function App() {
@@ -25,10 +25,6 @@ export default function App() {
   function handleSettingsUpdate(s: AppSettings) {
     saveSettings(s)
     setSettings(s)
-  }
-
-  function handleVdotUpdate(vdot: number) {
-    handleSettingsUpdate({ ...settings, vdot })
   }
 
   return (
@@ -43,9 +39,9 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'today'    && <TodayWorkout settings={settings} />}
+        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} />}
-        {tab === 'strava'   && <StravaSync   onVdotUpdate={handleVdotUpdate} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
       </main>
 

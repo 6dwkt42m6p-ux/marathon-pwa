@@ -115,6 +115,201 @@ export function feasibilityCheck(currentVdot: number, targetVdot: number, weeks:
   return { rating: 'Unrealistisch', emoji: '🔴', color: '#dc3545', delta, message: `+${delta.toFixed(1)} VDOT in ${weeks} Wochen. Physiologisch kaum erreichbar.` }
 }
 
+export interface RunAnalysis {
+  zoneCode:  string
+  zoneName:  string
+  zoneColor: string
+  verdict:   string
+  note:      string
+  devSec:    number
+  devStr:    string
+  hrZone:    string | null
+  hrNote:    string | null
+}
+
+export function analyzeRun(
+  paceSec: number,
+  distanceKm: number,
+  avgHr: number | undefined,
+  activityMaxHr: number | undefined,
+  vdot: number,
+  maxHr: number,
+  restHr: number,
+  phase: string,
+  isWorkout = false,
+): RunAnalysis {
+  const p = trainingPaces(vdot)
+  const TOL = 0.02
+
+  let zoneCode:  string
+  let zoneName:  string
+  let zoneColor: string
+
+  if (paceSec < p.I * (1 + TOL)) {
+    zoneCode = 'I/R'; zoneName = 'Intervall / Rep';   zoneColor = '#e53935'
+  } else if (paceSec < p.T * (1 + TOL)) {
+    zoneCode = 'T';   zoneName = 'Schwelle (T)';       zoneColor = '#FF9800'
+  } else if (paceSec < p.E_high * (1 - TOL)) {
+    zoneCode = 'M';   zoneName = 'Marathon-Pace (M)'; zoneColor = '#FFC107'
+  } else if (paceSec < p.E_low * (1 + TOL)) {
+    zoneCode = 'E';   zoneName = 'Easy (E)';           zoneColor = '#4CAF50'
+  } else {
+    zoneCode = 'Z1';  zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5'
+  }
+
+  const eCenter = (p.E_high + p.E_low) / 2
+  const devSec  = Math.round(paceSec - eCenter)
+  const devStr  = devSec >= 0 ? `+${devSec}s/km` : `${devSec}s/km`
+
+  const basePhase = phase.split(' ')[0].split('(')[0].trim()
+  const isBasisTaper = basePhase === 'Basis' || basePhase === 'Tapering' ||
+                       basePhase === 'HM-Tapering' || basePhase === 'HM-Erholung'
+
+  let verdict: string
+  let note: string
+
+  if (zoneCode === 'I/R' || zoneCode === 'T') {
+    if (isBasisTaper) { verdict = '⚠️ Zu intensiv';        note = 'Intensität zu hoch für aktuelle Phase. Easy halten.' }
+    else               { verdict = '✅ Qualitätseinheit';   note = 'Schwellen- oder Intervalltraining erkannt.' }
+  } else if (zoneCode === 'M') {
+    if (isBasisTaper)  { verdict = '🟡 Leicht zu schnell'; note = 'Marathon-Pace in Basis/Erholungsphase — etwas zurücknehmen.' }
+    else               { verdict = '✅ Marathon-Pace';      note = 'Renntempo — gute Einheit.' }
+  } else if (zoneCode === 'E') {
+    verdict = '✅ Zone korrekt'
+    note    = 'Easy-Pace korrekt. Aerobe Basis wird gestärkt.'
+  } else {
+    // Z1
+    const isPeak  = basePhase === 'Peak' || basePhase === 'Aufbau'
+    if (isPeak && distanceKm > 10) {
+      verdict = '🔵 Sehr konservativ'
+      note    = 'Für Peak-/Aufbauphase etwas langsam — leicht anlehnen.'
+    } else {
+      verdict = '✅ Regenerationstempo'
+      note    = 'Locker und regenerativ. Genau richtig.'
+    }
+  }
+
+  // HR cross-check (Karvonen)
+  let hrZone:  string | null = null
+  let hrNote:  string | null = null
+
+  if (avgHr && avgHr > 0 && maxHr > restHr) {
+    const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
+    if      (hrPct < 60) hrZone = 'Z1'
+    else if (hrPct < 70) hrZone = 'Z2'
+    else if (hrPct < 80) hrZone = 'Z3'
+    else if (hrPct < 90) hrZone = 'Z4'
+    else                  hrZone = 'Z5'
+
+    const hasSpikes = isWorkout || ((activityMaxHr ?? 0) - avgHr > 20)
+
+    // Mismatch notes
+    if ((zoneCode === 'E' || zoneCode === 'Z1') && (hrZone === 'Z4' || hrZone === 'Z5') && !hasSpikes) {
+      hrNote = `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermuedung oder Stress?`
+    } else if ((zoneCode === 'I/R' || zoneCode === 'T') && (hrZone === 'Z1' || hrZone === 'Z2')) {
+      hrNote = `HF ${Math.round(hrPct)}% HFR — niedriger als Pace andeutet. Kurze Einheit?`
+    } else if (zoneCode === 'M' && hrZone === 'Z2') {
+      hrNote = `HF ${Math.round(hrPct)}% HFR — sehr kontrolliert bei M-Pace. Guter Fitnessstand.`
+    } else if (hrZone && hasSpikes) {
+      hrNote = `Durchschnitt ${Math.round(avgHr)} bpm (${hrZone}) mit Spitzen — Workout oder Intervalle enthalten.`
+    }
+  }
+
+  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote }
+}
+
+export interface RideAnalysis {
+  hrZone:          string
+  hrZoneCode:      string
+  verdict:         string
+  note:            string
+  runEquivMin:     number
+  speedKmh:        number
+  trainingBenefit: string
+  color:           string
+}
+
+export function analyzeRide(
+  durationSec: number,
+  speedKmh: number,
+  avgHr: number | undefined,
+  maxHr: number,
+  restHr: number,
+): RideAnalysis {
+  const durationMin = durationSec / 60
+
+  let hrZone     = 'Z2'
+  let hrZoneCode = 'Z2'
+
+  if (avgHr && avgHr > 0 && maxHr > restHr) {
+    const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
+    if      (hrPct < 60) { hrZone = 'Z1 (Erholung)';    hrZoneCode = 'Z1' }
+    else if (hrPct < 70) { hrZone = 'Z2 (Grundlage)';   hrZoneCode = 'Z2' }
+    else if (hrPct < 80) { hrZone = 'Z3 (Tempo)';        hrZoneCode = 'Z3' }
+    else if (hrPct < 90) { hrZone = 'Z4 (Schwelle)';    hrZoneCode = 'Z4' }
+    else                  { hrZone = 'Z5 (VO2max)';      hrZoneCode = 'Z5' }
+  } else {
+    // Fallback to speed
+    if      (speedKmh < 18) { hrZone = 'Z1 (Erholung)';  hrZoneCode = 'Z1' }
+    else if (speedKmh < 25) { hrZone = 'Z2 (Grundlage)'; hrZoneCode = 'Z2' }
+    else if (speedKmh < 32) { hrZone = 'Z3 (Tempo)';      hrZoneCode = 'Z3' }
+    else                     { hrZone = 'Z4 (Schwelle)';  hrZoneCode = 'Z4' }
+  }
+
+  const factors: Record<string, number> = { Z1: 0.55, Z2: 0.67, Z3: 0.72, Z4: 0.78, Z5: 0.80 }
+  const factor     = factors[hrZoneCode] ?? 0.67
+  const runEquivMin = Math.round(durationMin * factor)
+
+  let verdict:         string
+  let note:            string
+  let trainingBenefit: string
+  let color:           string
+
+  if (hrZoneCode === 'Z1') {
+    verdict = '🔵 Aktive Erholung'; note = 'Sehr lockere Ausfahrt — fördert Regeneration.'; trainingBenefit = 'Erholung'; color = '#42A5F5'
+  } else if (hrZoneCode === 'Z2') {
+    verdict = '✅ Grundlagenausdauer'; note = 'Aerobes Radfahren stärkt die Grundlagenausdauer.'; trainingBenefit = 'Ausdauer'; color = '#4CAF50'
+  } else if (hrZoneCode === 'Z3') {
+    verdict = '🟡 Tempoausfahrt'; note = 'Mittlere Intensität — wertvoll für Gesamtfitness.'; trainingBenefit = 'Tempo'; color = '#FFC107'
+  } else {
+    verdict = '🔴 Hochintensiv'; note = 'Intensive Ausfahrt — zählt wie ein Qualitätslauf.'; trainingBenefit = 'Intensität'; color = '#e53935'
+  }
+
+  return { hrZone, hrZoneCode, verdict, note, runEquivMin, speedKmh, trainingBenefit, color }
+}
+
+export interface HrZoneRow {
+  zone:    string
+  hfRange: string
+  pctMax:  string
+  pctHrr:  string
+  jdZone:  string
+}
+
+export function hrZones(maxHr: number, restHr: number): HrZoneRow[] {
+  const hrr = maxHr - restHr
+  const zones = [
+    { zone: 'Z1 — Erholung',   pctLo: 0.50, pctHi: 0.60, jdZone: 'E/Z1' },
+    { zone: 'Z2 — Grundlage',  pctLo: 0.60, pctHi: 0.70, jdZone: 'E' },
+    { zone: 'Z3 — Tempo',       pctLo: 0.70, pctHi: 0.80, jdZone: 'M/T' },
+    { zone: 'Z4 — Schwelle',   pctLo: 0.80, pctHi: 0.90, jdZone: 'T/I' },
+    { zone: 'Z5 — VO2max',     pctLo: 0.90, pctHi: 1.00, jdZone: 'I/R' },
+  ]
+  return zones.map(z => {
+    const hfLo = Math.round(restHr + z.pctLo * hrr)
+    const hfHi = Math.round(restHr + z.pctHi * hrr)
+    const maxLo = Math.round(z.pctLo * maxHr * 100) / 100
+    const maxHi = Math.round(z.pctHi * maxHr * 100) / 100
+    return {
+      zone:    z.zone,
+      hfRange: `${hfLo}–${hfHi} bpm`,
+      pctMax:  `${Math.round(maxLo)}–${Math.round(maxHi)}%`,
+      pctHrr:  `${Math.round(z.pctLo * 100)}–${Math.round(z.pctHi * 100)}%`,
+      jdZone:  z.jdZone,
+    }
+  })
+}
+
 export const RACE_TARGETS: Record<string, { label: string; distM: number; targetSec: number }[]> = {
   hm: [
     { label: 'Sub 1:30', distM: 21097, targetSec: 89 * 60 + 59 },

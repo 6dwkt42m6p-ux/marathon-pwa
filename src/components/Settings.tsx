@@ -1,7 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { AppSettings } from '../lib/storage'
 import { saveSettings } from '../lib/storage'
 import { vdotFromRace, buildPaceTable } from '../lib/vdot'
+import {
+  isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
+  syncActivities, loadTokens,
+} from '../lib/strava'
 
 interface Props {
   settings: AppSettings
@@ -11,6 +15,53 @@ interface Props {
 export default function Settings({ settings, onUpdate }: Props) {
   const [s, setS] = useState(settings)
   const [saved, setSaved] = useState(false)
+
+  // Strava state
+  const [authed,    setAuthed]   = useState(isAuthenticated())
+  const [syncing,   setSyncing]  = useState(false)
+  const [syncMsg,   setSyncMsg]  = useState<string | null>(null)
+  const [stravaErr, setStravaErr] = useState<string | null>(null)
+
+  // Handle OAuth redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code && !authed) {
+      exchangeCode(code)
+        .then(() => {
+          setAuthed(true)
+          window.history.replaceState({}, '', '/')
+        })
+        .catch(e => setStravaErr(String(e)))
+    }
+  }, [authed])
+
+  function handleStravaConnect() {
+    window.location.href = getAuthUrl()
+  }
+
+  function handleStravaDisconnect() {
+    clearTokens()
+    setAuthed(false)
+    setSyncMsg(null)
+  }
+
+  async function handleStravaSync() {
+    setSyncing(true)
+    setStravaErr(null)
+    try {
+      const acts = await syncActivities(52)
+      setSyncMsg(`${acts.length} Aktivitäten synchronisiert`)
+      setTimeout(() => setSyncMsg(null), 3000)
+    } catch (e) {
+      setStravaErr(String(e))
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const tokens     = loadTokens()
+  const athleteName = tokens?.athlete ? `${tokens.athlete.firstname} ${tokens.athlete.lastname}` : null
 
   function update<K extends keyof AppSettings>(key: K, val: AppSettings[K]) {
     setS(prev => ({ ...prev, [key]: val }))
@@ -50,6 +101,44 @@ export default function Settings({ settings, onUpdate }: Props) {
 
   return (
     <div className="tab-content">
+      {/* Strava section at the top */}
+      <div className="section-title">Strava</div>
+      {!authed ? (
+        <div className="settings-group">
+          <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.5 }}>
+            Verbinde Strava um Aktivitäten zu synchronisieren und Analysen zu sehen.
+          </p>
+          <button className="btn-strava" onClick={handleStravaConnect}>
+            Mit Strava verbinden
+          </button>
+        </div>
+      ) : (
+        <div className="settings-group">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span style={{ fontSize: '18px' }}>🟠</span>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px' }}>Strava verbunden</div>
+              {athleteName && <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{athleteName}</div>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              className="btn-primary"
+              onClick={handleStravaSync}
+              disabled={syncing}
+              style={{ flex: 1 }}
+            >
+              {syncing ? '⏳ Synchronisiere…' : '🔄 Sync'}
+            </button>
+            <button className="btn-small btn-danger" onClick={handleStravaDisconnect}>
+              Trennen
+            </button>
+          </div>
+          {syncMsg  && <div style={{ fontSize: '12px', color: 'var(--green)' }}>{syncMsg}</div>}
+          {stravaErr && <div className="error-box">{stravaErr}</div>}
+        </div>
+      )}
+
       <div className="section-title">Fitness</div>
 
       <div className="settings-group">

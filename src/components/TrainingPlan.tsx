@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { generatePlan } from '../lib/plan'
+import { getCachedActivities, parseRuns, computeWeeklyStats } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 
 interface Props { settings: AppSettings }
@@ -26,6 +27,15 @@ export default function TrainingPlan({ settings }: Props) {
   const raceDate2 = new Date(settings.raceDate2)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
   const [selectedPlan, setSelectedPlan] = useState<'1' | '2'>('2')
+
+  // Build actual km per week from Strava cache
+  const cached      = getCachedActivities()
+  const runs        = parseRuns(cached)
+  const weeklyStats = computeWeeklyStats(runs)
+  const actualKmMap = new Map<string, number>()
+  for (const w of weeklyStats) {
+    actualKmMap.set(w.weekStart.toISOString().slice(0, 10), w.actualKm)
+  }
 
   const plan1 = generatePlan(raceDate1, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType1)
   const plan2 = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
@@ -59,6 +69,14 @@ export default function TrainingPlan({ settings }: Props) {
           const isPast = !isCurrentWeek && i < (currentIdx < 0 ? 0 : currentIdx)
           const dateStr = row.weekStart.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
           const color = phaseColor(row.phase)
+          const weekKey = row.weekStart.toISOString().slice(0, 10)
+          const actualKm = actualKmMap.get(weekKey)
+          const kmDiffPct = actualKm !== undefined && row.plannedKm > 0
+            ? Math.abs(actualKm - row.plannedKm) / row.plannedKm
+            : 0
+          const plannedColor = actualKm !== undefined && isPast && kmDiffPct > 0.2
+            ? (actualKm < row.plannedKm ? '#FF9800' : '#4CAF50')
+            : color
 
           return (
             <div
@@ -76,8 +94,13 @@ export default function TrainingPlan({ settings }: Props) {
                 <div className="plan-workouts">{row.workouts}</div>
               </div>
               <div className="plan-row-right">
-                <span className="plan-km" style={{ color }}>{row.plannedKm}</span>
+                <span className="plan-km" style={{ color: plannedColor }}>{row.plannedKm}</span>
                 <span className="plan-km-unit">km</span>
+                {actualKm !== undefined && (
+                  <span style={{ fontSize: '10px', color: 'var(--text2)' }}>
+                    {actualKm}
+                  </span>
+                )}
               </div>
             </div>
           )

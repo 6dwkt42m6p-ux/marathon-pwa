@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { generatePlan, allWeekSessions } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
+import { getCachedActivities, thisWeekKm } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 
 interface Props { settings: AppSettings }
@@ -21,6 +22,12 @@ export default function TodayWorkout({ settings }: Props) {
   const phase      = currentRow?.phase ?? '—'
   const plannedKm  = currentRow?.plannedKm ?? 0
 
+  // This-week progress from Strava cache
+  const cached         = getCachedActivities()
+  const actualKmWeek   = Math.round(thisWeekKm(cached) * 10) / 10
+  const progressPct    = plannedKm > 0 ? Math.min(100, (actualKmWeek / plannedKm) * 100) : 0
+  const progressColor  = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
+
   const todayTag = DAY_MAP[new Date().getDay()]
   const sessions = currentRow
     ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
@@ -37,6 +44,21 @@ export default function TodayWorkout({ settings }: Props) {
 
   return (
     <div className="tab-content">
+      {/* This-week progress */}
+      {cached.length > 0 && (
+        <div className="activity-card" style={{ padding: '10px 12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+            <span>Diese Woche</span>
+            <span style={{ color: progressColor, fontWeight: 700 }}>
+              {actualKmWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
+            </span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${progressPct}%`, background: progressColor }} />
+          </div>
+        </div>
+      )}
+
       {/* Week header */}
       <div className="week-badge" style={{ borderColor: pColor }}>
         <div className="week-badge-row">

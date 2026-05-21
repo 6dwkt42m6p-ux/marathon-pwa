@@ -1,4 +1,4 @@
-import { buildPaceTable, feasibilityCheck, vdotFromRace } from '../lib/vdot'
+import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones } from '../lib/vdot'
 import type { AppSettings } from '../lib/storage'
 
 interface Props { settings: AppSettings }
@@ -72,6 +72,9 @@ export default function VdotPaces({ settings }: Props) {
           feas={marFeas}
         />
       </div>
+
+      <div className="section-title">Herzfrequenzzonen (Karvonen)</div>
+      <HrZonesTable maxHr={settings.maxHr} restHr={settings.restHr} />
     </div>
   )
 }
@@ -117,6 +120,24 @@ function FeasCard({ title, date, weeks, currentVdot, targetVdot, feas }:
         <span>VDOT: {currentVdot.toFixed(1)} → {targetVdot.toFixed(1)} (Δ{feas.delta > 0 ? '+' : ''}{feas.delta.toFixed(1)})</span>
       </div>
       <p className="feas-msg">{feas.message}</p>
+    </div>
+  )
+}
+
+const HR_ZONE_COLORS = ['#42A5F5', '#4CAF50', '#FFC107', '#FF9800', '#e53935']
+
+function HrZonesTable({ maxHr, restHr }: { maxHr: number; restHr: number }) {
+  const zones = hrZones(maxHr, restHr)
+  return (
+    <div className="hr-zones-table">
+      {zones.map((z, i) => (
+        <div key={z.zone} className="hr-zone-row">
+          <div className="hz-dot" style={{ background: HR_ZONE_COLORS[i] }} />
+          <span className="hz-name">{z.zone}</span>
+          <span className="hz-bpm">{z.hfRange} · {z.pctMax} HFmax</span>
+          <span className="hz-jd">JD: {z.jdZone}</span>
+        </div>
+      ))}
     </div>
   )
 }

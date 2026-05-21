@@ -702,3 +702,40 @@ body {
   font-size: 13px;
   color: var(--red);
 }
+
+/* ── KPI tiles ─────────────────────────────────── */
+.kpi-row { display: flex; gap: 8px; }
+.kpi-tile { flex: 1; background: var(--bg3); border-radius: var(--radius-sm); padding: 10px 6px; text-align: center; border: 1px solid var(--border); }
+.kpi-value { font-size: 20px; font-weight: 800; display: block; }
+.kpi-label { font-size: 10px; color: var(--text2); text-transform: uppercase; font-weight: 600; }
+
+/* ── Progress bar ──────────────────────────────── */
+.progress-bar { background: var(--bg3); border-radius: 6px; height: 8px; overflow: hidden; margin: 6px 0; }
+.progress-fill { height: 100%; border-radius: 6px; transition: width 0.3s; }
+
+/* ── Trend badge ───────────────────────────────── */
+.trend-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 20px; font-weight: 700; font-size: 15px; }
+
+/* ── Activity cards ────────────────────────────── */
+.activity-card { background: var(--bg2); border-radius: var(--radius-sm); border: 1px solid var(--border); overflow: hidden; }
+.activity-header { display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.activity-header:active { background: var(--bg3); }
+.activity-detail { padding: 0 12px 12px; border-top: 1px solid var(--border); display: flex; flex-direction: column; gap: 8px; padding-top: 10px; }
+
+/* ── Weekly chart ──────────────────────────────── */
+.weekly-chart { display: flex; flex-direction: column; gap: 8px; }
+.weekly-chart-row { display: flex; align-items: center; gap: 8px; }
+.weekly-chart-label { font-size: 11px; color: var(--text2); min-width: 32px; }
+.weekly-chart-bars { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.chart-bar-planned { height: 6px; background: var(--border); border-radius: 3px; min-width: 2px; }
+.chart-bar-actual { height: 6px; background: var(--accent); border-radius: 3px; min-width: 2px; }
+.weekly-chart-km { font-size: 11px; color: var(--text2); min-width: 52px; text-align: right; }
+
+/* ── HR zones ──────────────────────────────────── */
+.hr-zones-table { background: var(--bg2); border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--border); }
+.hr-zone-row { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-top: 1px solid var(--border); }
+.hr-zone-row:first-child { border-top: none; }
+.hz-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+.hz-name { font-size: 12px; font-weight: 600; min-width: 90px; }
+.hz-bpm { font-size: 12px; flex: 1; font-variant-numeric: tabular-nums; }
+.hz-jd { font-size: 11px; color: var(--text2); }
