@@ -154,89 +154,210 @@ export function generatePlan(
 export function todayWorkout(plan: PlanRow[], vdot: number, runsPerWeek = 5, raceType: 'hm' | 'marathon' = 'marathon'): WorkoutSession | null {
   const currentRow = plan.find(r => r.isCurrent)
   if (!currentRow) return null
-  return weekWorkout(currentRow.phase, currentRow.plannedKm, vdot, runsPerWeek, raceType)
+  const sessions = allWeekSessions(currentRow.phase, currentRow.plannedKm, vdot, runsPerWeek, raceType)
+  const dayMap: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
+  const todayTag = dayMap[new Date().getDay()]
+  return sessions.find(s => s.wochentag === todayTag) ?? sessions[0] ?? null
 }
 
-export function weekWorkout(phase: string, plannedKm: number, vdot: number, _runsPerWeek: number, raceType: 'hm' | 'marathon' = 'marathon'): WorkoutSession {
+export function allWeekSessions(phase: string, plannedKm: number, vdot: number, runsPerWeek: number, raceType: 'hm' | 'marathon' = 'marathon'): WorkoutSession[] {
   const paces = trainingPaces(vdot)
   const eHi  = formatPace(paces.E_high)
   const eLo  = formatPace(paces.E_low)
+  const mp   = formatPace(paces.M)
   const tp   = formatPace(paces.T)
   const ip   = formatPace(paces.I)
   const rp   = formatPace(paces.R)
 
   const basePhase = phase.split(' ')[0]
 
-  const longKm   = raceType === 'marathon'
+  const longKm    = raceType === 'marathon'
     ? Math.max(Math.min(Math.round(plannedKm * 0.38), 35), 14)
     : Math.max(Math.min(Math.round(plannedKm * 0.34), 26), 12)
+  const mediumKm  = raceType === 'marathon'
+    ? Math.max(Math.round(plannedKm * 0.22), 10)
+    : Math.max(Math.round(plannedKm * 0.20), 8)
   const qualityKm = Math.max(Math.round(plannedKm * 0.16), 6)
-  const easyKm   = Math.max(Math.round(plannedKm * 0.12), 8)
+  const easyKm    = Math.max(Math.round(plannedKm * 0.12), 8)
 
-  const s = (session: string, typ: string, km: string | number, vorgabe: string, struktur: string, dauer: string, hinweis: string, tag = '—'): WorkoutSession =>
+  const s = (session: string, typ: string, km: string | number, vorgabe: string, struktur: string, dauer: string, hinweis: string, tag: string): WorkoutSession =>
     ({ session, typ, distanzKm: km, vorgabe, struktur, dauerMin: dauer, hinweis, wochentag: tag })
 
-  // Return the most important session for the week (Long run priority)
+  let sessions: WorkoutSession[] = []
+
   if (basePhase === 'Basis') {
-    return s('Langer DL (easy)', 'Ausdauer',
-      longKm,
-      `${eHi} – ${eLo} /km (Z2)`,
-      `${longKm} km locker @ ${eHi}–${eLo} /km. Gespräch möglich. Keine Pace-Vorgabe erzwingen.`,
-      `${Math.round(longKm * 5.5)}–${Math.round(longKm * 6.5)} min`,
-      'Aerobe Basis aufbauen. HF Z2 hat absoluten Vorrang.',
-      'So')
+    sessions = [
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1–Z2)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km. Kein Pace-Druck.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'HF Z1–Z2. Wenn Beine schwer: Rad oder Pause.', 'Mo'),
+      s('Easy m. Steigerungen (8×100m)', 'Speed',  easyKm,
+        `${eHi} /km + 8×100m @ ${rp} /km`,
+        `${easyKm} km @ ${eHi} /km → 8×100m Strides @ ${rp} /km (Pause: 45 Sek.) → 1 km Auslaufen`,
+        `${Math.round(easyKm * 5.5)}–${Math.round(easyKm * 6)} min`,
+        'Strides aktivieren Fast-Twitch-Fasern ohne Erschöpfung. Saubere Form, kein Sprint.', 'Di'),
+      s('Mittellanger DL', 'Ausdauer', mediumKm,
+        `${eHi} /km (Z2)`,
+        `${mediumKm} km gleichmäßig @ ${eHi} /km. Zweite Hälfte darf etwas flotter sein.`,
+        `${Math.round(mediumKm * 5.5)}–${Math.round(mediumKm * 6.5)} min`,
+        'Kein Zeitdruck. Gespräch möglich = richtige Intensität.', 'Mi'),
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1–Z2)`,
+        `${easyKm} km locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Aktive Erholung nach dem Mittellangen DL.', 'Do'),
+      s('Langer DL (easy)', 'Ausdauer', longKm,
+        `${eHi} – ${eLo} /km (Z2)`,
+        `${longKm} km locker @ ${eHi}–${eLo} /km. Erste Hälfte unten, zweite etwas flotter.`,
+        `${Math.round(longKm * 5.5)}–${Math.round(longKm * 6.5)} min`,
+        'Aerobe Basis aufbauen. HF Z2 hat absoluten Vorrang. Gespräch muss möglich bleiben.', 'So'),
+    ]
+  } else if (basePhase === 'Aufbau') {
+    sessions = [
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1–Z2)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Lockerer Start in die Woche — Beine frisch halten für Dienstag.', 'Mo'),
+      s('Schwellenlauf (T)', 'Qualität ⭐', qualityKm,
+        `3×10 min @ ${tp} /km (T-Pace)`,
+        `2 km Einlaufen @ ${eHi} → 3×10 min @ ${tp} /km (T-Pace, Z4), Pause 90 Sek. Easy → 1 km Auslaufen`,
+        `${Math.round(qualityKm * 4.8)}–${Math.round(qualityKm * 5.2)} min`,
+        'T-Pace: kontrolliert schwer. Nicht durchbeißen — Pause vollständig einhalten.', 'Di'),
+      s('Mittellanger DL', 'Ausdauer', mediumKm,
+        `${eHi} /km (Z2)`,
+        `${mediumKm} km @ ${eHi} /km, letzte 3 km progressiv bis ${mp} /km.`,
+        `${Math.round(mediumKm * 5.5)}–${Math.round(mediumKm * 6)} min`,
+        'Progression trainiert den Übergang von Easy zu Marathon-Pace.', 'Mi'),
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1)`,
+        `${easyKm} km locker @ ${eHi}+ /km. Kein Druck.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Erholung nach Schwellenlauf. Lieber zu langsam als zu schnell.', 'Do'),
+      s('Intervalle (400–800m)', 'Qualität ⭐', qualityKm,
+        `6×400m @ ${rp} oder 4×800m @ ${ip} /km`,
+        `2 km Einlaufen @ ${eHi} → 6×400m @ ${rp} /km (Pause: 200m Easy) oder 4×800m @ ${ip} /km (Pause: 400m Easy) → 1 km Auslaufen`,
+        `${Math.round(qualityKm * 4.5)}–${Math.round(qualityKm * 5)} min`,
+        '400m-Option: neuromuskuläre Schärfe. 800m-Option: VO2max-Reiz. Beide sind richtig.', 'Fr'),
+      s('Langer DL', 'Ausdauer', longKm,
+        `${eHi} – ${eLo} /km (Z2)`,
+        `${longKm} km locker @ ${eHi}–${eLo} /km.`,
+        `${Math.round(longKm * 5.5)}–${Math.round(longKm * 6.5)} min`,
+        'Wichtigste Einheit der Woche. HF Z2. Nicht zu schnell starten.', 'So'),
+    ]
+  } else if (basePhase === 'Peak') {
+    sessions = [
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1–Z2)`,
+        `${easyKm} km locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Aktive Erholung. Beine für Dienstag frisch halten.', 'Mo'),
+      s('Intervalle (1000–1200m)', 'Qualität ⭐⭐', qualityKm,
+        `5×1000m @ ${ip} /km (I-Pace)`,
+        `2 km Einlaufen @ ${eHi} → 5×1000m @ ${ip} /km (I-Pace, Z5), Pause: 400m Easy-Jogging → 1 km Auslaufen`,
+        `${Math.round(qualityKm * 4.5)}–${Math.round(qualityKm * 5)} min`,
+        'I-Pace: 95–100% VO2max. 5 Intervalle — Qualität über Quantität. Abbrechkriterium: Pace bricht ein.', 'Di'),
+      s('Mittellanger DL', 'Ausdauer', mediumKm,
+        `${eHi} /km (Z2)`,
+        `${mediumKm} km @ ${eHi} /km. Letzte 4 km @ ${mp} /km (Marathon-Pace).`,
+        `${Math.round(mediumKm * 5.5)}–${Math.round(mediumKm * 6)} min`,
+        'Marathon-Pace am Ende des DL = Renntempo bei Ermüdung. Sehr wertvoller Reiz.', 'Mi'),
+      s('Easy-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Nach hartem Dienstag: vollständige Erholung. Nicht zu schnell.', 'Do'),
+      s('Schwellenlauf (T)', 'Qualität ⭐', qualityKm,
+        `4×8 min @ ${tp} /km (T-Pace)`,
+        `2 km Einlaufen @ ${eHi} → 4×8 min @ ${tp} /km (T-Pace), Pause 60 Sek. → 1 km Auslaufen`,
+        `${Math.round(qualityKm * 4.8)}–${Math.round(qualityKm * 5.2)} min`,
+        'Zweite Qualitätseinheit der Woche. Weniger Volumen als Dienstag — Fokus auf Pace-Qualität.', 'Fr'),
+      s('Langer DL m. MP', 'Ausdauer ⭐⭐', longKm,
+        `${eHi} /km + letzte 8–10 km @ ${mp} /km`,
+        `${Math.round(longKm * 0.65)} km @ ${eHi}–${eLo} /km → letzte ${Math.round(longKm * 0.35)} km @ ${mp} /km (Marathon-Pace, Z3)`,
+        `${Math.round(longKm * 5.5)}–${Math.round(longKm * 6.5)} min`,
+        'Herzstück der Peak-Phase. M-Pace-Abschnitt bei Ermüdung simuliert Renntempo in der zweiten Marathonhälfte.', 'So'),
+    ]
+  } else if (basePhase === 'Tapering') {
+    sessions = [
+      s('Easy-DL', 'Easy', easyKm,
+        `${eHi} /km (Z1–Z2)`,
+        `${easyKm} km locker @ ${eHi} /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Tapering: Intensität runter, Frequenz bleibt. Körper tankt auf.', 'Mo'),
+      s('Schärfung (T/I)', 'Qualität ⭐', qualityKm,
+        `2×10 min @ ${tp} /km + 4×100m Strides`,
+        `2 km Einlaufen → 2×10 min @ ${tp} /km (T-Pace), Pause 90 Sek. → 4×100m Strides @ ${rp} → 1 km Auslaufen`,
+        `35–45 min`,
+        'Letzte Qualitätseinheit. Hält die Laufökonomie scharf ohne neue Ermüdung zu erzeugen.', 'Di'),
+      s('Easy + Strides', 'Easy', easyKm,
+        `${eHi} /km + 6×100m Strides @ ${rp}`,
+        `${easyKm} km locker @ ${eHi} /km → 6×100m Strides @ ${rp} /km (Pause: 45 Sek.) → 1 km Auslaufen`,
+        `${Math.round(easyKm * 5.5)}–${Math.round(easyKm * 6)} min`,
+        'Strides halten Beinfrequenz frisch ohne zu belasten.', 'Mi'),
+      s('Easy-DL', 'Easy', easyKm,
+        `${eHi}+ /km (Z1)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Aktive Erholung. Kein Pace-Druck.', 'Do'),
+      s('Einlaufen + Strides', 'Easy', Math.round(easyKm * 0.7),
+        `${eHi} /km + 4×100m Strides`,
+        `${Math.round(easyKm * 0.7)} km locker → 4×100m Strides → Auslaufen. Kurz und frisch.`,
+        `20–30 min`,
+        'Tag vor dem Rennen: kurz, locker, Beine aktivieren. Nicht mehr machen als das.', 'Sa'),
+    ]
+  } else if (basePhase === 'HM-Tapering') {
+    sessions = [
+      s('Easy-DL', 'Easy', easyKm,
+        `${eHi} /km (Z1–Z2)`,
+        `${easyKm} km locker @ ${eHi} /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Letzte Taper-Woche. Körper ist fit — nur noch frisch halten.', 'Mo'),
+      s('Easy + 4×1 km I-Pace', 'Schärfung', qualityKm,
+        `4×1 km @ ${ip} /km + 6×Strides`,
+        `2 km Einlaufen @ ${eHi} → 4×1 km @ ${ip} /km (Pause: 400m Easy) → 6×100m Strides → 1 km Auslaufen`,
+        `45–55 min`,
+        'Letzte Qualitätseinheit vor dem Rennen. Kontrolliert laufen — Körper braucht keinen neuen Reiz mehr.', 'Di'),
+      s('Easy + Strides', 'Easy', easyKm,
+        `${eHi} /km + 4×100m Strides`,
+        `${easyKm} km locker → 4×100m Strides → Auslaufen.`,
+        `30–40 min`,
+        'Beine scharf halten ohne zu belasten.', 'Mi'),
+      s('Einlaufen + Strides', 'Easy', Math.round(easyKm * 0.6),
+        `${eHi} /km + 4×Strides`,
+        `${Math.round(easyKm * 0.6)} km sehr locker → 4×100m Strides → fertig.`,
+        `20–25 min`,
+        'Tag vor dem Rennen: kurz, locker. Nicht mehr machen als das.', 'Sa'),
+    ]
+  } else if (basePhase === 'HM-Erholung') {
+    sessions = [
+      s('Regenerations-DL', 'Regeneration', easyKm,
+        `${eHi}+ /km (Z1)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km. Kein Druck.`,
+        `${Math.round(easyKm * 6.5)}–${Math.round(easyKm * 7.5)} min`,
+        'Erholung nach Halbmarathon. Muskulatur braucht 10–14 Tage. Nicht forcieren.', 'Mo'),
+      s('Easy-DL', 'Easy', easyKm,
+        `${eHi}+ /km (Z1–Z2)`,
+        `${easyKm} km locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Zweite leichte Einheit. Wenn Beine noch schwer: Rad oder Pause.', 'Mi'),
+      s('Easy + Strides', 'Easy', easyKm,
+        `${eHi} /km + 4×100m Strides`,
+        `${easyKm} km @ ${eHi} /km → 4×100m Strides → Auslaufen.`,
+        `${Math.round(easyKm * 5.5)}–${Math.round(easyKm * 6)} min`,
+        'Erste leichte Intensität nach Rennen — nur wenn Beine sich gut anfühlen.', 'Fr'),
+    ]
+  } else {
+    // Race week / default
+    sessions = [
+      s('Einlaufen', 'Easy', easyKm,
+        `${eHi} /km (Z1–Z2)`,
+        `${easyKm} km sehr locker @ ${eHi}+ /km.`,
+        `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
+        'Letzte Einheit vor dem Rennen. Locker und kurz.', 'Mo'),
+    ]
   }
-  if (basePhase === 'Aufbau') {
-    return s('Schwellenlauf (T)', 'Qualität ⭐',
-      qualityKm,
-      `2 km @ ${eHi} einlaufen → 3×10 min @ ${tp} /km (T-Pace)`,
-      `2 km Einlaufen @ ${eHi} → 3×10 min @ ${tp} /km (T-Pace, Z4), Pause 90 Sek. Easy → 1 km Auslaufen`,
-      `${Math.round(qualityKm * 4.8)}–${Math.round(qualityKm * 5.2)} min`,
-      'T-Pace: kontrolliert schwer — nicht durchbeißen. Vollständige Pausen einhalten.',
-      'Di')
-  }
-  if (basePhase === 'Peak') {
-    return s('Intervalle (1000m)', 'Qualität ⭐⭐',
-      qualityKm,
-      `5×1000m @ ${ip} /km (I-Pace)`,
-      `2 km Einlaufen @ ${eHi} → 5×1000m @ ${ip} /km (I-Pace, Z5), Pause: 400m Easy-Jogging → 1 km Auslaufen`,
-      `${Math.round(qualityKm * 4.5)}–${Math.round(qualityKm * 5)} min`,
-      'I-Pace: 95–100% VO2max. Nach 5 Intervallen stop — Qualität über Quantität.',
-      'Di')
-  }
-  if (basePhase === 'Tapering') {
-    return s('Easy + Strides', 'Easy',
-      easyKm,
-      `${eHi} /km + 6×100m Strides @ ${rp}`,
-      `${easyKm} km locker @ ${eHi} /km → 6×100m Strides @ ${rp} /km, Pause: 45 Sek. → 1 km Auslaufen`,
-      `${Math.round(easyKm * 5.5)}–${Math.round(easyKm * 6)} min`,
-      'Strides halten Beinfrequenz frisch. Nicht sprinten — kontrolliertes Beschleunigen.',
-      'Mi')
-  }
-  if (basePhase === 'HM-Tapering') {
-    return s('Easy + 4×1 km I-Pace', 'Schärfung',
-      qualityKm,
-      `4×1 km @ ${ip} + 6×Strides`,
-      `2 km Einlaufen @ ${eHi} → 4×1 km @ ${ip} /km, Pause: 400m Easy → 6×Strides → 1 km Auslaufen`,
-      `45–55 min`,
-      'Letzte Qualitätseinheit vor dem Rennen. Kontrolliert — Körper ist schon fit.',
-      'Di')
-  }
-  if (basePhase === 'HM-Erholung') {
-    return s('Regenerations-DL', 'Regeneration',
-      easyKm,
-      `${eHi}+ /km (Z1)`,
-      `${easyKm} km sehr locker @ ${eHi}+ /km. Kein Pace-Druck.`,
-      `${Math.round(easyKm * 6.5)}–${Math.round(easyKm * 7.5)} min`,
-      'Erholung nach dem Rennen. Muskulatur braucht 10–14 Tage für vollständige Regeneration.',
-      'Mo')
-  }
-  // Default / Halbmarathon race week
-  return s('Easy-DL', 'Easy',
-    easyKm,
-    `${eHi} /km (Z1–Z2)`,
-    `${easyKm} km sehr locker @ ${eHi}+ /km`,
-    `${Math.round(easyKm * 6)}–${Math.round(easyKm * 7)} min`,
-    'Leichte Einheit zur Aktivierung.',
-    'Mo')
+
+  return sessions.slice(0, runsPerWeek)
 }

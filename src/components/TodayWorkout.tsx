@@ -1,92 +1,105 @@
-import { generatePlan, todayWorkout } from '../lib/plan'
+import { useState } from 'react'
+import { generatePlan, allWeekSessions } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
 import type { AppSettings } from '../lib/storage'
 
 interface Props { settings: AppSettings }
+
+const DAY_MAP: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
 
 export default function TodayWorkout({ settings }: Props) {
   const raceDate1 = new Date(settings.raceDate1)
   const raceDate2 = new Date(settings.raceDate2)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
 
-  // Build primary plan (race 2 = marathon, with HM as pre-race)
   const plan = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-  const workout = todayWorkout(plan, settings.vdot, settings.runsPerWeek, settings.raceType2)
   const paces = buildPaceTable(settings.vdot)
 
   const currentRow = plan.find(r => r.isCurrent)
-  const weekNum = currentRow?.weekNr ?? 1
-  const totalWeeks = plan.length - 1 // -1 for race day row
-  const phase = currentRow?.phase ?? '—'
-  const plannedKm = currentRow?.plannedKm ?? 0
+  const weekNum    = currentRow?.weekNr ?? 1
+  const totalWeeks = plan.length - 1
+  const phase      = currentRow?.phase ?? '—'
+  const plannedKm  = currentRow?.plannedKm ?? 0
 
-  const today = new Date()
-  const dayNames = ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag']
-  const todayName = dayNames[today.getDay()]
+  const todayTag = DAY_MAP[new Date().getDay()]
+  const sessions = currentRow
+    ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
+    : []
+
+  const [expanded, setExpanded] = useState<string | null>(todayTag)
 
   const phaseColor: Record<string, string> = {
     'Basis': '#42A5F5', 'Aufbau': '#FFC107', 'Peak': '#FF9800',
     'Tapering': '#9C27B0', 'HM-Tapering': '#AB47BC', 'HM-Erholung': '#4CAF50',
-    'Halbmarathon 🏁': '#e53935', 'Renntag 🏁': '#e53935',
+    'Halbmarathon': '#e53935', 'Renntag': '#e53935',
   }
-  const basePhase = phase.split(' ')[0]
-  const pColor = phaseColor[basePhase] || phaseColor[phase] || '#42A5F5'
+  const pColor = phaseColor[phase.split(' ')[0]] || '#42A5F5'
 
   return (
     <div className="tab-content">
       {/* Week header */}
-      <div className="week-header">
-        <div className="week-badge" style={{ borderColor: pColor }}>
-          <span className="week-num">KW {weekNum}/{totalWeeks}</span>
+      <div className="week-badge" style={{ borderColor: pColor }}>
+        <div className="week-badge-row">
+          <span className="week-num">Woche {weekNum} / {totalWeeks}</span>
           <span className="phase-tag" style={{ color: pColor }}>{phase}</span>
-          <span className="planned-km">{plannedKm} km geplant</span>
         </div>
-        <div className="today-label">{todayName}</div>
+        <span className="planned-km">{plannedKm} km geplant diese Woche</span>
       </div>
 
-      {/* Today's key workout */}
-      {workout ? (
-        <div className="workout-card">
-          <div className="workout-header">
-            <span className="workout-session">{workout.session}</span>
-            <span className="workout-typ">{workout.typ}</span>
+      {/* Day-by-day sessions */}
+      <div className="section-title">Wochenplan</div>
+      <div className="sessions-list">
+        {sessions.length === 0 && (
+          <div className="workout-card empty">
+            <p>Kein Trainingsplan — Renntermin in den Einstellungen eintragen.</p>
           </div>
+        )}
+        {sessions.map(session => {
+          const isToday = session.wochentag === todayTag
+          const isOpen  = expanded === session.wochentag
+          return (
+            <div
+              key={session.wochentag}
+              className={`session-row ${isToday ? 'today' : ''} ${isOpen ? 'open' : ''}`}
+            >
+              <div className="session-header" onClick={() => setExpanded(isOpen ? null : session.wochentag)}>
+                <div className="session-day-col">
+                  <span className={`session-day ${isToday ? 'today-day' : ''}`}>{session.wochentag}</span>
+                  {isToday && <span className="today-dot" />}
+                </div>
+                <div className="session-summary">
+                  <span className="session-name">{session.session}</span>
+                  <span className="session-meta">
+                    {typeof session.distanzKm === 'number' ? `${session.distanzKm} km` : session.distanzKm}
+                    {' · '}{session.dauerMin}
+                  </span>
+                </div>
+                <div className="session-typ-badge">
+                  <span>{session.typ}</span>
+                </div>
+                <span className="session-chevron">{isOpen ? '▲' : '▼'}</span>
+              </div>
 
-          <div className="workout-stats">
-            <div className="stat">
-              <span className="stat-label">Distanz</span>
-              <span className="stat-val">{typeof workout.distanzKm === 'number' ? `${workout.distanzKm} km` : workout.distanzKm}</span>
+              {isOpen && (
+                <div className="session-detail">
+                  <div className="detail-block">
+                    <span className="detail-label">Vorgabe</span>
+                    <p className="detail-vorgabe">{session.vorgabe}</p>
+                  </div>
+                  <div className="detail-block">
+                    <span className="detail-label">Struktur</span>
+                    <p>{session.struktur}</p>
+                  </div>
+                  <div className="detail-hinweis">
+                    <span>💡</span>
+                    <p>{session.hinweis}</p>
+                  </div>
+                </div>
+              )}
             </div>
-            <div className="stat">
-              <span className="stat-label">Dauer</span>
-              <span className="stat-val">{workout.dauerMin}</span>
-            </div>
-            <div className="stat">
-              <span className="stat-label">Tag</span>
-              <span className="stat-val">{workout.wochentag}</span>
-            </div>
-          </div>
-
-          <div className="workout-vorgabe">
-            <span className="label-small">Vorgabe</span>
-            <p>{workout.vorgabe}</p>
-          </div>
-
-          <div className="workout-struktur">
-            <span className="label-small">Struktur</span>
-            <p>{workout.struktur}</p>
-          </div>
-
-          <div className="workout-hinweis">
-            <span className="hinweis-icon">💡</span>
-            <p>{workout.hinweis}</p>
-          </div>
-        </div>
-      ) : (
-        <div className="workout-card empty">
-          <p>Kein Trainingsplan gefunden. Bitte Renntermin in den Einstellungen eintragen.</p>
-        </div>
-      )}
+          )
+        })}
+      </div>
 
       {/* Quick pace reference */}
       <div className="section-title">Pace-Referenz (VDOT {settings.vdot})</div>
@@ -97,19 +110,11 @@ export default function TodayWorkout({ settings }: Props) {
         <PaceRow label="Intervall (I)" range={paces.I} color="#e53935" />
       </div>
 
-      {/* Race targets */}
+      {/* Race countdowns */}
       <div className="section-title">Renntermine</div>
       <div className="race-list">
-        <RaceItem
-          type={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
-          date={raceDate1}
-          icon={settings.raceType1 === 'hm' ? '🏃' : '🏁'}
-        />
-        <RaceItem
-          type={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
-          date={raceDate2}
-          icon="🏆"
-        />
+        <RaceItem type={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'} date={raceDate1} icon="🏃" />
+        <RaceItem type={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'} date={raceDate2} icon="🏆" />
       </div>
     </div>
   )
@@ -126,12 +131,10 @@ function PaceRow({ label, range, color }: { label: string; range: string; color:
 }
 
 function RaceItem({ type, date, icon }: { type: string; date: Date; icon: string }) {
-  const now = new Date()
-  const diffMs = date.getTime() - now.getTime()
+  const diffMs   = date.getTime() - new Date().getTime()
   const diffDays = Math.max(0, Math.ceil(diffMs / (24 * 3600 * 1000)))
   const diffWeeks = Math.floor(diffDays / 7)
-  const dateStr = date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' })
-
+  const dateStr  = date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' })
   return (
     <div className="race-item">
       <span className="race-icon">{icon}</span>
@@ -140,14 +143,10 @@ function RaceItem({ type, date, icon }: { type: string; date: Date; icon: string
         <span className="race-date">{dateStr}</span>
       </div>
       <div className="race-countdown">
-        {diffDays === 0 ? (
-          <span className="countdown-today">Heute!</span>
-        ) : (
-          <>
-            <span className="countdown-weeks">{diffWeeks}W</span>
-            <span className="countdown-days">{diffDays} Tage</span>
-          </>
-        )}
+        {diffDays === 0
+          ? <span className="countdown-today">Heute!</span>
+          : <><span className="countdown-weeks">{diffWeeks}W</span><span className="countdown-days">{diffDays} Tage</span></>
+        }
       </div>
     </div>
   )
