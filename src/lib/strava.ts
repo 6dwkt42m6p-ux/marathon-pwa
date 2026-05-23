@@ -186,12 +186,14 @@ export interface RunSummary {
 
 export interface ActivitySummary extends RunSummary {
   actType:      'run' | 'ride' | 'hike'
+  isTrail:      boolean
   workoutType?: number
   speedKmh?:    number
 }
 
 export function parseAllActivities(activities: StravaActivity[]): ActivitySummary[] {
-  const isRun   = (a: StravaActivity) => a.type === 'Run'  || a.sport_type === 'Run'
+  const isRun   = (a: StravaActivity) => a.type === 'Run'  || a.sport_type === 'Run' ||
+                                          a.type === 'TrailRun' || a.sport_type === 'TrailRun'
   const isRide  = (a: StravaActivity) => a.type === 'Ride' || a.sport_type === 'Ride' ||
                                           a.type === 'VirtualRide' || a.sport_type === 'VirtualRide'
   const isHike  = (a: StravaActivity) => a.type === 'Hike' || a.sport_type === 'Hike' ||
@@ -207,6 +209,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
       const paceSc  = Math.round(paceSec % 60)
       const speedKmh = durSec > 0 ? (distKm / durSec) * 3600 : 0
       const actType: 'run' | 'ride' | 'hike' = isRun(a) ? 'run' : isRide(a) ? 'ride' : 'hike'
+      const isTrail = a.type === 'TrailRun' || a.sport_type === 'TrailRun'
       return {
         id:          a.id,
         name:        a.name,
@@ -219,6 +222,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
         maxHr:       a.max_heartrate,
         elevationM:  Math.round(a.total_elevation_gain || 0),
         actType,
+        isTrail,
         workoutType: a.workout_type,
         speedKmh:    Math.round(speedKmh * 10) / 10,
       } satisfies ActivitySummary
@@ -332,7 +336,8 @@ export function thisWeekKm(activities: StravaActivity[]): number {
   const monday = mondayOf(now)
   return activities
     .filter(a => {
-      const isRun = a.type === 'Run' || a.sport_type === 'Run'
+      const isRun = a.type === 'Run' || a.sport_type === 'Run' ||
+                    a.type === 'TrailRun' || a.sport_type === 'TrailRun'
       const d = new Date(a.start_date_local || a.start_date)
       return isRun && d >= monday && d <= now
     })
@@ -341,7 +346,8 @@ export function thisWeekKm(activities: StravaActivity[]): number {
 
 export function parseRuns(activities: StravaActivity[]): RunSummary[] {
   return activities
-    .filter(a => a.type === 'Run' || a.sport_type === 'Run')
+    .filter(a => a.type === 'Run' || a.sport_type === 'Run' ||
+                 a.type === 'TrailRun' || a.sport_type === 'TrailRun')
     .map(a => {
       const distKm  = (a.distance || 0) / 1000
       const durSec  = a.moving_time || 0
