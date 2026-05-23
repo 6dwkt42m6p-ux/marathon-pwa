@@ -137,6 +137,7 @@ export function analyzeRun(
   restHr: number,
   phase: string,
   isWorkout = false,
+  isTrail = false,
 ): RunAnalysis {
   const p = trainingPaces(vdot)
   const TOL = 0.02
@@ -144,6 +145,28 @@ export function analyzeRun(
   let zoneCode:  string
   let zoneName:  string
   let zoneColor: string
+
+  // Trail runs: pace is not comparable to road pace — use HR-based zone if available,
+  // otherwise flag as trail and skip pace-zone classification
+  if (isTrail) {
+    if (avgHr && avgHr > 0 && maxHr > restHr) {
+      const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
+      if      (hrPct < 60) { zoneCode = 'Z1'; zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5' }
+      else if (hrPct < 70) { zoneCode = 'E';  zoneName = 'Easy (E)';          zoneColor = '#4CAF50' }
+      else if (hrPct < 80) { zoneCode = 'M';  zoneName = 'Aerob (Z3)';        zoneColor = '#FFC107' }
+      else if (hrPct < 90) { zoneCode = 'T';  zoneName = 'Schwelle (Z4)';     zoneColor = '#FF9800' }
+      else                  { zoneCode = 'I/R'; zoneName = 'Intensiv (Z5)';   zoneColor = '#e53935' }
+    } else {
+      zoneCode = 'E'; zoneName = 'Trail (kein HF)'; zoneColor = '#4CAF50'
+    }
+    const eCenter = (p.E_high + p.E_low) / 2
+    const devSec  = Math.round(paceSec - eCenter)
+    const devStr  = devSec >= 0 ? `+${devSec}s/km` : `${devSec}s/km`
+    const verdict = '🏔️ Trailrun'
+    const note    = `Geländekorrigierte Auswertung — Pace nicht mit Straßenlauf vergleichbar. ${distanceKm >= 20 ? 'Tolle Langstrecke!' : 'Gute Einheit.'}`
+    const hrZone  = zoneCode === 'I/R' ? 'Z5' : zoneCode === 'T' ? 'Z4' : zoneCode === 'M' ? 'Z3' : zoneCode === 'E' ? 'Z2' : 'Z1'
+    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null }
+  }
 
   if (paceSec < p.I * (1 + TOL)) {
     zoneCode = 'I/R'; zoneName = 'Intervall / Rep';   zoneColor = '#e53935'

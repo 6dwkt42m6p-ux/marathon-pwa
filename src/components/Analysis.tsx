@@ -205,6 +205,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
               settings.restHr,
               phase,
               isWorkout,
+              act.isTrail,
             )
             const ra = analysis as ReturnType<typeof analyzeRun>
             zoneBadgeColor = ra.zoneColor
@@ -226,7 +227,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           }
 
           const dateStr = act.date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
-          const actIcon = act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
+          const actIcon = act.isTrail ? '🏔️' : act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
 
           return (
             <div key={act.id} className="activity-card">
@@ -428,7 +429,7 @@ function useRunCount(activities: ReturnType<typeof getCachedActivities>): number
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
   monday.setHours(0, 0, 0, 0)
   return activities.filter(a => {
-    const isRun = a.type === 'Run' || a.sport_type === 'Run'
+    const isRun = a.type === 'Run' || a.sport_type === 'Run' || a.type === 'TrailRun' || a.sport_type === 'TrailRun'
     const d = new Date(a.start_date_local || a.start_date)
     return isRun && d >= monday && d <= now
   }).length
@@ -441,7 +442,7 @@ function useElevationSum(activities: ReturnType<typeof getCachedActivities>): nu
   monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
   monday.setHours(0, 0, 0, 0)
   return activities.filter(a => {
-    const isRun = a.type === 'Run' || a.sport_type === 'Run'
+    const isRun = a.type === 'Run' || a.sport_type === 'Run' || a.type === 'TrailRun' || a.sport_type === 'TrailRun'
     const d = new Date(a.start_date_local || a.start_date)
     return isRun && d >= monday && d <= now
   }).reduce((s, a) => s + Math.round(a.total_elevation_gain || 0), 0)
