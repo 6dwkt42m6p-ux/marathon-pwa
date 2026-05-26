@@ -411,14 +411,6 @@ export interface StrideSegment {
   peakHr?:    number
 }
 
-export interface StrideAnalysis {
-  strides:        StrideSegment[]
-  strideCount:    number
-  avgPeakPaceSec: number   // average of peak paces across strides
-  fastestPaceSec: number
-  thresholdMs:    number   // speed threshold used (m/s)
-}
-
 function fmtPace(secPerKm: number): string {
   const m = Math.floor(secPerKm / 60)
   const s = Math.round(secPerKm % 60)
@@ -427,81 +419,108 @@ function fmtPace(secPerKm: number): string {
 
 export { fmtPace as formatPaceFromSec }
 
+export interface StrideAnalysis {
+  strides:           StrideSegment[]
+  strideCount:       number
+  avgPeakPaceSec:    number
+  fastestPaceSec:    number
+  thresholdMs:       number
+  avgRecoverySec:    number | null   // avg recovery gap between strides
+}
+
 export function detectStrides(
   streams: ActivityStreams,
-  avgPaceSec: number,   // overall average pace sec/km
+  avgPaceSec: number,
 ): StrideAnalysis {
   const { time, velocity_smooth, heartrate } = streams
   if (velocity_smooth.length < 10) {
-    return { strides: [], strideCount: 0, avgPeakPaceSec: 0, fastestPaceSec: 0, thresholdMs: 0 }
+    return { strides: [], strideCount: 0, avgPeakPaceSec: 0, fastestPaceSec: 0, thresholdMs: 0, avgRecoverySec: null }
   }
 
-  // Threshold: 20% faster than average pace = significantly above base pace
-  const avgSpeedMs   = 1000 / avgPaceSec           // m/s from avg pace
-  const thresholdMs  = avgSpeedMs * 1.20            // 20% faster triggers stride detection
+  const avgSpeedMs = 1000 / avgPaceSec
+  // Peak threshold: stride peak must be ≥15% above avg (catches progressive acceleration)
+  const peakThreshold  = avgSpeedMs * 1.15
+  // Baseline: stride boundaries traced to where speed drops ≤8% above avg (captures full incl. run-up)
+  const baselineFactor = 1.08
 
-  // Smooth velocity slightly (3-point moving average) to reduce GPS noise
-  const smoothed = velocity_smooth.map((v, i) => {
-    if (i === 0 || i === velocity_smooth.length - 1) return v
-    return (velocity_smooth[i - 1] + v + velocity_smooth[i + 1]) / 3
+  // 5-point moving average — smoother than 3-point, better for finding true peaks
+  const smoothed = velocity_smooth.map((_v, i) => {
+    const slice = velocity_smooth.slice(Math.max(0, i - 2), Math.min(velocity_smooth.length, i + 3))
+    return slice.reduce((s, x) => s + x, 0) / slice.length
   })
 
-  // Find "fast" windows
-  type Window = { start: number; end: number }
-  const fastWindows: Window[] = []
-  let inFast = false
-  let wStart = 0
-
-  for (let i = 0; i < smoothed.length; i++) {
-    if (smoothed[i] >= thresholdMs) {
-      if (!inFast) { inFast = true; wStart = i }
-    } else {
-      if (inFast) { fastWindows.push({ start: wStart, end: i - 1 }); inFast = false }
+  // Step 1: Find local speed peaks above peakThreshold
+  const peakIdxs: number[] = []
+  for (let i = 2; i < smoothed.length - 2; i++) {
+    if (
+      smoothed[i] >= peakThreshold &&
+      smoothed[i] >= smoothed[i - 1] && smoothed[i] >= smoothed[i - 2] &&
+      smoothed[i] >= smoothed[i + 1] && smoothed[i] >= smoothed[i + 2]
+    ) {
+      peakIdxs.push(i)
     }
   }
-  if (inFast) fastWindows.push({ start: wStart, end: smoothed.length - 1 })
 
-  // Merge windows within 8 seconds of each other
-  const merged: Window[] = []
-  for (const w of fastWindows) {
-    const tStart = time[w.start]
-    if (merged.length > 0) {
-      const prev = merged[merged.length - 1]
-      if (tStart - time[prev.end] <= 8) { prev.end = w.end; continue }
-    }
-    merged.push({ ...w })
-  }
-
-  // Filter: stride duration 8–50 seconds (100m at ~3:30–5:30 pace)
+  // Step 2: For each peak, expand outward to baseline crossings
+  const baseline = avgSpeedMs * baselineFactor
   const strides: StrideSegment[] = []
-  for (const w of merged) {
-    const tStart = time[w.start], tEnd = time[w.end]
-    const dur = tEnd - tStart
-    if (dur < 8 || dur > 55) continue
 
-    const seg = smoothed.slice(w.start, w.end + 1)
+  for (const peakIdx of peakIdxs) {
+    // Trace back to find acceleration start (last crossing of baseline going upward)
+    let startIdx = peakIdx
+    while (startIdx > 0 && smoothed[startIdx - 1] > baseline) startIdx--
+    // Trace forward to find deceleration end
+    let endIdx = peakIdx
+    while (endIdx < smoothed.length - 1 && smoothed[endIdx + 1] > baseline) endIdx++
+
+    const tStart = time[startIdx]
+    const tEnd   = time[endIdx]
+    const dur    = tEnd - tStart
+
+    // Sanity bounds: 8–60 s, 30–250 m (100m at 2:30–8:00 pace covers this range)
+    if (dur < 8 || dur > 60) continue
+    const seg    = smoothed.slice(startIdx, endIdx + 1)
     const peakMs = Math.max(...seg)
     const avgMs  = seg.reduce((s, v) => s + v, 0) / seg.length
-    const distM  = avgMs * dur
+    const distM  = Math.round(avgMs * dur)
+    if (distM < 30 || distM > 250) continue
 
-    const hrSeg  = heartrate?.slice(w.start, w.end + 1)
-    const peakHr = hrSeg ? Math.max(...hrSeg) : undefined
+    // Skip if this overlaps with the previous stride (recovery must be ≥15 s)
+    if (strides.length > 0) {
+      const prevEnd = strides[strides.length - 1].endSec
+      if (tStart - prevEnd < 15) {
+        // Overlap — keep whichever has the higher peak
+        if (peakMs > 1000 / strides[strides.length - 1].peakPaceSec) {
+          strides.pop()
+        } else {
+          continue
+        }
+      }
+    }
+
+    const hrSeg  = heartrate?.slice(startIdx, endIdx + 1)
+    const peakHr = hrSeg && hrSeg.length > 0 ? Math.max(...hrSeg) : undefined
 
     strides.push({
       startSec:    tStart,
       endSec:      tEnd,
       durationSec: dur,
-      distanceM:   Math.round(distM),
+      distanceM:   distM,
       peakPaceSec: peakMs > 0 ? Math.round(1000 / peakMs) : 0,
       avgPaceSec:  avgMs  > 0 ? Math.round(1000 / avgMs)  : 0,
       peakHr,
     })
   }
 
+  // Recovery gap stats
+  const recoveryGaps = strides.slice(1).map((s, i) => s.startSec - strides[i].endSec)
+  const avgRecoverySec = recoveryGaps.length > 0
+    ? Math.round(recoveryGaps.reduce((a, b) => a + b, 0) / recoveryGaps.length) : null
+
   const avgPeakPaceSec = strides.length > 0
     ? Math.round(strides.reduce((s, st) => s + st.peakPaceSec, 0) / strides.length) : 0
   const fastestPaceSec = strides.length > 0
     ? Math.min(...strides.map(st => st.peakPaceSec)) : 0
 
-  return { strides, strideCount: strides.length, avgPeakPaceSec, fastestPaceSec, thresholdMs }
+  return { strides, strideCount: strides.length, avgPeakPaceSec, fastestPaceSec, thresholdMs: peakThreshold, avgRecoverySec }
 }
