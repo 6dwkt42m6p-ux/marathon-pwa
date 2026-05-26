@@ -116,15 +116,19 @@ export function feasibilityCheck(currentVdot: number, targetVdot: number, weeks:
 }
 
 export interface RunAnalysis {
-  zoneCode:  string
-  zoneName:  string
-  zoneColor: string
-  verdict:   string
-  note:      string
-  devSec:    number
-  devStr:    string
-  hrZone:    string | null
-  hrNote:    string | null
+  zoneCode:       string
+  zoneName:       string
+  zoneColor:      string
+  verdict:        string
+  note:           string
+  devSec:         number
+  devStr:         string
+  hrZone:         string | null
+  hrNote:         string | null
+  strideDetected: boolean
+  maxHrZone:      string | null
+  maxHrPct:       number | null
+  hrSpikeBpm:     number | null  // max - avg
 }
 
 export function analyzeRun(
@@ -165,7 +169,7 @@ export function analyzeRun(
     const verdict = '🏔️ Trailrun'
     const note    = `Geländekorrigierte Auswertung — Pace nicht mit Straßenlauf vergleichbar. ${distanceKm >= 20 ? 'Tolle Langstrecke!' : 'Gute Einheit.'}`
     const hrZone  = zoneCode === 'I/R' ? 'Z5' : zoneCode === 'T' ? 'Z4' : zoneCode === 'M' ? 'Z3' : zoneCode === 'E' ? 'Z2' : 'Z1'
-    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null }
+    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null }
   }
 
   if (paceSec < p.I * (1 + TOL)) {
@@ -213,8 +217,12 @@ export function analyzeRun(
   }
 
   // HR cross-check (Karvonen)
-  let hrZone:  string | null = null
-  let hrNote:  string | null = null
+  let hrZone:         string | null = null
+  let hrNote:         string | null = null
+  let strideDetected  = false
+  let maxHrZone:      string | null = null
+  let maxHrPct:       number | null = null
+  let hrSpikeBpm:     number | null = null
 
   if (avgHr && avgHr > 0 && maxHr > restHr) {
     const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
@@ -224,21 +232,43 @@ export function analyzeRun(
     else if (hrPct < 90) hrZone = 'Z4'
     else                  hrZone = 'Z5'
 
-    const hasSpikes = isWorkout || ((activityMaxHr ?? 0) - avgHr > 20)
+    const spikeBpm = (activityMaxHr ?? 0) - avgHr
+    const hasSpikes = isWorkout || spikeBpm > 15
 
-    // Mismatch notes
-    if ((zoneCode === 'E' || zoneCode === 'Z1') && (hrZone === 'Z4' || hrZone === 'Z5') && !hasSpikes) {
-      hrNote = `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermuedung oder Stress?`
-    } else if ((zoneCode === 'I/R' || zoneCode === 'T') && (hrZone === 'Z1' || hrZone === 'Z2')) {
-      hrNote = `HF ${Math.round(hrPct)}% HFR — niedriger als Pace andeutet. Kurze Einheit?`
-    } else if (zoneCode === 'M' && hrZone === 'Z2') {
-      hrNote = `HF ${Math.round(hrPct)}% HFR — sehr kontrolliert bei M-Pace. Guter Fitnessstand.`
-    } else if (hrZone && hasSpikes) {
-      hrNote = `Durchschnitt ${Math.round(avgHr)} bpm (${hrZone}) mit Spitzen — Workout oder Intervalle enthalten.`
+    // HF-max zone
+    if (activityMaxHr && activityMaxHr > 0) {
+      const mPct = (activityMaxHr - restHr) / (maxHr - restHr) * 100
+      maxHrPct = Math.round(mPct)
+      if      (mPct < 60) maxHrZone = 'Z1'
+      else if (mPct < 70) maxHrZone = 'Z2'
+      else if (mPct < 80) maxHrZone = 'Z3'
+      else if (mPct < 90) maxHrZone = 'Z4'
+      else                 maxHrZone = 'Z5'
+      hrSpikeBpm = Math.round(spikeBpm)
+    }
+
+    // Stride detection: Easy/Z1 average pace but clear HR spikes ≥ 15 bpm
+    if ((zoneCode === 'E' || zoneCode === 'Z1') && spikeBpm >= 15 && distanceKm >= 4) {
+      strideDetected = true
+      verdict = '⚡ Strides / Beschleunigungen'
+      note    = `Durchschnittspace Easy — korrekt für Stride-Einheit. HF-Spitzen +${Math.round(spikeBpm)} bpm über Ø deuten auf Beschleunigungen hin.`
+    }
+
+    // Mismatch notes (only when no stride detected)
+    if (!strideDetected) {
+      if ((zoneCode === 'E' || zoneCode === 'Z1') && (hrZone === 'Z4' || hrZone === 'Z5') && !hasSpikes) {
+        hrNote = `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermüdung oder Stress?`
+      } else if ((zoneCode === 'I/R' || zoneCode === 'T') && (hrZone === 'Z1' || hrZone === 'Z2')) {
+        hrNote = `HF ${Math.round(hrPct)}% HFR — niedriger als Pace andeutet. Kurze Einheit?`
+      } else if (zoneCode === 'M' && hrZone === 'Z2') {
+        hrNote = `HF ${Math.round(hrPct)}% HFR — sehr kontrolliert bei M-Pace. Guter Fitnessstand.`
+      } else if (hrZone && hasSpikes) {
+        hrNote = `Ø ${Math.round(avgHr)} bpm (${hrZone}) mit Spitzen — Workout oder Intervalle enthalten.`
+      }
     }
   }
 
-  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote }
+  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote, strideDetected, maxHrZone, maxHrPct, hrSpikeBpm }
 }
 
 export interface RideAnalysis {
