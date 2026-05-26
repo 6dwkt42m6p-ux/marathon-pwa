@@ -11,7 +11,7 @@ import {
 import { analyzeRun, analyzeRide } from '../lib/vdot'
 import { fetchActivityStreams, detectStrides } from '../lib/strava'
 import type { StrideAnalysis } from '../lib/strava'
-import { generatePlan, type PlanRow } from '../lib/plan'
+import { generatePlan, allWeekSessions, type PlanRow, type WorkoutSession } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
 interface Props {
@@ -30,6 +30,16 @@ function isoWeek(d: Date): string {
   const diff = d.getTime() - start.getTime()
   const week = Math.floor(diff / (7 * 24 * 3600 * 1000)) + 1
   return `KW${week}`
+}
+
+const DAY_TAGS: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
+
+function getPlannedSession(plan: PlanRow[], date: Date, settings: AppSettings): WorkoutSession | null {
+  const row = [...plan].reverse().find(r => r.weekStart <= date)
+  if (!row) return null
+  const sessions = allWeekSessions(row.phase, row.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
+  const tag = DAY_TAGS[date.getDay()]
+  return sessions.find(s => s.wochentag === tag) ?? null
 }
 
 function getPhaseForDate(plan: PlanRow[], date: Date): string {
@@ -189,7 +199,8 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )}
         {recentActs.map(act => {
           const isExpanded = expandedId === act.id
-          const phase = getPhaseForDate(plan, act.date)
+          const phase          = getPhaseForDate(plan, act.date)
+          const plannedSession = getPlannedSession(plan, act.date, settings)
 
           let analysis: ReturnType<typeof analyzeRun> | ReturnType<typeof analyzeRide> | null = null
           let zoneBadgeColor = '#42A5F5'
@@ -276,6 +287,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       analysis={analysis as ReturnType<typeof analyzeRun>}
                       act={act}
                       phase={phase}
+                      plannedSession={plannedSession}
                     />
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />
@@ -345,14 +357,62 @@ function fmt(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
+function planCheck(planned: WorkoutSession, act: ActivitySummary, strideData: StrideAnalysis | null, analysis: ReturnType<typeof analyzeRun>): { icon: string; text: string; color: string }[] {
+  const checks: { icon: string; text: string; color: string }[] = []
+  const sessionName = planned.session.toLowerCase()
+  const plannedKm = typeof planned.distanzKm === 'number' ? planned.distanzKm : parseFloat(String(planned.distanzKm))
+
+  // Distance check
+  if (!isNaN(plannedKm) && plannedKm > 0) {
+    const pct = act.distanceKm / plannedKm
+    if (pct >= 0.90)       checks.push({ icon: '✅', text: `Distanz: ${act.distanceKm} km (geplant ${plannedKm} km)`, color: '#4CAF50' })
+    else if (pct >= 0.75)  checks.push({ icon: '🟡', text: `Distanz: ${act.distanceKm} km — etwas kürzer als geplant ${plannedKm} km`, color: '#FFC107' })
+    else                   checks.push({ icon: '⚠️', text: `Distanz: nur ${act.distanceKm} km von ${plannedKm} km`, color: '#e53935' })
+  }
+
+  // Stride count check
+  const strideMatch = planned.session.match(/(\d+)[×x]/)
+  if (strideMatch && strideData) {
+    const targetN = parseInt(strideMatch[1])
+    const actualN = strideData.strideCount
+    if (actualN >= targetN)          checks.push({ icon: '✅', text: `Strides: ${actualN} erkannt (${targetN} geplant)`, color: '#4CAF50' })
+    else if (actualN >= targetN - 1) checks.push({ icon: '🟡', text: `Strides: ${actualN} erkannt (${targetN} geplant — fast vollständig)`, color: '#FFC107' })
+    else                             checks.push({ icon: '⚠️', text: `Strides: nur ${actualN} erkannt (${targetN} geplant)`, color: '#e53935' })
+  } else if (strideMatch && !strideData) {
+    const targetN = parseInt(strideMatch[1])
+    checks.push({ icon: '📈', text: `${targetN} Strides geplant — Pace-Verlauf laden um zu prüfen`, color: '#FF9800' })
+  }
+
+  // Recovery pattern check (for stride sessions)
+  if (strideData && strideData.avgRecoverySec !== null && sessionName.includes('stride')) {
+    const rec = strideData.avgRecoverySec
+    if (rec >= 35 && rec <= 70) checks.push({ icon: '✅', text: `Erholung Ø ${rec} s zwischen Strides — ideal`, color: '#4CAF50' })
+    else if (rec < 35)          checks.push({ icon: '🟡', text: `Erholung Ø ${rec} s — etwas kurz, min. 35 s empfohlen`, color: '#FFC107' })
+    else                        checks.push({ icon: '🟡', text: `Erholung Ø ${rec} s — sehr locker, passt`, color: '#4CAF50' })
+  }
+
+  // Tempo session check (e.g. "7km easy + 3km M-Pace")
+  if ((sessionName.includes('marathon-pace') || sessionName.includes('m-pace') || sessionName.includes('tempo')) && !sessionName.includes('stride')) {
+    if (analysis.zoneCode === 'M' || analysis.zoneCode === 'T') {
+      checks.push({ icon: '✅', text: `Tempo korrekt — Pace im ${analysis.zoneName}-Bereich`, color: '#4CAF50' })
+    } else if (analysis.zoneCode === 'E') {
+      checks.push({ icon: '🟡', text: `Durchschnitt Easy — Tempo-Abschnitt evtl. kürzer als geplant`, color: '#FFC107' })
+    }
+  }
+
+  return checks
+}
+
 function RunDetail({
   analysis,
   act,
   phase,
+  plannedSession,
 }: {
   analysis: ReturnType<typeof analyzeRun>
   act: ActivitySummary
   phase: string
+  plannedSession: WorkoutSession | null
 }) {
   const [strideData,    setStrideData]    = useState<StrideAnalysis | null>(null)
   const [loadingStream, setLoadingStream] = useState(false)
@@ -491,6 +551,22 @@ function RunDetail({
           ))}
         </div>
       )}
+
+      {/* Plan-Check */}
+      {plannedSession && (() => {
+        const checks = planCheck(plannedSession, act, strideData, analysis)
+        if (checks.length === 0) return null
+        return (
+          <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
+            <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '11px', color: 'var(--text2)' }}>
+              PLAN-CHECK · {plannedSession.session}
+            </div>
+            {checks.map((c, i) => (
+              <div key={i} style={{ color: c.color, lineHeight: 1.6 }}>{c.icon} {c.text}</div>
+            ))}
+          </div>
+        )
+      })()}
 
       {/* Secondary info */}
       <div style={{ fontSize: '11px', color: 'var(--text2)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
