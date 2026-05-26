@@ -1,13 +1,12 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { generatePlan, allWeekSessions } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
-import { getCachedActivities, thisWeekKm } from '../lib/strava'
+import { getCachedActivities, thisWeekKm, DAY_TAGS } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 import { hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
 interface Props { settings: AppSettings }
 
-const DAY_MAP: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
 const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 interface DayAssignment { originalDay: string; currentDay: string }
@@ -46,7 +45,7 @@ export default function TodayWorkout({ settings }: Props) {
   const progressPct   = plannedKm > 0 ? Math.min(100, (actualKmWeek / plannedKm) * 100) : 0
   const progressColor = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
 
-  const todayTag  = DAY_MAP[new Date().getDay()]
+  const todayTag  = DAY_TAGS[new Date().getDay()]
   const rawSessions = currentRow
     ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
     : []
@@ -92,12 +91,14 @@ export default function TodayWorkout({ settings }: Props) {
   }
 
   // Apply current assignments to sessions and sort by calendar order
-  const displaySessions = rawSessions
-    .map(s => {
-      const assigned = assignments.find(a => a.originalDay === s.wochentag)
-      return { ...s, wochentag: assigned?.currentDay ?? s.wochentag, originalDay: s.wochentag }
-    })
-    .sort((a, b) => DAYS_ORDER.indexOf(a.wochentag) - DAYS_ORDER.indexOf(b.wochentag))
+  const displaySessions = useMemo(() =>
+    rawSessions
+      .map(s => {
+        const assigned = assignments.find(a => a.originalDay === s.wochentag)
+        return { ...s, wochentag: assigned?.currentDay ?? s.wochentag, originalDay: s.wochentag }
+      })
+      .sort((a, b) => DAYS_ORDER.indexOf(a.wochentag) - DAYS_ORDER.indexOf(b.wochentag)),
+  [rawSessions, assignments])
 
   const hasOverrides = assignments.some(a => a.originalDay !== a.currentDay)
 

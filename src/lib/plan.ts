@@ -1,5 +1,6 @@
 // Pfitzinger-style periodized plan generator — ported from coach.py
 import { trainingPaces, formatPace } from './vdot'
+import { mondayOf, DAY_TAGS } from './strava'
 
 export interface PlanRow {
   weekNr:      number
@@ -26,12 +27,6 @@ function addDays(d: Date, n: number): Date {
   const r = new Date(d)
   r.setDate(r.getDate() + n)
   return r
-}
-
-function mondayOf(d: Date): Date {
-  const day = d.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  return addDays(d, diff)
 }
 
 function diffWeeks(a: Date, b: Date): number {
@@ -155,8 +150,7 @@ export function todayWorkout(plan: PlanRow[], vdot: number, runsPerWeek = 5, rac
   const currentRow = plan.find(r => r.isCurrent)
   if (!currentRow) return null
   const sessions = allWeekSessions(currentRow.phase, currentRow.plannedKm, vdot, runsPerWeek, raceType)
-  const dayMap: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
-  const todayTag = dayMap[new Date().getDay()]
+  const todayTag = DAY_TAGS[new Date().getDay()]
   return sessions.find(s => s.wochentag === todayTag) ?? sessions[0] ?? null
 }
 

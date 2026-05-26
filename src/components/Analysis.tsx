@@ -6,11 +6,14 @@ import {
   computeWeeklyStats,
   vdotTrendFromActivities,
   thisWeekKm,
+  mondayOf,
+  DAY_TAGS,
+  fetchActivityStreams,
+  detectStrides,
   type ActivitySummary,
+  type StrideAnalysis,
 } from '../lib/strava'
 import { analyzeRun, analyzeRide } from '../lib/vdot'
-import { fetchActivityStreams, detectStrides } from '../lib/strava'
-import type { StrideAnalysis } from '../lib/strava'
 import { generatePlan, allWeekSessions, type PlanRow, type WorkoutSession } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
@@ -32,8 +35,6 @@ function isoWeek(d: Date): string {
   return `KW${week}`
 }
 
-const DAY_TAGS: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
-
 function getPlannedSession(plan: PlanRow[], date: Date, settings: AppSettings): WorkoutSession | null {
   const row = [...plan].reverse().find(r => r.weekStart <= date)
   if (!row) return null
@@ -43,10 +44,7 @@ function getPlannedSession(plan: PlanRow[], date: Date, settings: AppSettings): 
 }
 
 function getPhaseForDate(plan: PlanRow[], date: Date): string {
-  const monday = new Date(date)
-  const day = monday.getDay()
-  monday.setDate(monday.getDate() - (day === 0 ? 6 : day - 1))
-  monday.setHours(0, 0, 0, 0)
+  const monday = mondayOf(date)
   const row = plan.find(r => {
     const ws = new Date(r.weekStart)
     ws.setHours(0, 0, 0, 0)
