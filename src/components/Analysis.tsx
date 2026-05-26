@@ -9,6 +9,8 @@ import {
   type ActivitySummary,
 } from '../lib/strava'
 import { analyzeRun, analyzeRide } from '../lib/vdot'
+import { fetchActivityStreams, detectStrides } from '../lib/strava'
+import type { StrideAnalysis } from '../lib/strava'
 import { generatePlan, type PlanRow } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
@@ -338,6 +340,11 @@ const ZONE_LABELS_SHORT: Record<string, string> = {
   Z4: 'Z4 · Schwelle', Z5: 'Z5 · Maximal',
 }
 
+function fmt(s: number) {
+  const m = Math.floor(s / 60); const sec = Math.round(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
+}
+
 function RunDetail({
   analysis,
   act,
@@ -347,6 +354,23 @@ function RunDetail({
   act: ActivitySummary
   phase: string
 }) {
+  const [strideData,    setStrideData]    = useState<StrideAnalysis | null>(null)
+  const [loadingStream, setLoadingStream] = useState(false)
+  const [streamErr,     setStreamErr]     = useState<string | null>(null)
+
+  async function loadStreams() {
+    setLoadingStream(true); setStreamErr(null)
+    try {
+      const streams = await fetchActivityStreams(act.id)
+      if (!streams || streams.velocity_smooth.length === 0) {
+        setStreamErr('Keine Stream-Daten verfügbar.')
+      } else {
+        setStrideData(detectStrides(streams, act.paceSec))
+      }
+    } catch { setStreamErr('Fehler beim Laden der Stream-Daten.') }
+    finally { setLoadingStream(false) }
+  }
+
   const durationMin = act.durationSec > 0 ? Math.round(act.durationSec / 60) : null
   return (
     <>
@@ -390,14 +414,81 @@ function RunDetail({
       {/* Stride detection block */}
       {analysis.strideDetected && (
         <div style={{ background: '#FF980022', border: '1px solid #FF980044', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-          <div style={{ fontWeight: 700, color: '#FF9800', marginBottom: '4px' }}>⚡ Stride-Analyse</div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+            <span style={{ fontWeight: 700, color: '#FF9800' }}>⚡ Stride-Analyse</span>
+            {!strideData && (
+              <button
+                style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', border: '1px solid #FF9800', background: 'transparent', color: '#FF9800', cursor: 'pointer' }}
+                onClick={loadStreams}
+                disabled={loadingStream}
+              >
+                {loadingStream ? '⏳ Lädt…' : '📈 Pace-Verlauf laden'}
+              </button>
+            )}
+          </div>
           <div style={{ color: 'var(--text2)', lineHeight: 1.5 }}>
             <span style={{ color: 'var(--text1)' }}>HF-Spitzen: +{analysis.hrSpikeBpm} bpm</span> über Ø — Intensitätsspitzen bestätigt.{' '}
-            HF-Max ({act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}) in {analysis.maxHrZone ?? '—'} ({analysis.maxHrPct}% HFR) — angemessen für Beschleunigungen.
+            HF-Max ({act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}) {analysis.maxHrZone ?? ''} ({analysis.maxHrPct}% HFR).
           </div>
-          <div style={{ color: 'var(--text2)', marginTop: '4px', fontSize: '11px' }}>
-            ℹ️ Stride-Anzahl nicht prüfbar ohne Lap-Daten (Lap-Button am Watch nötig)
-          </div>
+          {streamErr && <div style={{ color: '#e53935', fontSize: '11px', marginTop: '4px' }}>{streamErr}</div>}
+
+          {/* Stream-based stride results */}
+          {strideData && (
+            <div style={{ marginTop: '8px', borderTop: '1px solid #FF980033', paddingTop: '8px' }}>
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                <span><strong style={{ color: '#FF9800' }}>{strideData.strideCount}</strong> <span style={{ color: 'var(--text2)' }}>Strides erkannt</span></span>
+                {strideData.fastestPaceSec > 0 && (
+                  <span><strong style={{ color: '#FF9800' }}>{fmt(strideData.fastestPaceSec)}</strong> <span style={{ color: 'var(--text2)' }}>/km schnellste</span></span>
+                )}
+                {strideData.avgPeakPaceSec > 0 && (
+                  <span><strong style={{ color: '#FF9800' }}>{fmt(strideData.avgPeakPaceSec)}</strong> <span style={{ color: 'var(--text2)' }}>/km Ø Peak</span></span>
+                )}
+              </div>
+              {strideData.strides.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                  {strideData.strides.map((s, i) => (
+                    <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
+                      <span style={{ color: '#FF9800', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
+                      <span>{s.distanceM} m</span>
+                      <span>{s.durationSec} s</span>
+                      <span style={{ color: 'var(--text1)' }}>⚡ {fmt(s.peakPaceSec)} /km</span>
+                      {s.peakHr && <span>♡ {s.peakHr}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {strideData.strideCount === 0 && (
+                <div style={{ color: 'var(--text2)', fontSize: '11px' }}>
+                  Keine klaren Pace-Spitzen im Stream erkannt. GPS-Genauigkeit oder sehr kurze Strides können Erkennung erschweren.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Stream load button for non-stride runs */}
+      {!analysis.strideDetected && !strideData && (
+        <button
+          style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', cursor: 'pointer', alignSelf: 'flex-start' }}
+          onClick={loadStreams}
+          disabled={loadingStream}
+        >
+          {loadingStream ? '⏳ Lädt…' : '📈 Pace-Verlauf analysieren'}
+        </button>
+      )}
+      {!analysis.strideDetected && strideData && strideData.strideCount > 0 && (
+        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
+          <div style={{ fontWeight: 700, marginBottom: '4px' }}>📈 Pace-Spitzen</div>
+          {strideData.strides.map((s, i) => (
+            <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
+              <span style={{ color: 'var(--accent)', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
+              <span>{s.distanceM} m</span>
+              <span>{s.durationSec} s</span>
+              <span style={{ color: 'var(--text1)' }}>⚡ {fmt(s.peakPaceSec)} /km</span>
+              {s.peakHr && <span>♡ {s.peakHr}</span>}
+            </div>
+          ))}
         </div>
       )}
 
