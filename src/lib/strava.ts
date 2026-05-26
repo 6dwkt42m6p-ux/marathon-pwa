@@ -191,16 +191,24 @@ export interface ActivitySummary extends RunSummary {
   speedKmh?:    number
 }
 
-export function parseAllActivities(activities: StravaActivity[]): ActivitySummary[] {
-  const isRun   = (a: StravaActivity) => a.type === 'Run'  || a.sport_type === 'Run' ||
-                                          a.type === 'TrailRun' || a.sport_type === 'TrailRun'
-  const isRide  = (a: StravaActivity) => a.type === 'Ride' || a.sport_type === 'Ride' ||
-                                          a.type === 'VirtualRide' || a.sport_type === 'VirtualRide'
-  const isHike  = (a: StravaActivity) => a.type === 'Hike' || a.sport_type === 'Hike' ||
-                                          a.type === 'Walk' || a.sport_type === 'Walk'
+export function isRunType(a: StravaActivity): boolean {
+  return a.type === 'Run' || a.sport_type === 'Run' ||
+         a.type === 'TrailRun' || a.sport_type === 'TrailRun'
+}
+function isRideType(a: StravaActivity): boolean {
+  return a.type === 'Ride' || a.sport_type === 'Ride' ||
+         a.type === 'VirtualRide' || a.sport_type === 'VirtualRide'
+}
+function isHikeType(a: StravaActivity): boolean {
+  return a.type === 'Hike' || a.sport_type === 'Hike' ||
+         a.type === 'Walk' || a.sport_type === 'Walk'
+}
 
+export const DAY_TAGS: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
+
+export function parseAllActivities(activities: StravaActivity[]): ActivitySummary[] {
   return activities
-    .filter(a => isRun(a) || isRide(a) || isHike(a))
+    .filter(a => isRunType(a) || isRideType(a) || isHikeType(a))
     .map(a => {
       const distKm  = (a.distance || 0) / 1000
       const durSec  = a.moving_time || 0
@@ -208,7 +216,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
       const paceMin = Math.floor(paceSec / 60)
       const paceSc  = Math.round(paceSec % 60)
       const speedKmh = durSec > 0 ? (distKm / durSec) * 3600 : 0
-      const actType: 'run' | 'ride' | 'hike' = isRun(a) ? 'run' : isRide(a) ? 'ride' : 'hike'
+      const actType: 'run' | 'ride' | 'hike' = isRunType(a) ? 'run' : isRideType(a) ? 'ride' : 'hike'
       const isTrail = a.type === 'TrailRun' || a.sport_type === 'TrailRun'
       return {
         id:          a.id,
@@ -238,7 +246,7 @@ export interface WeekStats {
   elevationM: number
 }
 
-function mondayOf(d: Date): Date {
+export function mondayOf(d: Date): Date {
   const day  = d.getDay()
   const diff = day === 0 ? -6 : 1 - day
   const r    = new Date(d)
@@ -336,18 +344,15 @@ export function thisWeekKm(activities: StravaActivity[]): number {
   const monday = mondayOf(now)
   return activities
     .filter(a => {
-      const isRun = a.type === 'Run' || a.sport_type === 'Run' ||
-                    a.type === 'TrailRun' || a.sport_type === 'TrailRun'
       const d = new Date(a.start_date_local || a.start_date)
-      return isRun && d >= monday && d <= now
+      return isRunType(a) && d >= monday && d <= now
     })
     .reduce((sum, a) => sum + (a.distance || 0) / 1000, 0)
 }
 
 export function parseRuns(activities: StravaActivity[]): RunSummary[] {
   return activities
-    .filter(a => a.type === 'Run' || a.sport_type === 'Run' ||
-                 a.type === 'TrailRun' || a.sport_type === 'TrailRun')
+    .filter(isRunType)
     .map(a => {
       const distKm  = (a.distance || 0) / 1000
       const durSec  = a.moving_time || 0
@@ -410,14 +415,6 @@ export interface StrideSegment {
   avgPaceSec:  number   // average over segment
   peakHr?:    number
 }
-
-function fmtPace(secPerKm: number): string {
-  const m = Math.floor(secPerKm / 60)
-  const s = Math.round(secPerKm % 60)
-  return `${m}:${s.toString().padStart(2, '0')}`
-}
-
-export { fmtPace as formatPaceFromSec }
 
 export interface StrideAnalysis {
   strides:           StrideSegment[]
