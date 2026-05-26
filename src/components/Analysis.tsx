@@ -333,6 +333,11 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   )
 }
 
+const ZONE_LABELS_SHORT: Record<string, string> = {
+  Z1: 'Z1 · Regeneration', Z2: 'Z2 · Grundlage', Z3: 'Z3 · Aerob',
+  Z4: 'Z4 · Schwelle', Z5: 'Z5 · Maximal',
+}
+
 function RunDetail({
   analysis,
   act,
@@ -342,39 +347,72 @@ function RunDetail({
   act: ActivitySummary
   phase: string
 }) {
+  const durationMin = act.durationSec > 0 ? Math.round(act.durationSec / 60) : null
   return (
     <>
+      {/* Verdict row */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
           <div style={{ fontSize: '14px', fontWeight: 700 }}>{analysis.verdict}</div>
           <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '3px' }}>{analysis.note}</div>
         </div>
-        <div
-          style={{
-            fontSize: '11px',
-            padding: '3px 8px',
-            borderRadius: '12px',
-            background: `${analysis.zoneColor}22`,
-            color: analysis.zoneColor,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
+        <div style={{
+          fontSize: '11px', padding: '3px 8px', borderRadius: '12px',
+          background: `${analysis.zoneColor}22`, color: analysis.zoneColor, whiteSpace: 'nowrap', flexShrink: 0,
+        }}>
           {analysis.zoneName}
         </div>
       </div>
-      <div style={{ fontSize: '12px', color: 'var(--text2)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <span>Pace: {act.paceFmt} /km</span>
-        <span>Abw. Mitte E: {analysis.devStr}</span>
+
+      {/* Key metrics grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginTop: '6px' }}>
+        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Pace</div>
+          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.paceFmt} /km</div>
+          <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Abw. E-Mitte: {analysis.devStr}</div>
+        </div>
+        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Herzfrequenz</div>
+          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.avgHr ? `${Math.round(act.avgHr)} bpm` : '—'}</div>
+          <div style={{ fontSize: '10px', color: analysis.hrZone ? (ZONE_COLORS[analysis.hrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
+            {analysis.hrZone ? ZONE_LABELS_SHORT[analysis.hrZone] ?? analysis.hrZone : '—'}
+          </div>
+        </div>
+        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>HF-Max</div>
+          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}</div>
+          <div style={{ fontSize: '10px', color: analysis.maxHrZone ? (ZONE_COLORS[analysis.maxHrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
+            {analysis.maxHrZone ? `${ZONE_LABELS_SHORT[analysis.maxHrZone] ?? analysis.maxHrZone} · ${analysis.maxHrPct}% HFR` : '—'}
+          </div>
+        </div>
+      </div>
+
+      {/* Stride detection block */}
+      {analysis.strideDetected && (
+        <div style={{ background: '#FF980022', border: '1px solid #FF980044', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
+          <div style={{ fontWeight: 700, color: '#FF9800', marginBottom: '4px' }}>⚡ Stride-Analyse</div>
+          <div style={{ color: 'var(--text2)', lineHeight: 1.5 }}>
+            <span style={{ color: 'var(--text1)' }}>HF-Spitzen: +{analysis.hrSpikeBpm} bpm</span> über Ø — Intensitätsspitzen bestätigt.{' '}
+            HF-Max ({act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}) in {analysis.maxHrZone ?? '—'} ({analysis.maxHrPct}% HFR) — angemessen für Beschleunigungen.
+          </div>
+          <div style={{ color: 'var(--text2)', marginTop: '4px', fontSize: '11px' }}>
+            ℹ️ Stride-Anzahl nicht prüfbar ohne Lap-Daten (Lap-Button am Watch nötig)
+          </div>
+        </div>
+      )}
+
+      {/* Secondary info */}
+      <div style={{ fontSize: '11px', color: 'var(--text2)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <span>Phase: {phase}</span>
         {act.distanceKm > 0 && <span>{act.distanceKm} km</span>}
+        {durationMin && <span>{durationMin} min</span>}
+        {act.elevationM > 0 && <span>↑ {act.elevationM} m</span>}
       </div>
-      {analysis.hrZone && (
-        <div style={{ fontSize: '12px', color: ZONE_COLORS[analysis.hrZone] ?? 'var(--text2)' }}>
-          HF-Zone: {analysis.hrZone}
-          {analysis.hrNote && (
-            <span style={{ color: 'var(--text2)', marginLeft: '6px' }}>· {analysis.hrNote}</span>
-          )}
+
+      {/* HR note (non-stride mismatch) */}
+      {analysis.hrNote && !analysis.strideDetected && (
+        <div style={{ fontSize: '12px', color: 'var(--text2)', fontStyle: 'italic' }}>
+          💬 {analysis.hrNote}
         </div>
       )}
     </>
