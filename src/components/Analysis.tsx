@@ -83,8 +83,9 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
     planWeekMap.set(key, row.plannedKm)
   }
 
-  // Runs for VDOT trend (include all runs sorted newest first)
-  const trend = hasStrava ? vdotTrendFromActivities(runs, settings.vdot) : null
+  const trend = hasStrava
+    ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr)
+    : null
 
   // Max planned km for chart scaling
   const maxChartKm = Math.max(
@@ -159,31 +160,61 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )}
       </div>
 
-      {/* B: VDOT Trend */}
+      {/* B: Fitnesstrend */}
       {trend && (
         <>
-          <div className="section-title">VDOT Trend</div>
-          <div className="activity-card" style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <div
-                className="trend-badge"
-                style={{ background: `${trend.color}22`, color: trend.color }}
-              >
-                <span>{trend.direction}</span>
-                <span>{trend.label}</span>
+          <div className="section-title">Fitnesstrend</div>
+
+          {/* VDOT trend — only shown when effort runs are available */}
+          {!trend.insufficientEffortRuns ? (
+            <div className="activity-card" style={{ padding: '12px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT AUS TEMPOLÄUFEN</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div className="trend-badge" style={{ background: `${trend.color}22`, color: trend.color }}>
+                  <span>{trend.direction}</span>
+                  <span>{trend.label}</span>
+                </div>
               </div>
-            </div>
-            <div style={{ fontSize: '13px', color: 'var(--text2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
-              <span>Früher: {trend.early}</span>
-              <span>Aktuell: {trend.recent}</span>
-              <span style={{ color: trend.color }}>Δ {trend.delta > 0 ? '+' : ''}{trend.delta}</span>
-            </div>
-            {trend.fromTraining && (
-              <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '6px' }}>
-                Berechnet aus Trainingsdaten (keine Rennen vorhanden)
+              <div style={{ fontSize: '13px', color: 'var(--text2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
+                <span>Früher: {trend.early}</span>
+                <span>Aktuell: {trend.recent}</span>
+                <span style={{ color: trend.color }}>Δ {trend.delta > 0 ? '+' : ''}{trend.delta}</span>
               </div>
-            )}
-          </div>
+              {trend.fromTraining && (
+                <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '4px' }}>
+                  Aus Trainingsläufen — genauer nach Wettkampf- oder Tempoeinheiten
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text2)' }}>
+              VDOT-Trend folgt ab der Aufbauphase — wird aus Tempo- und Intervallläufen berechnet, nicht aus Easy-Läufen.
+            </div>
+          )}
+
+          {/* Easy-run HR trend — aerobic efficiency (Basis phase signal) */}
+          {trend.easyHrTrend && (() => {
+            const hr = trend.easyHrTrend!
+            return (
+              <div className="activity-card" style={{ padding: '12px', marginTop: '6px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>AEROBE EFFIZIENZ (EASY-LÄUFE)</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div className="trend-badge" style={{ background: `${hr.color}22`, color: hr.color }}>
+                    <span>{hr.direction}</span>
+                    <span>{hr.label}</span>
+                  </div>
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
+                  <span>Früher: Ø {hr.earlyAvgHr} bpm</span>
+                  <span>Aktuell: Ø {hr.recentAvgHr} bpm</span>
+                  <span style={{ color: hr.color }}>Δ {hr.deltaBpm > 0 ? '+' : ''}{hr.deltaBpm} bpm</span>
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '4px' }}>
+                  Niedrigerer Puls bei gleicher Easy-Pace = aerobe Adaptation ✓
+                </div>
+              </div>
+            )
+          })()}
         </>
       )}
 
