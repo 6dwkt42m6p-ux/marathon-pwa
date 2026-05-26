@@ -278,6 +278,15 @@ export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
     .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
 }
 
+export interface EasyHrTrend {
+  direction:   '↑' | '↓' | '→'
+  earlyAvgHr:  number
+  recentAvgHr: number
+  deltaBpm:    number
+  label:       string
+  color:       string
+}
+
 export interface VdotTrend {
   delta:       number
   early:       number
@@ -285,34 +294,82 @@ export interface VdotTrend {
   direction:   '↑' | '↓' | '→'
   label:       string
   color:       string
-  fromTraining: boolean
+  fromTraining:           boolean
+  insufficientEffortRuns: boolean  // true when VDOT numbers are based on easy runs (unreliable)
+  easyHrTrend?:           EasyHrTrend
 }
 
-import { vdotFromRace as _vdotFromRace } from './vdot'
+import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
 
-export function vdotTrendFromActivities(runs: RunSummary[], currentVdot: number): VdotTrend | null {
-  const MIN_VDOT_PCT = 0.82
-  const eligible = runs
-    .filter(r => r.distanceKm >= 3 && r.paceSec >= 180 && r.paceSec <= 420 && r.durationSec > 0)
+export function vdotTrendFromActivities(
+  runs: RunSummary[],
+  currentVdot: number,
+  maxHr = 190,
+  restHr = 50,
+): VdotTrend | null {
+  const paces       = trainingPaces(currentVdot)
+  const eHighPaceSec = paces.E_high   // upper Easy boundary; faster pace = M-zone or above
+  const hrr          = maxHr - restHr
 
-  if (eligible.length < 4) return null
-
-  const now       = new Date()
+  const now           = new Date()
   const eightWeeksAgo = new Date(now.getTime() - 8 * 7 * 24 * 3600 * 1000)
   const fourWeeksAgo  = new Date(now.getTime() - 4 * 7 * 24 * 3600 * 1000)
 
-  const withVdot = eligible.map(r => {
+  // A run is a meaningful "effort run" if HR is in Z3+ OR pace is at M-zone or faster.
+  // Easy runs give a falsely low computed VDOT and must be excluded from the trend.
+  function isEffortRun(r: RunSummary): boolean {
+    if (r.distanceKm < 3 || r.durationSec === 0 || r.paceSec < 180 || r.paceSec > 420) return false
+    if (r.avgHr && hrr > 0) return (r.avgHr - restHr) / hrr * 100 >= 65
+    return r.paceSec < eHighPaceSec * 0.98  // no HR: accept only M-zone pace or faster
+  }
+
+  // ── Aerobic efficiency trend from easy runs ───────────────────────────────
+  // When only Easy training is happening (Basis phase), track average HR at
+  // easy effort — HR going down at the same pace is the real fitness signal.
+  const easyInWindow = runs.filter(r =>
+    r.date >= eightWeeksAgo && !!r.avgHr && r.distanceKm >= 3 && hrr > 0 &&
+    (r.avgHr - restHr) / hrr * 100 < 70  // Z1–Z2
+  )
+  const earlyEasy  = easyInWindow.filter(r => r.date < fourWeeksAgo)
+  const recentEasy = easyInWindow.filter(r => r.date >= fourWeeksAgo)
+
+  let easyHrTrend: EasyHrTrend | undefined
+  if (earlyEasy.length >= 2 && recentEasy.length >= 2) {
+    const avg = (arr: RunSummary[]) => arr.reduce((s, r) => s + (r.avgHr ?? 0), 0) / arr.length
+    const earlyAvgHr  = Math.round(avg(earlyEasy) * 10) / 10
+    const recentAvgHr = Math.round(avg(recentEasy) * 10) / 10
+    const deltaBpm    = Math.round((recentAvgHr - earlyAvgHr) * 10) / 10
+    let direction: '↑' | '↓' | '→', label: string, color: string
+    if      (deltaBpm <= -2) { direction = '↑'; label = `Ø HF ↓ ${Math.abs(deltaBpm)} bpm — aerobe Effizienz steigt`; color = '#4CAF50' }
+    else if (deltaBpm >= 3)  { direction = '↓'; label = `Ø HF ↑ ${deltaBpm} bpm — Ermüdung oder Hitzephase?`;         color = '#e53935' }
+    else                     { direction = '→'; label = 'Aerobe Effizienz bei Easy-Läufen stabil';                      color = '#FFC107' }
+    easyHrTrend = { direction, earlyAvgHr, recentAvgHr, deltaBpm, label, color }
+  }
+
+  // ── VDOT trend from effort runs ───────────────────────────────────────────
+  const effortRuns = runs.filter(r => r.date >= eightWeeksAgo && isEffortRun(r))
+
+  const withVdot = effortRuns.map(r => {
     try {
       const v = _vdotFromRace(r.distanceKm * 1000, r.durationSec)
       return { ...r, computedVdot: (v > 20 && v < 85) ? v : null }
     } catch { return { ...r, computedVdot: null } }
   }).filter(r => r.computedVdot !== null) as (RunSummary & { computedVdot: number })[]
 
-  const earlyRuns  = withVdot.filter(r => r.date >= eightWeeksAgo && r.date <  fourWeeksAgo)
-  const recentRuns = withVdot.filter(r => r.date >= fourWeeksAgo)
+  const earlyEffort  = withVdot.filter(r => r.date < fourWeeksAgo)
+  const recentEffort = withVdot.filter(r => r.date >= fourWeeksAgo)
 
-  if (recentRuns.length === 0) return null
+  // Not enough effort runs — return early HR trend only (or null)
+  if (withVdot.length < 2 || recentEffort.length === 0) {
+    if (!easyHrTrend) return null
+    return {
+      delta: 0, early: 0, recent: 0,
+      direction: easyHrTrend.direction, label: easyHrTrend.label, color: easyHrTrend.color,
+      fromTraining: true, insufficientEffortRuns: true, easyHrTrend,
+    }
+  }
 
+  const MIN_VDOT_PCT = 0.82
   const threshold = currentVdot * MIN_VDOT_PCT
 
   function bestVdot(list: typeof withVdot): number {
@@ -322,21 +379,20 @@ export function vdotTrendFromActivities(runs: RunSummary[], currentVdot: number)
     return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
   }
 
-  const recent = Math.round(bestVdot(recentRuns) * 10) / 10
-  const early  = earlyRuns.length >= 2 ? Math.round(bestVdot(earlyRuns) * 10) / 10 : recent
+  const recent = Math.round(bestVdot(recentEffort) * 10) / 10
+  const early  = earlyEffort.length >= 1 ? Math.round(bestVdot(earlyEffort) * 10) / 10 : recent
   const delta  = Math.round((recent - early) * 10) / 10
-  const fromTraining = earlyRuns.filter(r => r.computedVdot >= threshold).length < 2 ||
-                       recentRuns.filter(r => r.computedVdot >= threshold).length < 2
 
-  let direction: '↑' | '↓' | '→'
-  let label:     string
-  let color:     string
+  const fromTraining           = earlyEffort.filter(r => r.computedVdot >= threshold).length < 2 ||
+                                  recentEffort.filter(r => r.computedVdot >= threshold).length < 2
+  const insufficientEffortRuns = earlyEffort.length < 1
 
-  if (delta >= 0.3)       { direction = '↑'; label = `+${delta} VDOT Trend`;      color = '#4CAF50' }
-  else if (delta <= -0.3) { direction = '↓'; label = `${delta} VDOT Trend`;       color = '#e53935' }
-  else                    { direction = '→'; label = 'Stabiler VDOT-Trend';        color = '#FFC107' }
+  let direction: '↑' | '↓' | '→', label: string, color: string
+  if (delta >= 0.3)       { direction = '↑'; label = `+${delta} VDOT`;      color = '#4CAF50' }
+  else if (delta <= -0.3) { direction = '↓'; label = `${delta} VDOT`;       color = '#e53935' }
+  else                    { direction = '→'; label = 'Stabiler VDOT-Trend'; color = '#FFC107' }
 
-  return { delta, early, recent, direction, label, color, fromTraining }
+  return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, easyHrTrend }
 }
 
 export function thisWeekKm(activities: StravaActivity[]): number {
