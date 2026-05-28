@@ -4,10 +4,11 @@
       "Do": "Fr"
     },
     "2026-05-25": {
-      "Do": "Fr"
+      "Do": "So",
+      "So": "Fr"
     }
   },
   "settings": null,
-  "lastModified": "2026-05-28T19:42:01.221070+00:00",
+  "lastModified": "2026-05-28T19:42:11.537568+00:00",
   "lastDevice": "streamlit"
 }
