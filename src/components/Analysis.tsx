@@ -248,6 +248,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
               phase,
               isWorkout,
               act.isTrail,
+              act.tempC,
             )
             const ra = analysis as ReturnType<typeof analyzeRun>
             zoneBadgeColor = ra.zoneColor
@@ -477,12 +478,25 @@ function RunDetail({
         </div>
       </div>
 
+      {/* Temperature adjustment note */}
+      {analysis.tempNote && (
+        <div style={{ fontSize: '11px', color: '#FF9800', marginTop: '4px', lineHeight: 1.4 }}>
+          {analysis.tempNote}
+        </div>
+      )}
+
       {/* Key metrics grid */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginTop: '6px' }}>
         <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Pace</div>
+          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>
+            Ø Pace{act.tempC !== undefined ? ` · ${Math.round(act.tempC)}°C` : ''}
+          </div>
           <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.paceFmt} /km</div>
-          <div style={{ fontSize: '10px', color: 'var(--text2)' }}>Abw. E-Mitte: {analysis.devStr}</div>
+          <div style={{ fontSize: '10px', color: 'var(--text2)' }}>
+            {analysis.adjPaceSec
+              ? `≈ ${Math.floor(analysis.adjPaceSec / 60)}:${String(Math.round(analysis.adjPaceSec % 60)).padStart(2, '0')} bereinigt`
+              : `Abw. E-Mitte: ${analysis.devStr}`}
+          </div>
         </div>
         <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
           <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Herzfrequenz</div>
