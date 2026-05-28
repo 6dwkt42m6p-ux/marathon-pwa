@@ -58,6 +58,15 @@ export function formatPace(secPerKm: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
+// Temperature performance adjustment (based on ACSM / Havenith research).
+// Returns the fractional pace slowdown due to temperature (0.07 = 7% slower).
+// Optimal zone: 10–15°C. Above 15°C: +0.5%/°C. Below 10°C: +0.2%/°C.
+export function tempAdjFactor(tempC: number): number {
+  if (tempC >= 10 && tempC <= 15) return 0
+  if (tempC > 15) return Math.min((tempC - 15) * 0.005, 0.15)
+  return Math.min((10 - tempC) * 0.002, 0.06)
+}
+
 export function parsePaceToSec(paceStr: string): number | null {
   const match = paceStr.match(/^(\d+):(\d{2})$/)
   if (!match) return null
@@ -128,7 +137,9 @@ export interface RunAnalysis {
   strideDetected: boolean
   maxHrZone:      string | null
   maxHrPct:       number | null
-  hrSpikeBpm:     number | null  // max - avg
+  hrSpikeBpm:     number | null
+  tempNote:       string | null  // temp adjustment info, null when < 1.5% impact
+  adjPaceSec:     number | null  // heat/cold-corrected pace used for zone classification
 }
 
 export function analyzeRun(
@@ -142,9 +153,25 @@ export function analyzeRun(
   phase: string,
   isWorkout = false,
   isTrail = false,
+  tempC?: number,
 ): RunAnalysis {
   const p = trainingPaces(vdot)
   const TOL = 0.02
+
+  // Temperature-adjusted pace: what this effort equals at the optimal 10–15°C range.
+  // Zone classification uses the adjusted value so a hot-day run isn't penalised.
+  const adj      = tempC !== undefined ? tempAdjFactor(tempC) : 0
+  const adjPace  = adj >= 0.015 ? Math.round(paceSec / (1 + adj)) : null
+  const effPace  = adjPace ?? paceSec   // pace used for zone classification
+
+  let tempNote: string | null = null
+  if (adj >= 0.015 && tempC !== undefined) {
+    const pctStr    = `${Math.round(adj * 100)}%`
+    const adjFmtStr = formatPace(effPace)
+    tempNote = tempC > 15
+      ? `🌡️ ${Math.round(tempC)}°C — Pace-Malus ~${pctStr}. Leistungsäquivalent bei 15°C: ${adjFmtStr}/km`
+      : `🥶 ${Math.round(tempC)}°C — Kälteeinfluss ~${pctStr}. Leistungsäquivalent: ${adjFmtStr}/km`
+  }
 
   let zoneCode:  string
   let zoneName:  string
@@ -169,23 +196,23 @@ export function analyzeRun(
     const verdict = '🏔️ Trailrun'
     const note    = `Geländekorrigierte Auswertung — Pace nicht mit Straßenlauf vergleichbar. ${distanceKm >= 20 ? 'Tolle Langstrecke!' : 'Gute Einheit.'}`
     const hrZone  = zoneCode === 'I/R' ? 'Z5' : zoneCode === 'T' ? 'Z4' : zoneCode === 'M' ? 'Z3' : zoneCode === 'E' ? 'Z2' : 'Z1'
-    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null }
+    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null, tempNote, adjPaceSec: adjPace }
   }
 
-  if (paceSec < p.I * (1 + TOL)) {
+  if (effPace < p.I * (1 + TOL)) {
     zoneCode = 'I/R'; zoneName = 'Intervall / Rep';   zoneColor = '#e53935'
-  } else if (paceSec < p.T * (1 + TOL)) {
+  } else if (effPace < p.T * (1 + TOL)) {
     zoneCode = 'T';   zoneName = 'Schwelle (T)';       zoneColor = '#FF9800'
-  } else if (paceSec < p.E_high * (1 - TOL)) {
+  } else if (effPace < p.E_high * (1 - TOL)) {
     zoneCode = 'M';   zoneName = 'Marathon-Pace (M)'; zoneColor = '#FFC107'
-  } else if (paceSec < p.E_low * (1 + TOL)) {
+  } else if (effPace < p.E_low * (1 + TOL)) {
     zoneCode = 'E';   zoneName = 'Easy (E)';           zoneColor = '#4CAF50'
   } else {
     zoneCode = 'Z1';  zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5'
   }
 
   const eCenter = (p.E_high + p.E_low) / 2
-  const devSec  = Math.round(paceSec - eCenter)
+  const devSec  = Math.round(effPace - eCenter)  // deviation uses temp-adjusted pace
   const devStr  = devSec >= 0 ? `+${devSec}s/km` : `${devSec}s/km`
 
   const basePhase = phase.split(' ')[0].split('(')[0].trim()
@@ -254,10 +281,15 @@ export function analyzeRun(
       note    = `Durchschnittspace Easy — korrekt für Stride-Einheit. HF-Spitzen +${Math.round(spikeBpm)} bpm über Ø deuten auf Beschleunigungen hin.`
     }
 
+    // Heat elevates HR by ~0.5 bpm/°C above 15°C — suppress false mismatch warnings in hot conditions
+    const heatHrBpm = tempC !== undefined && tempC > 15 ? Math.round((tempC - 15) * 0.5) : 0
+
     // Mismatch notes (only when no stride detected)
     if (!strideDetected) {
       if ((zoneCode === 'E' || zoneCode === 'Z1') && (hrZone === 'Z4' || hrZone === 'Z5') && !hasSpikes) {
-        hrNote = `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermüdung oder Stress?`
+        hrNote = heatHrBpm >= 3
+          ? `HF ${Math.round(hrPct)}% HFR — bei ${Math.round(tempC!)}°C normal erhöht (+${heatHrBpm} bpm Hitzeeinfluss erwartet).`
+          : `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermüdung oder Stress?`
       } else if ((zoneCode === 'I/R' || zoneCode === 'T') && (hrZone === 'Z1' || hrZone === 'Z2')) {
         hrNote = `HF ${Math.round(hrPct)}% HFR — niedriger als Pace andeutet. Kurze Einheit?`
       } else if (zoneCode === 'M' && hrZone === 'Z2') {
@@ -268,7 +300,7 @@ export function analyzeRun(
     }
   }
 
-  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote, strideDetected, maxHrZone, maxHrPct, hrSpikeBpm }
+  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote, strideDetected, maxHrZone, maxHrPct, hrSpikeBpm, tempNote, adjPaceSec: adjPace }
 }
 
 export interface RideAnalysis {

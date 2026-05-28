@@ -28,6 +28,7 @@ export interface StravaActivity {
   average_speed:     number
   suffer_score?:     number
   workout_type?:     number
+  average_temp?:     number   // °C, only present if device recorded temperature
 }
 
 export function getAuthUrl(): string {
@@ -182,6 +183,7 @@ export interface RunSummary {
   avgHr?:      number
   maxHr?:      number
   elevationM:  number
+  tempC?:      number
 }
 
 export interface ActivitySummary extends RunSummary {
@@ -229,6 +231,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
         avgHr:       a.average_heartrate,
         maxHr:       a.max_heartrate,
         elevationM:  Math.round(a.total_elevation_gain || 0),
+        tempC:       a.average_temp,
         actType,
         isTrail,
         workoutType: a.workout_type,
@@ -426,6 +429,7 @@ export function parseRuns(activities: StravaActivity[]): RunSummary[] {
         avgHr:       a.average_heartrate,
         maxHr:       a.max_heartrate,
         elevationM:  Math.round(a.total_elevation_gain || 0),
+        tempC:       a.average_temp,
       }
     })
     .sort((a, b) => b.date.getTime() - a.date.getTime())
