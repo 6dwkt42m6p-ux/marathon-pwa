@@ -19,6 +19,7 @@ import {
 import { analyzeRun, analyzeRide, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
 import { generatePlan, allWeekSessions, type PlanRow, type WorkoutSession } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
+import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
 
 interface Props {
   settings: AppSettings
@@ -58,6 +59,9 @@ function getPhaseForDate(plan: PlanRow[], date: Date): string {
 
 export default function Analysis({ settings, onGoToSettings }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  const [noteVersion, setNoteVersion] = useState(0)
+
+  function onNoteSaved() { setNoteVersion(v => v + 1) }
 
   const cached      = getCachedActivities()
   const hasStrava   = cached.length > 0
@@ -364,6 +368,8 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           const dateStr = act.date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
           const actIcon = act.isTrail ? '🏔️' : act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
 
+          // noteVersion read ensures the list re-renders after a note is saved
+          const hasNote = noteVersion >= 0 && loadNote(act.id) !== null
           return (
             <div key={act.id} className="activity-card">
               <div
@@ -397,6 +403,9 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                 >
                   {zoneBadgeLabel}
                 </div>
+                {hasNote && (
+                  <span style={{ fontSize: '12px', marginLeft: '2px', flexShrink: 0 }} title="Notiz vorhanden">📝</span>
+                )}
                 <span style={{ fontSize: '10px', color: 'var(--text2)', marginLeft: '4px' }}>
                   {isExpanded ? '▲' : '▼'}
                 </span>
@@ -411,6 +420,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       phase={phase}
                       plannedSession={plannedSession}
                       vdot={settings.vdot}
+                      onNoteSaved={onNoteSaved}
                     />
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />
@@ -705,12 +715,14 @@ function RunDetail({
   phase,
   plannedSession,
   vdot,
+  onNoteSaved,
 }: {
   analysis: ReturnType<typeof analyzeRun>
   act: ActivitySummary
   phase: string
   plannedSession: WorkoutSession | null
   vdot: number
+  onNoteSaved: () => void
 }) {
   const [strideData,    setStrideData]    = useState<StrideAnalysis | null>(null)
   const [loadingStream, setLoadingStream] = useState(false)
@@ -718,6 +730,27 @@ function RunDetail({
   const [lapData,       setLapData]       = useState<WorkoutLapAnalysis | null>(null)
   const [loadingLaps,   setLoadingLaps]   = useState(false)
   const [lapErr,        setLapErr]        = useState<string | null>(null)
+
+  const existingNote                  = loadNote(act.id)
+  const [noteText,   setNoteText]     = useState<string>(existingNote?.text ?? '')
+  const [noteRating, setNoteRating]   = useState<number>(existingNote?.rating ?? 0)
+  const [noteSaved,  setNoteSaved]    = useState<ActivityNote | null>(existingNote)
+
+  function handleSaveNote() {
+    if (!noteText.trim() && noteRating === 0) return
+    saveNote(act.id, noteText.trim(), noteRating)
+    const saved = loadNote(act.id)!
+    setNoteSaved(saved)
+    onNoteSaved()
+  }
+
+  function handleDeleteNote() {
+    deleteNote(act.id)
+    setNoteText('')
+    setNoteRating(0)
+    setNoteSaved(null)
+    onNoteSaved()
+  }
 
   async function loadLaps(vdot: number) {
     setLoadingLaps(true); setLapErr(null)
@@ -971,6 +1004,92 @@ function RunDetail({
           💬 {analysis.hrNote}
         </div>
       )}
+
+      {/* Training note */}
+      <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '10px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text2)', marginBottom: '8px', letterSpacing: '0.04em' }}>
+          📝 NOTIZ & BEFINDEN
+        </div>
+        {/* Star rating */}
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
+          {[1, 2, 3, 4, 5].map(star => (
+            <button
+              key={star}
+              onClick={() => setNoteRating(prev => prev === star ? 0 : star)}
+              style={{
+                fontSize: '20px',
+                background: 'transparent',
+                border: 'none',
+                cursor: 'pointer',
+                padding: '0',
+                lineHeight: 1,
+                opacity: star <= noteRating ? 1 : 0.25,
+              }}
+              aria-label={`Befinden: ${star} von 5`}
+            >
+              ⭐
+            </button>
+          ))}
+        </div>
+        {/* Text input */}
+        <textarea
+          value={noteText}
+          onChange={e => setNoteText(e.target.value)}
+          placeholder="Wie war das Training? Besonderheiten, Müdigkeit, Stimmung…"
+          rows={3}
+          style={{
+            width: '100%',
+            fontSize: '13px',
+            padding: '8px',
+            borderRadius: '6px',
+            border: '1px solid var(--border)',
+            background: 'var(--surface1)',
+            color: 'var(--text1)',
+            resize: 'vertical',
+            boxSizing: 'border-box',
+          }}
+        />
+        {/* Actions */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
+          <button
+            onClick={handleSaveNote}
+            disabled={!noteText.trim() && noteRating === 0}
+            style={{
+              fontSize: '12px',
+              padding: '5px 14px',
+              borderRadius: '8px',
+              border: 'none',
+              background: 'var(--accent)',
+              color: '#fff',
+              cursor: (!noteText.trim() && noteRating === 0) ? 'not-allowed' : 'pointer',
+              opacity: (!noteText.trim() && noteRating === 0) ? 0.5 : 1,
+            }}
+          >
+            Speichern
+          </button>
+          {noteSaved && (
+            <button
+              onClick={handleDeleteNote}
+              style={{
+                fontSize: '12px',
+                padding: '5px 14px',
+                borderRadius: '8px',
+                border: '1px solid var(--border)',
+                background: 'transparent',
+                color: 'var(--text2)',
+                cursor: 'pointer',
+              }}
+            >
+              Löschen
+            </button>
+          )}
+          {noteSaved && (
+            <span style={{ fontSize: '11px', color: '#4CAF50', marginLeft: '4px' }}>
+              ✓ Gespeichert {new Date(noteSaved.savedAt).toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })}
+            </span>
+          )}
+        </div>
+      </div>
     </>
   )
 }

@@ -52,3 +52,30 @@ export function updateSettings(partial: Partial<AppSettings>): AppSettings {
   saveSettings(next)
   return next
 }
+
+// --- Training Notes ---
+
+export interface ActivityNote {
+  text: string
+  rating: number  // 1–5
+  savedAt: string // ISO timestamp
+}
+
+export function loadNote(activityId: number): ActivityNote | null {
+  try {
+    const raw = localStorage.getItem(`note_${activityId}`)
+    if (!raw) return null
+    return JSON.parse(raw) as ActivityNote
+  } catch {
+    return null
+  }
+}
+
+export function saveNote(activityId: number, text: string, rating: number): void {
+  const note: ActivityNote = { text, rating, savedAt: new Date().toISOString() }
+  localStorage.setItem(`note_${activityId}`, JSON.stringify(note))
+}
+
+export function deleteNote(activityId: number): void {
+  localStorage.removeItem(`note_${activityId}`)
+}
