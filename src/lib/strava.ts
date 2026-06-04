@@ -2,7 +2,10 @@
 
 const CLIENT_ID     = import.meta.env.VITE_STRAVA_CLIENT_ID || ''
 const CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET || ''
-const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI || window.location.origin + '/'
+// Use env var if set explicitly, otherwise derive from current origin + Vite BASE_URL
+// This works for both localhost dev and GitHub Pages (/marathon-pwa/) without any secrets config
+const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
+  (window.location.origin + import.meta.env.BASE_URL)
 const TOKEN_KEY     = 'strava_tokens'
 const ACTS_KEY      = 'strava_activities'
 
@@ -242,11 +245,12 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
 }
 
 export interface WeekStats {
-  weekStart:  Date
-  actualKm:   number
-  runs:       number
-  avgHr:      number | null
-  elevationM: number
+  weekStart:   Date
+  actualKm:    number
+  runs:        number
+  avgHr:       number | null
+  elevationM:  number
+  avgPaceSec:  number | null
 }
 
 export function mondayOf(d: Date): Date {
@@ -259,13 +263,15 @@ export function mondayOf(d: Date): Date {
 }
 
 export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
-  const map = new Map<string, WeekStats>()
+  const map     = new Map<string, WeekStats>()
+  const paceMap = new Map<string, number[]>()
 
   for (const r of runs) {
     const ws  = mondayOf(r.date)
     const key = ws.toISOString().slice(0, 10)
     if (!map.has(key)) {
-      map.set(key, { weekStart: ws, actualKm: 0, runs: 0, avgHr: null, elevationM: 0 })
+      map.set(key, { weekStart: ws, actualKm: 0, runs: 0, avgHr: null, elevationM: 0, avgPaceSec: null })
+      paceMap.set(key, [])
     }
     const s = map.get(key)!
     s.actualKm   += r.distanceKm
@@ -274,10 +280,17 @@ export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
     if (r.avgHr) {
       s.avgHr = s.avgHr === null ? r.avgHr : (s.avgHr + r.avgHr) / 2
     }
+    if (r.paceSec > 0 && r.distanceKm >= 2) paceMap.get(key)!.push(r.paceSec)
   }
 
   return Array.from(map.values())
-    .map(s => ({ ...s, actualKm: Math.round(s.actualKm * 10) / 10 }))
+    .map(s => {
+      const paces = paceMap.get(s.weekStart.toISOString().slice(0, 10)) ?? []
+      const avgPaceSec = paces.length > 0
+        ? Math.round(paces.reduce((a, b) => a + b, 0) / paces.length)
+        : null
+      return { ...s, actualKm: Math.round(s.actualKm * 10) / 10, avgPaceSec }
+    })
     .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
 }
 
@@ -398,6 +411,79 @@ export function vdotTrendFromActivities(
   return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, easyHrTrend }
 }
 
+export interface SportWeekStats {
+  km:          number
+  durationSec: number
+  count:       number
+  elevationM:  number
+}
+
+export function thisWeekStatsBySport(activities: StravaActivity[]): Record<'run' | 'ride' | 'hike' | 'swim', SportWeekStats> {
+  const now    = new Date()
+  const monday = mondayOf(now)
+  const week   = activities.filter(a => {
+    const d = new Date(a.start_date_local || a.start_date)
+    return d >= monday && d <= now
+  })
+  const stats = (filter: (a: StravaActivity) => boolean): SportWeekStats => {
+    const acts = week.filter(filter)
+    return {
+      km:          Math.round(acts.reduce((s, a) => s + (a.distance || 0) / 1000, 0) * 10) / 10,
+      durationSec: acts.reduce((s, a) => s + (a.moving_time || 0), 0),
+      count:       acts.length,
+      elevationM:  Math.round(acts.reduce((s, a) => s + (a.total_elevation_gain || 0), 0)),
+    }
+  }
+  return {
+    run:  stats(isRunType),
+    ride: stats(isRideType),
+    hike: stats(isHikeType),
+    swim: stats(a => a.type === 'Swim' || a.sport_type === 'Swim'),
+  }
+}
+
+export interface SportWeeklyStats {
+  weekStart: Date
+  runKm:   number
+  rideKm:  number
+  hikeKm:  number
+  runH:    number
+  rideH:   number
+  hikeH:   number
+}
+
+export function computeWeeklyStatsBySport(activities: StravaActivity[], weeksBack = 52): SportWeeklyStats[] {
+  const now    = new Date()
+  const cutoff = new Date(now.getTime() - weeksBack * 7 * 24 * 3600 * 1000)
+  const map    = new Map<string, SportWeeklyStats>()
+
+  for (const a of activities) {
+    const d = new Date(a.start_date_local || a.start_date)
+    if (d < cutoff) continue
+    const ws  = mondayOf(d)
+    const key = ws.toISOString().slice(0, 10)
+    if (!map.has(key)) map.set(key, { weekStart: ws, runKm: 0, rideKm: 0, hikeKm: 0, runH: 0, rideH: 0, hikeH: 0 })
+    const s  = map.get(key)!
+    const km = (a.distance || 0) / 1000
+    const h  = (a.moving_time || 0) / 3600
+    if (isRunType(a))  { s.runKm  += km; s.runH  += h }
+    if (isRideType(a)) { s.rideKm += km; s.rideH += h }
+    if (isHikeType(a)) { s.hikeKm += km; s.hikeH += h }
+  }
+
+  return Array.from(map.values())
+    .map(s => ({
+      ...s,
+      runKm:  Math.round(s.runKm  * 10) / 10,
+      rideKm: Math.round(s.rideKm * 10) / 10,
+      hikeKm: Math.round(s.hikeKm * 10) / 10,
+      runH:   Math.round(s.runH   * 100) / 100,
+      rideH:  Math.round(s.rideH  * 100) / 100,
+      hikeH:  Math.round(s.hikeH  * 100) / 100,
+    }))
+    .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
+}
+
 export function thisWeekKm(activities: StravaActivity[]): number {
   const now    = new Date()
   const monday = mondayOf(now)
@@ -462,6 +548,17 @@ export async function fetchActivityStreams(activityId: number): Promise<Activity
     altitude:        raw.altitude?.data,
     distance:        raw.distance?.data,
   }
+}
+
+export async function fetchActivityLaps(activityId: number): Promise<any[] | null> {
+  const token = await getValidToken()
+  if (!token) return null
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${activityId}/laps`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (!res.ok) return null
+  return res.json()
 }
 
 // ── Stride detection from velocity stream ────────────────────────────────────

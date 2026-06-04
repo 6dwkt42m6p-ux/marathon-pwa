@@ -4,16 +4,18 @@ import {
   parseRuns,
   parseAllActivities,
   computeWeeklyStats,
+  computeWeeklyStatsBySport,
   vdotTrendFromActivities,
-  thisWeekKm,
+  thisWeekStatsBySport,
   mondayOf,
   DAY_TAGS,
   fetchActivityStreams,
+  fetchActivityLaps,
   detectStrides,
   type ActivitySummary,
   type StrideAnalysis,
 } from '../lib/strava'
-import { analyzeRun, analyzeRide } from '../lib/vdot'
+import { analyzeRun, analyzeRide, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
 import { generatePlan, allWeekSessions, type PlanRow, type WorkoutSession } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
@@ -68,13 +70,16 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const plan        = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
   const currentRow  = plan.find(r => r.isCurrent)
 
-  const actualKmThisWeek = hasStrava ? Math.round(thisWeekKm(cached) * 10) / 10 : 0
+  const weeklyStats  = computeWeeklyStats(runs)
+  const last8Weeks   = weeklyStats.slice(-8)
+  const last12Weeks  = weeklyStats.slice(-12)
+  const sportWeekly  = computeWeeklyStatsBySport(cached)
+  const weekStats    = thisWeekStatsBySport(cached)
+
+  const actualKmThisWeek = hasStrava ? weekStats.run.km : 0
   const plannedKm        = currentRow?.plannedKm ?? 0
   const progressPct      = plannedKm > 0 ? Math.min(100, (actualKmThisWeek / plannedKm) * 100) : 0
   const progressColor    = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
-
-  const weeklyStats  = computeWeeklyStats(runs)
-  const last8Weeks   = weeklyStats.slice(-8)
 
   // Build planned km map per week
   const planWeekMap = new Map<string, number>()
@@ -95,12 +100,13 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
     }),
     1,
   )
-
-  // Count this week's runs
-  const thisWeekRuns = useRunCount(cached)
-
-  // Count this week's elevation
-  const thisWeekElev = useElevationSum(cached)
+  const maxChart12Km = Math.max(
+    ...last12Weeks.map(w => {
+      const key = w.weekStart.toISOString().slice(0, 10)
+      return Math.max(w.actualKm, planWeekMap.get(key) ?? 0)
+    }),
+    1,
+  )
 
   function toggleExpand(id: number) {
     setExpandedId(prev => (prev === id ? null : id))
@@ -136,11 +142,11 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             <span className="kpi-label">km geplant</span>
           </div>
           <div className="kpi-tile">
-            <span className="kpi-value">{thisWeekRuns}</span>
+            <span className="kpi-value">{weekStats.run.count}</span>
             <span className="kpi-label">Einheiten</span>
           </div>
           <div className="kpi-tile">
-            <span className="kpi-value">{thisWeekElev}</span>
+            <span className="kpi-value">{weekStats.run.elevationM}</span>
             <span className="kpi-label">m Höhe</span>
           </div>
         </div>
@@ -153,6 +159,20 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             style={{ width: `${progressPct}%`, background: progressColor }}
           />
         </div>
+        {/* Cross-sport row */}
+        {(weekStats.ride.count > 0 || weekStats.hike.count > 0 || weekStats.swim.count > 0) && (
+          <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text2)' }}>
+            {weekStats.ride.count > 0 && (
+              <span>🚴 <strong style={{ color: '#17a2b8' }}>{weekStats.ride.km} km</strong> · {Math.round(weekStats.ride.durationSec / 3600 * 10) / 10} h</span>
+            )}
+            {weekStats.hike.count > 0 && (
+              <span>🥾 <strong style={{ color: '#28a745' }}>{weekStats.hike.km} km</strong> · ↑ {weekStats.hike.elevationM} m</span>
+            )}
+            {weekStats.swim.count > 0 && (
+              <span>🏊 <strong style={{ color: '#00B4D8' }}>{weekStats.swim.km} km</strong></span>
+            )}
+          </div>
+        )}
         {currentRow && (
           <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '6px' }}>
             {currentRow.phase} · Woche {currentRow.weekNr}/{plan.length - 1}
@@ -318,6 +338,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       act={act}
                       phase={phase}
                       plannedSession={plannedSession}
+                      vdot={settings.vdot}
                     />
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />
@@ -337,6 +358,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
       {last8Weeks.length > 0 && (
         <>
           <div className="section-title">Wöchentliche km (letzte 8 Wochen)</div>
+
           <div className="activity-card" style={{ padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text2)', marginBottom: '8px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -373,6 +395,178 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           </div>
         </>
       )}
+
+      {/* E: Langzeit-Statistiken */}
+      {weeklyStats.length >= 4 && (() => {
+        const totalKm    = Math.round(weeklyStats.reduce((s, w) => s + w.actualKm, 0))
+        const avgKmWeek  = Math.round(totalKm / weeklyStats.length * 10) / 10
+        const maxKmWeek  = Math.max(...weeklyStats.map(w => w.actualKm))
+        const peakWeek   = weeklyStats.find(w => w.actualKm === maxKmWeek)
+        return (
+          <>
+            <div className="section-title">Langzeit-Statistiken (52 Wochen)</div>
+            <div className="activity-card" style={{ padding: '12px' }}>
+              <div className="kpi-row" style={{ marginBottom: '10px' }}>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{avgKmWeek}</span>
+                  <span className="kpi-label">Ø km/Woche</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{maxKmWeek}</span>
+                  <span className="kpi-label">Max km/Woche</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{totalKm}</span>
+                  <span className="kpi-label">Gesamt km</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{weeklyStats.length}</span>
+                  <span className="kpi-label">Aktive Wochen</span>
+                </div>
+              </div>
+              {peakWeek && (
+                <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '8px' }}>
+                  Aktivste Woche: {isoWeek(peakWeek.weekStart)} · {peakWeek.actualKm} km
+                </div>
+              )}
+              {/* Extended 12-week chart */}
+              <div className="weekly-chart">
+                {last12Weeks.map(week => {
+                  const key       = week.weekStart.toISOString().slice(0, 10)
+                  const plannedW  = planWeekMap.get(key) ?? 0
+                  const planPct   = Math.min(100, (plannedW / maxChart12Km) * 100)
+                  const actPct    = Math.min(100, (week.actualKm / maxChart12Km) * 100)
+                  return (
+                    <div key={key} className="weekly-chart-row">
+                      <div className="weekly-chart-label">{isoWeek(week.weekStart)}</div>
+                      <div className="weekly-chart-bars">
+                        <div className="chart-bar-planned" style={{ width: `${planPct}%` }} />
+                        <div className="chart-bar-actual"  style={{ width: `${actPct}%`  }} />
+                      </div>
+                      <div className="weekly-chart-km">
+                        <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{week.actualKm}</span>
+                        <span style={{ color: 'var(--text2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* F: Trainingsverteilung */}
+      {sportWeekly.length > 0 && (() => {
+        const runKmTotal  = Math.round(sportWeekly.reduce((s, w) => s + w.runKm,  0))
+        const rideKmTotal = Math.round(sportWeekly.reduce((s, w) => s + w.rideKm, 0))
+        const hikeKmTotal = Math.round(sportWeekly.reduce((s, w) => s + w.hikeKm, 0))
+        const runH  = Math.round(sportWeekly.reduce((s, w) => s + w.runH,  0) * 10) / 10
+        const rideH = Math.round(sportWeekly.reduce((s, w) => s + w.rideH, 0) * 10) / 10
+        const hikeH = Math.round(sportWeekly.reduce((s, w) => s + w.hikeH, 0) * 10) / 10
+        const totalKm = runKmTotal + rideKmTotal + hikeKmTotal
+        if (totalKm === 0) return null
+        const sports = [
+          { icon: '🏃', label: 'Laufen',    km: runKmTotal,  h: runH,  color: 'var(--accent)' },
+          { icon: '🚴', label: 'Radfahren', km: rideKmTotal, h: rideH, color: '#17a2b8' },
+          { icon: '🥾', label: 'Wandern',   km: hikeKmTotal, h: hikeH, color: '#28a745' },
+        ].filter(s => s.km > 0)
+        return (
+          <>
+            <div className="section-title">Trainingsverteilung (52 Wochen)</div>
+            <div className="activity-card" style={{ padding: '12px' }}>
+              {sports.map(sport => (
+                <div key={sport.label} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
+                  <span style={{ fontSize: '18px', width: '26px' }}>{sport.icon}</span>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
+                      <span style={{ fontWeight: 600 }}>{sport.label}</span>
+                      <span style={{ color: 'var(--text2)' }}>{sport.km} km · {sport.h} h</span>
+                    </div>
+                    <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: sport.color, borderRadius: '3px', width: `${Math.min(100, sport.km / totalKm * 100)}%` }} />
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '11px', color: 'var(--text2)', minWidth: '34px', textAlign: 'right' }}>
+                    {Math.round(sport.km / totalKm * 100)}%
+                  </span>
+                </div>
+              ))}
+            </div>
+          </>
+        )
+      })()}
+
+      {/* G: Pace/HF-Trend-Tabelle */}
+      {weeklyStats.length >= 4 && (() => {
+        const trendRows = weeklyStats.filter(w => w.runs > 0).slice(-12)
+        if (trendRows.length < 4) return null
+        return (
+          <>
+            <div className="section-title">Pace &amp; HF-Trend (letzte Wochen)</div>
+            <div className="activity-card" style={{ padding: '12px', overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
+                <thead>
+                  <tr style={{ color: 'var(--text2)' }}>
+                    <th style={{ textAlign: 'left',  padding: '3px 4px', fontWeight: 600 }}>Woche</th>
+                    <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>km</th>
+                    <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>Läufe</th>
+                    <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>Ø Pace</th>
+                    <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>Ø HF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trendRows.map(w => {
+                    const key = w.weekStart.toISOString().slice(0, 10)
+                    const isCurrent = planWeekMap.has(key)
+                    return (
+                      <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
+                        <td style={{ padding: '4px', color: isCurrent ? 'var(--accent)' : 'var(--text2)', fontWeight: isCurrent ? 700 : 400 }}>{isoWeek(w.weekStart)}</td>
+                        <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>{w.actualKm}</td>
+                        <td style={{ padding: '4px', textAlign: 'right', color: 'var(--text2)' }}>{w.runs}</td>
+                        <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgPaceSec ? fmt(w.avgPaceSec) : '—'}</td>
+                        <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgHr ? Math.round(w.avgHr) : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* H: Wandern & Trekking */}
+      {(() => {
+        const hikeActs = allActs.filter(a => a.actType === 'hike')
+        if (hikeActs.length === 0) return null
+        const hikeKmTotal  = Math.round(hikeActs.reduce((s, a) => s + a.distanceKm, 0))
+        const hikeElevTotal = Math.round(hikeActs.reduce((s, a) => s + a.elevationM, 0))
+        return (
+          <>
+            <div className="section-title">🥾 Wandern &amp; Trekking (52 Wochen)</div>
+            <div className="activity-card" style={{ padding: '12px' }}>
+              <div className="kpi-row">
+                <div className="kpi-tile">
+                  <span className="kpi-value">{hikeActs.length}</span>
+                  <span className="kpi-label">Wanderungen</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{hikeKmTotal}</span>
+                  <span className="kpi-label">km gesamt</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{hikeElevTotal}</span>
+                  <span className="kpi-label">m Höhe gesamt</span>
+                </div>
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '8px' }}>
+                💡 Wandern zählt als aerobe Zusatzbelastung — Höhenmeter stärken die kardiale Grundlage.
+              </div>
+            </div>
+          </>
+        )
+      })()}
     </div>
   )
 }
@@ -438,15 +632,32 @@ function RunDetail({
   act,
   phase,
   plannedSession,
+  vdot,
 }: {
   analysis: ReturnType<typeof analyzeRun>
   act: ActivitySummary
   phase: string
   plannedSession: WorkoutSession | null
+  vdot: number
 }) {
   const [strideData,    setStrideData]    = useState<StrideAnalysis | null>(null)
   const [loadingStream, setLoadingStream] = useState(false)
   const [streamErr,     setStreamErr]     = useState<string | null>(null)
+  const [lapData,       setLapData]       = useState<WorkoutLapAnalysis | null>(null)
+  const [loadingLaps,   setLoadingLaps]   = useState(false)
+  const [lapErr,        setLapErr]        = useState<string | null>(null)
+
+  async function loadLaps(vdot: number) {
+    setLoadingLaps(true); setLapErr(null)
+    try {
+      const laps = await fetchActivityLaps(act.id)
+      if (!laps || laps.length === 0) { setLapErr('Keine Lap-Daten verfügbar — bitte Lap-Taste auf der Uhr nutzen.'); return }
+      const result = analyzeWorkoutLaps(laps, vdot)
+      if (!result) setLapErr('Zu wenige Laps für Intervallauswertung.')
+      else         setLapData(result)
+    } catch { setLapErr('Fehler beim Laden der Lap-Daten.') }
+    finally   { setLoadingLaps(false) }
+  }
 
   async function loadStreams() {
     setLoadingStream(true); setStreamErr(null)
@@ -595,6 +806,69 @@ function RunDetail({
         </div>
       )}
 
+      {/* Workout Lap Analysis */}
+      {(act.workoutType ?? 0) > 1 && (
+        <div style={{ background: '#FFC10722', border: '1px solid #FFC10744', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: lapData ? '8px' : '0' }}>
+            <span style={{ fontWeight: 700, color: '#FFC107' }}>🏋️ Intervallauswertung</span>
+            {!lapData && (
+              <button
+                style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', border: '1px solid #FFC107', background: 'transparent', color: '#FFC107', cursor: 'pointer' }}
+                onClick={() => loadLaps(vdot)}
+                disabled={loadingLaps}
+              >
+                {loadingLaps ? '⏳ Lädt…' : '📊 Laps laden'}
+              </button>
+            )}
+          </div>
+          {lapErr && <div style={{ color: '#e53935', fontSize: '11px' }}>{lapErr}</div>}
+          {lapData && (
+            <>
+              {lapData.isAutoSplit ? (
+                <div style={{ color: 'var(--text2)', fontSize: '11px' }}>
+                  ℹ️ Nur automatische 1km-Splits erkannt — für Intervallauswertung bitte Lap-Taste auf der Uhr drücken.
+                </div>
+              ) : (
+                <>
+                  <div style={{ color: 'var(--text2)', marginBottom: '6px', lineHeight: 1.5 }}>
+                    {lapData.wuNote} · {lapData.cdNote}<br />{lapData.rvNote}
+                  </div>
+                  {lapData.nIntervals > 0 && (
+                    <div style={{ borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>
+                        {lapData.nIntervals} INTERVALLE · ZIEL {lapData.iPaceTarget} /km
+                      </div>
+                      {lapData.intervals.map((iv, i) => (
+                        <div key={i} style={{ lineHeight: 1.6, color: iv.dev <= 6 ? '#4CAF50' : iv.dev > 15 ? '#e53935' : '#FFC107' }}>
+                          #{i + 1} {iv.verdict}{iv.hrStr}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {lapData.laps.length > 0 && (
+                    <div style={{ marginTop: '8px', borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>ALLE LAPS</div>
+                      {lapData.laps.map((lp, i) => {
+                        const roleColor: Record<string, string> = { warmup: '#42A5F5', interval: '#e53935', recovery: '#4CAF50', cooldown: '#42A5F5', easy: 'var(--text2)' }
+                        return (
+                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center', lineHeight: 1.7 }}>
+                            <span style={{ color: roleColor[lp.role] ?? 'var(--text2)', minWidth: '18px', fontWeight: 600 }}>#{lp.idx}</span>
+                            <span style={{ color: roleColor[lp.role], fontSize: '10px', minWidth: '56px' }}>{lp.role}</span>
+                            <span style={{ color: 'var(--text1)', fontWeight: lp.role === 'interval' ? 700 : 400 }}>{lp.paceFmt}</span>
+                            <span>{lp.distKm} km</span>
+                            {lp.avgHr && <span>♡ {Math.round(lp.avgHr)}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* Plan-Check */}
       {plannedSession && (() => {
         const checks = planCheck(plannedSession, act, strideData, analysis)
@@ -668,30 +942,3 @@ function RideDetail({
   )
 }
 
-// Hooks to compute this-week stats from cached activities
-
-function useRunCount(activities: ReturnType<typeof getCachedActivities>): number {
-  const now    = new Date()
-  const day    = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  monday.setHours(0, 0, 0, 0)
-  return activities.filter(a => {
-    const isRun = a.type === 'Run' || a.sport_type === 'Run' || a.type === 'TrailRun' || a.sport_type === 'TrailRun'
-    const d = new Date(a.start_date_local || a.start_date)
-    return isRun && d >= monday && d <= now
-  }).length
-}
-
-function useElevationSum(activities: ReturnType<typeof getCachedActivities>): number {
-  const now    = new Date()
-  const day    = now.getDay()
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (day === 0 ? 6 : day - 1))
-  monday.setHours(0, 0, 0, 0)
-  return activities.filter(a => {
-    const isRun = a.type === 'Run' || a.sport_type === 'Run' || a.type === 'TrailRun' || a.sport_type === 'TrailRun'
-    const d = new Date(a.start_date_local || a.start_date)
-    return isRun && d >= monday && d <= now
-  }).reduce((s, a) => s + Math.round(a.total_elevation_gain || 0), 0)
-}
