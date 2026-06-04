@@ -4,7 +4,7 @@ import { saveSettings } from '../lib/storage'
 import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
-  syncActivities, loadTokens,
+  syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
 } from '../lib/strava'
 import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
@@ -56,17 +56,33 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [syncMsg,   setSyncMsg]  = useState<string | null>(null)
   const [stravaErr, setStravaErr] = useState<string | null>(null)
 
-  // Handle OAuth redirect
+  // Handle OAuth redirect — exchange code, then auto-sync
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     if (code && !authed) {
       exchangeCode(code)
-        .then(() => {
+        .then(async () => {
           setAuthed(true)
-          window.history.replaceState({}, '', '/')
+          window.history.replaceState({}, '', window.location.pathname)
+          setSyncing(true)
+          try {
+            await syncActivities(52)
+            setSyncMsg('Aktivitäten synchronisiert ✓')
+            setTimeout(() => setSyncMsg(null), 4000)
+          } catch (e) {
+            setStravaErr(`Sync fehlgeschlagen: ${String(e)}`)
+          } finally {
+            setSyncing(false)
+          }
         })
-        .catch(e => setStravaErr(String(e)))
+        .catch(e => {
+          const msg = String(e)
+          if (msg.includes('400') || msg.includes('401'))
+            setStravaErr('Verbindung fehlgeschlagen — Strava hat den Code abgelehnt. Bitte erneut versuchen.')
+          else
+            setStravaErr(`Verbindung fehlgeschlagen: ${msg}`)
+        })
     }
   }, [authed])
 
@@ -96,6 +112,10 @@ export default function Settings({ settings, onUpdate }: Props) {
 
   const tokens     = loadTokens()
   const athleteName = tokens?.athlete ? `${tokens.athlete.firstname} ${tokens.athlete.lastname}` : null
+  const tokenExpiry = tokens?.expires_at
+    ? new Date(tokens.expires_at * 1000).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null
+  const cachedCount = getCachedActivities().length
 
   function update<K extends keyof AppSettings>(key: K, val: AppSettings[K]) {
     setS(prev => ({ ...prev, [key]: val }))
@@ -155,6 +175,11 @@ export default function Settings({ settings, onUpdate }: Props) {
           <button className="btn-strava" onClick={handleStravaConnect}>
             Mit Strava verbinden
           </button>
+          <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '8px', lineHeight: 1.6 }}>
+            <div>Redirect URI: <code style={{ fontSize: '10px' }}>{REDIRECT_URI}</code></div>
+            <div>Diese Domain muss in deiner <a href="https://www.strava.com/settings/api" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Strava API App</a> eingetragen sein.</div>
+          </div>
+          {stravaErr && <div className="error-box">{stravaErr}</div>}
         </div>
       ) : (
         <div className="settings-group">
@@ -164,6 +189,10 @@ export default function Settings({ settings, onUpdate }: Props) {
               <div style={{ fontWeight: 700, fontSize: '14px' }}>Strava verbunden</div>
               {athleteName && <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{athleteName}</div>}
             </div>
+          </div>
+          <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.8 }}>
+            {cachedCount > 0 && <div>📦 {cachedCount} Aktivitäten im Cache</div>}
+            {tokenExpiry && <div>🔑 Token gültig bis {tokenExpiry}</div>}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button

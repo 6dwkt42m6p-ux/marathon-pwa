@@ -20,7 +20,8 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export default function App() {
-  const [tab, setTab]           = useState<Tab>('today')
+  const hasOAuthCode = new URLSearchParams(window.location.search).has('code')
+  const [tab, setTab]           = useState<Tab>(hasOAuthCode ? 'settings' : 'today')
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
 
   // On startup: pull sync data from GitHub and apply
