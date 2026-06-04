@@ -142,25 +142,63 @@ export default function Settings({ settings, onUpdate }: Props) {
   }
 
   // Quick VDOT from a recent race result
-  const [raceDist, setRaceDist] = useState('21.1')
-  const [raceTime, setRaceTime] = useState('')
-  const [calcVdot, setCalcVdot] = useState<number | null>(null)
+  const [raceDist,  setRaceDist]  = useState('21.1')
+  const [raceTime,  setRaceTime]  = useState('')
+  const [raceName,  setRaceName]  = useState('')
+  const [calcVdot,  setCalcVdot]  = useState<number | null>(null)
+  const [raceErr,   setRaceErr]   = useState<string | null>(null)
+  const [vdotApplied, setVdotApplied] = useState<{ from: number; to: number } | null>(null)
+
+  function parseRaceTimeSec(raw: string): number {
+    const parts = raw.trim().split(':').map(Number)
+    if (parts.some(isNaN)) return 0
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2]
+    if (parts.length === 2) return parts[0] * 60 + parts[1]
+    return 0
+  }
 
   function calcFromRace() {
+    setRaceErr(null)
+    setCalcVdot(null)
     const distKm = parseFloat(raceDist)
-    const parts = raceTime.split(':').map(Number)
-    let timeSec = 0
-    if (parts.length === 3) timeSec = parts[0] * 3600 + parts[1] * 60 + parts[2]
-    else if (parts.length === 2) timeSec = parts[0] * 60 + parts[1]
-    if (!distKm || !timeSec) return
+    if (isNaN(distKm) || distKm < 1 || distKm > 100) {
+      setRaceErr('Distanz muss zwischen 1 km und 100 km liegen.')
+      return
+    }
+    const timeSec = parseRaceTimeSec(raceTime)
+    if (!timeSec || timeSec < 120 || timeSec > 43200) {
+      setRaceErr('Zeit muss zwischen 2 Minuten (0:02:00) und 12 Stunden (12:00:00) liegen.')
+      return
+    }
     try {
       const v = vdotFromRace(distKm * 1000, timeSec)
       if (v > 20 && v < 85) setCalcVdot(Math.round(v * 10) / 10)
-    } catch {}
+      else setRaceErr('Berechneter VDOT außerhalb des gültigen Bereichs (20–85).')
+    } catch { setRaceErr('Berechnung fehlgeschlagen — Eingaben prüfen.') }
   }
 
   function applyCalcVdot() {
-    if (calcVdot) { update('vdot', calcVdot); setCalcVdot(null) }
+    if (!calcVdot) return
+    const prev = s.vdot
+    const updated = { ...s, vdot: calcVdot }
+    setS(updated)
+    saveSettings(updated)
+    onUpdate(updated)
+    setVdotApplied({ from: prev, to: calcVdot })
+    setCalcVdot(null)
+    setTimeout(() => setVdotApplied(null), 3000)
+  }
+
+  function raceResultLabel(): string {
+    const distKm = parseFloat(raceDist)
+    const timeSec = parseRaceTimeSec(raceTime)
+    const h = Math.floor(timeSec / 3600)
+    const m = Math.floor((timeSec % 3600) / 60)
+    const sec = timeSec % 60
+    const timeFormatted = `${h ? h + ':' : ''}${String(m).padStart(h ? 2 : 1, '0')}:${String(sec).padStart(2, '0')}`
+    const distLabel = distKm === 21.1 ? 'HM' : distKm === 42.195 ? 'Marathon' : `${distKm} km`
+    const prefix = raceName.trim() || distLabel
+    return `${prefix} ${timeFormatted}`
   }
 
   const paces = buildPaceTable(s.vdot)
@@ -306,6 +344,16 @@ export default function Settings({ settings, onUpdate }: Props) {
       {/* VDOT calculator */}
       <div className="section-title">VDOT aus Rennergebnis</div>
       <div className="vdot-calc">
+        <label className="setting-label">
+          Rennen (optional)
+          <input
+            type="text"
+            className="setting-input"
+            value={raceName}
+            placeholder="z.B. HM Wien"
+            onChange={e => { setRaceName(e.target.value); setRaceErr(null); setCalcVdot(null) }}
+          />
+        </label>
         <div className="calc-row">
           <label className="setting-label">
             Distanz (km)
@@ -314,7 +362,9 @@ export default function Settings({ settings, onUpdate }: Props) {
               className="setting-input small"
               value={raceDist}
               step="0.1"
-              onChange={e => setRaceDist(e.target.value)}
+              min="1"
+              max="100"
+              onChange={e => { setRaceDist(e.target.value); setRaceErr(null); setCalcVdot(null) }}
             />
           </label>
           <label className="setting-label">
@@ -324,15 +374,21 @@ export default function Settings({ settings, onUpdate }: Props) {
               className="setting-input small"
               value={raceTime}
               placeholder="1:29:45"
-              onChange={e => setRaceTime(e.target.value)}
+              onChange={e => { setRaceTime(e.target.value); setRaceErr(null); setCalcVdot(null) }}
             />
           </label>
         </div>
         <button className="btn-secondary" onClick={calcFromRace}>Berechnen</button>
+        {raceErr && <div className="error-box">{raceErr}</div>}
         {calcVdot && (
           <div className="calc-result">
-            VDOT = <strong>{calcVdot}</strong>
+            <span>{raceResultLabel()} → VDOT <strong>{calcVdot}</strong> (vorher: {s.vdot})</span>
             <button className="btn-small btn-primary" onClick={applyCalcVdot}>Übernehmen</button>
+          </div>
+        )}
+        {vdotApplied && (
+          <div style={{ fontSize: '12px', color: 'var(--green)' }}>
+            VDOT aktualisiert: {vdotApplied.from} → {vdotApplied.to}
           </div>
         )}
       </div>
