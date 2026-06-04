@@ -484,6 +484,59 @@ export function computeWeeklyStatsBySport(activities: StravaActivity[], weeksBac
     .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
 }
 
+export interface AtlCtlResult {
+  atl: number
+  ctl: number
+  tsb: number
+}
+
+function activityLoad(a: StravaActivity): number {
+  if (a.suffer_score != null && a.suffer_score > 0) return a.suffer_score
+  const durationMin = (a.moving_time || 0) / 60
+  // workout_type: 0/1 = easy/default, 2 = run, 3 = long, 10 = race, 11 = interval, 12 = tempo
+  let intensityFactor = 1.0
+  const wt = a.workout_type ?? 0
+  if (wt === 11) intensityFactor = 2.0        // interval
+  else if (wt === 12 || wt === 10) intensityFactor = 1.5  // tempo / race
+  return Math.round(durationMin * intensityFactor)
+}
+
+export function computeAtlCtl(activities: StravaActivity[]): AtlCtlResult {
+  if (!activities.length) return { atl: 0, ctl: 0, tsb: 0 }
+
+  // Build a map of load per calendar day (ISO date string → total load)
+  const dayMap = new Map<string, number>()
+  for (const a of activities) {
+    const day = (a.start_date_local || a.start_date).slice(0, 10)
+    dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a))
+  }
+
+  // Determine date range: oldest activity → today
+  const dates = Array.from(dayMap.keys()).sort()
+  const startDate = new Date(dates[0])
+  const today     = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  const K_CTL = 1 / 42
+  const K_ATL = 1 / 7
+
+  let ctl = 0
+  let atl = 0
+
+  for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+    const key  = d.toISOString().slice(0, 10)
+    const load = dayMap.get(key) ?? 0
+    ctl = ctl * (1 - K_CTL) + load * K_CTL
+    atl = atl * (1 - K_ATL) + load * K_ATL
+  }
+
+  return {
+    atl: Math.round(atl * 10) / 10,
+    ctl: Math.round(ctl * 10) / 10,
+    tsb: Math.round((ctl - atl) * 10) / 10,
+  }
+}
+
 export function thisWeekKm(activities: StravaActivity[]): number {
   const now    = new Date()
   const monday = mondayOf(now)
