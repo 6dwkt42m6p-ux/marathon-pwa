@@ -7,6 +7,7 @@ import {
   computeWeeklyStatsBySport,
   vdotTrendFromActivities,
   thisWeekStatsBySport,
+  computeAtlCtl,
   mondayOf,
   DAY_TAGS,
   fetchActivityStreams,
@@ -88,9 +89,10 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
     planWeekMap.set(key, row.plannedKm)
   }
 
-  const trend = hasStrava
+  const trend   = hasStrava
     ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr)
     : null
+  const tsbData = hasStrava ? computeAtlCtl(cached) : null
 
   // Max planned km for chart scaling
   const maxChartKm = Math.max(
@@ -180,7 +182,77 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )}
       </div>
 
-      {/* B: Fitnesstrend */}
+      {/* B: Trainingsform (TSB) */}
+      {tsbData && (() => {
+        const { atl, ctl, tsb } = tsbData
+        let tsbColor: string
+        let tsbLabel: string
+        let tsbIcon: string
+        if      (tsb < -30) { tsbColor = '#e53935'; tsbLabel = 'Überbelastung';  tsbIcon = '🔴' }
+        else if (tsb < 0)   { tsbColor = '#FFC107'; tsbLabel = 'Aufbau';         tsbIcon = '🟡' }
+        else if (tsb <= 20) { tsbColor = '#4CAF50'; tsbLabel = 'Fit';            tsbIcon = '🟢' }
+        else                { tsbColor = '#3b82f6'; tsbLabel = 'Rennform';       tsbIcon = '🏁' }
+        return (
+          <>
+            <div className="section-title">Trainingsform (TSB)</div>
+            <div className="activity-card" style={{ padding: '12px' }}>
+              <div className="kpi-row" style={{ marginBottom: '10px' }}>
+                <div className="kpi-tile">
+                  <span className="kpi-value" style={{ color: tsbColor }}>{tsb > 0 ? '+' : ''}{tsb}</span>
+                  <span className="kpi-label">TSB</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{ctl}</span>
+                  <span className="kpi-label">CTL (42d)</span>
+                </div>
+                <div className="kpi-tile">
+                  <span className="kpi-value">{atl}</span>
+                  <span className="kpi-label">ATL (7d)</span>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '18px' }}>{tsbIcon}</span>
+                <div>
+                  <span style={{ fontSize: '14px', fontWeight: 700, color: tsbColor }}>{tsbLabel}</span>
+                  <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '2px' }}>
+                    TSB = CTL − ATL · positiv = frisch, negativ = ermüdet
+                  </div>
+                </div>
+              </div>
+              {/* TSB scale bar */}
+              <div style={{ marginTop: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text2)', marginBottom: '3px' }}>
+                  <span>−50</span>
+                  <span>−30</span>
+                  <span>0</span>
+                  <span>+20</span>
+                  <span>+50</span>
+                </div>
+                <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', position: 'relative', overflow: 'visible' }}>
+                  {/* Colored segments */}
+                  <div style={{ position: 'absolute', left: '0%',   width: '20%', height: '100%', background: '#e5393533', borderRadius: '3px 0 0 3px' }} />
+                  <div style={{ position: 'absolute', left: '20%',  width: '30%', height: '100%', background: '#FFC10733' }} />
+                  <div style={{ position: 'absolute', left: '50%',  width: '20%', height: '100%', background: '#4CAF5033' }} />
+                  <div style={{ position: 'absolute', left: '70%',  width: '30%', height: '100%', background: '#3b82f633', borderRadius: '0 3px 3px 0' }} />
+                  {/* Marker */}
+                  <div style={{
+                    position: 'absolute',
+                    left: `${Math.min(100, Math.max(0, ((tsb + 50) / 100) * 100))}%`,
+                    top: '-3px',
+                    width: '4px',
+                    height: '12px',
+                    background: tsbColor,
+                    borderRadius: '2px',
+                    transform: 'translateX(-50%)',
+                  }} />
+                </div>
+              </div>
+            </div>
+          </>
+        )
+      })()}
+
+      {/* D: Fitnesstrend */}
       {trend && (
         <>
           <div className="section-title">Fitnesstrend</div>
