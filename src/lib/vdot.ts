@@ -395,6 +395,107 @@ export function hrZones(maxHr: number, restHr: number): HrZoneRow[] {
   })
 }
 
+export interface LapResult {
+  idx:         number
+  paceSec:     number
+  paceFmt:     string
+  distKm:      number
+  durationSec: number
+  avgHr?:      number
+  role:        'warmup' | 'interval' | 'recovery' | 'cooldown' | 'easy'
+}
+
+export interface WorkoutLapAnalysis {
+  laps:        LapResult[]
+  intervals:   { verdict: string; hrStr: string; dev: number }[]
+  nIntervals:  number
+  iPaceTarget: string
+  wuNote:      string
+  cdNote:      string
+  rvNote:      string
+  isAutoSplit: boolean
+}
+
+export function analyzeWorkoutLaps(
+  laps: any[],
+  vdot: number,
+): WorkoutLapAnalysis | null {
+  if (!laps || laps.length === 0) return null
+
+  const p    = trainingPaces(vdot)
+  const iSec = p.I
+  const tSec = p.T
+  const ehSec = p.E_high
+
+  const parsed: LapResult[] = []
+  for (const lap of laps) {
+    const spd = lap.average_speed || 0
+    if (spd <= 0) continue
+    const paceSec = 1000 / spd
+    parsed.push({
+      idx:         lap.lap_index ?? parsed.length + 1,
+      paceSec:     Math.round(paceSec * 10) / 10,
+      paceFmt:     formatPace(paceSec),
+      distKm:      Math.round((lap.distance || 0) / 1000 * 100) / 100,
+      durationSec: lap.moving_time || 0,
+      avgHr:       lap.average_heartrate,
+      role:        'easy',
+    })
+  }
+  if (parsed.length < 3) return null
+
+  // Classify each lap by pace
+  for (const lp of parsed) {
+    if (lp.paceSec < tSec * 1.06)       lp.role = 'interval'
+    else if (lp.paceSec < ehSec * 1.03) lp.role = 'recovery'
+    else                                  lp.role = 'easy'
+  }
+
+  // Leading easy/recovery laps = warmup
+  let i = 0
+  while (i < parsed.length && (parsed[i].role === 'easy' || parsed[i].role === 'recovery')) {
+    parsed[i].role = 'warmup'
+    i++
+    if (i < parsed.length && parsed[i].role === 'interval') break
+  }
+
+  // Trailing easy/recovery laps = cooldown
+  i = parsed.length - 1
+  while (i >= 0 && (parsed[i].role === 'easy' || parsed[i].role === 'recovery')) {
+    parsed[i].role = 'cooldown'
+    i--
+    if (i >= 0 && parsed[i].role === 'interval') break
+  }
+
+  // Evaluate intervals vs I-pace
+  const intervals: { verdict: string; hrStr: string; dev: number }[] = []
+  for (const lp of parsed) {
+    if (lp.role !== 'interval') continue
+    const dev = lp.paceSec - iSec
+    let verdict: string
+    if (dev < -8)       verdict = `⚡ Zu schnell (${lp.paceFmt}, ${Math.abs(Math.round(dev))} s/km ü. I-Pace)`
+    else if (dev <= 6)  verdict = `✅ I-Pace erreicht (${lp.paceFmt})`
+    else if (dev <= 15) verdict = `🟡 Knapp langsam (${lp.paceFmt}, +${Math.round(dev)} s/km u. I-Pace)`
+    else                verdict = `⚠️ Zu langsam (${lp.paceFmt}, +${Math.round(dev)} s/km u. I-Pace)`
+    intervals.push({ verdict, hrStr: lp.avgHr ? ` · HF Ø ${Math.round(lp.avgHr)}` : '', dev })
+  }
+
+  const wuDist = parsed.filter(lp => lp.role === 'warmup').reduce((s, lp) => s + lp.distKm, 0)
+  const cdDist = parsed.filter(lp => lp.role === 'cooldown').reduce((s, lp) => s + lp.distKm, 0)
+  const rvLaps = parsed.filter(lp => lp.role === 'recovery')
+
+  const wuNote = wuDist >= 1.5 ? `✅ Einlaufen: ${wuDist.toFixed(1)} km` : `⚠️ Einlaufen kurz (${wuDist.toFixed(1)} km — min. 1.5 km)`
+  const cdNote = cdDist >= 1.0 ? `✅ Auslaufen: ${cdDist.toFixed(1)} km` : `⚠️ Auslaufen kurz (${cdDist.toFixed(1)} km — min. 1 km)`
+  const rvNote = rvLaps.every(lp => lp.paceSec >= ehSec * 0.92)
+    ? '✅ Pausen im Easy-Bereich' : '⚠️ Pausen zu schnell — mehr Erholung einplanen'
+
+  const dists  = parsed.map(lp => lp.distKm)
+  const mean   = dists.reduce((a, b) => a + b, 0) / dists.length
+  const stdDev = Math.sqrt(dists.reduce((s, d) => s + (d - mean) ** 2, 0) / dists.length)
+
+  return { laps: parsed, intervals, nIntervals: intervals.length, iPaceTarget: formatPace(iSec), wuNote, cdNote, rvNote, isAutoSplit: stdDev < 0.15 }
+}
+
 export const RACE_TARGETS: Record<string, { label: string; distM: number; targetSec: number }[]> = {
   hm: [
     { label: 'Sub 1:30', distM: 21097, targetSec: 89 * 60 + 59 },

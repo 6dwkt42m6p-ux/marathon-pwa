@@ -27,15 +27,28 @@ export default function StravaSync({ onVdotUpdate }: Props) {
     return () => { window.removeEventListener('online', up); window.removeEventListener('offline', dn) }
   }, [])
 
-  // Handle OAuth redirect
+  // Handle OAuth redirect — exchange code, then auto-sync activities
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
     if (code && !authed) {
       exchangeCode(code)
-        .then(() => {
+        .then(async () => {
           setAuthed(true)
-          window.history.replaceState({}, '', '/')
+          window.history.replaceState({}, '', window.location.pathname)
+          // Auto-sync on first login so data appears immediately
+          setSyncing(true)
+          try {
+            const acts = await syncActivities(52)
+            const parsed = parseRuns(acts)
+            setRuns(parsed)
+            computeBestVdot(parsed)
+            setLastSync(new Date().toLocaleTimeString('de-AT'))
+          } catch (e) {
+            setError(String(e))
+          } finally {
+            setSyncing(false)
+          }
         })
         .catch(e => setError(String(e)))
     }
