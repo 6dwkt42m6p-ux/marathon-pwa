@@ -77,7 +77,13 @@ export default function Settings({ settings, onUpdate }: Props) {
           }
         })
         .catch(e => {
-          setStravaErr(`Auth Error: ${String(e)}`)
+          const msg = String(e)
+          if (msg.includes('401'))
+            setStravaErr('Verbindung fehlgeschlagen — Client-Credentials ungültig. GitHub Secrets prüfen.')
+          else if (msg.includes('400'))
+            setStravaErr('Verbindung fehlgeschlagen — Redirect URI stimmt nicht überein.')
+          else
+            setStravaErr(`Verbindung fehlgeschlagen: ${msg}`)
         })
     }
   }, [authed])
