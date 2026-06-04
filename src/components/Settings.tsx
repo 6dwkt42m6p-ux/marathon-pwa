@@ -77,11 +77,7 @@ export default function Settings({ settings, onUpdate }: Props) {
           }
         })
         .catch(e => {
-          const msg = String(e)
-          if (msg.includes('400') || msg.includes('401'))
-            setStravaErr('Verbindung fehlgeschlagen — Strava hat den Code abgelehnt. Bitte erneut versuchen.')
-          else
-            setStravaErr(`Verbindung fehlgeschlagen: ${msg}`)
+          setStravaErr(`Auth Error: ${String(e)}`)
         })
     }
   }, [authed])
