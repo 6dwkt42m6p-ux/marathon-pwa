@@ -1,4 +1,18 @@
 {
+  "settings": {
+    "vdot": 47.9,
+    "maxHr": 190,
+    "restHr": 50,
+    "currentWeeklyKm": 50,
+    "runsPerWeek": 5,
+    "raceType1": "hm",
+    "raceDate1": "2026-10-11",
+    "raceType2": "marathon",
+    "raceDate2": "2027-04-25",
+    "preRaceEnabled": true,
+    "experience": "fortgeschritten",
+    "name": ""
+  },
   "weekOverrides": {
     "2026-05-18": {
       "Do": "Fr"
@@ -8,7 +22,6 @@
       "So": "Fr"
     }
   },
-  "settings": null,
-  "lastModified": "2026-05-28T19:42:11.537568+00:00",
-  "lastDevice": "streamlit"
+  "lastModified": "2026-06-04T19:18:41.259Z",
+  "lastDevice": "pwa"
 }
