@@ -4,7 +4,7 @@ const CLIENT_ID     = import.meta.env.VITE_STRAVA_CLIENT_ID || ''
 const CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET || ''
 // Use env var if set explicitly, otherwise derive from current origin + Vite BASE_URL
 // This works for both localhost dev and GitHub Pages (/marathon-pwa/) without any secrets config
-const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
+export const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
   (window.location.origin + import.meta.env.BASE_URL)
 const TOKEN_KEY     = 'strava_tokens'
 const ACTS_KEY      = 'strava_activities'
