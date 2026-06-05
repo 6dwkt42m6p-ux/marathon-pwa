@@ -271,8 +271,16 @@ export default function TodayWorkout({ settings }: Props) {
       {/* Race countdowns */}
       <div className="section-title">Renntermine</div>
       <div className="race-list">
-        <RaceItem type={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'} date={raceDate1} icon="🏃" />
-        <RaceItem type={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'} date={raceDate2} icon="🏆" />
+        <RaceCountdownCard
+          name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
+          badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
+          date={raceDate1}
+        />
+        <RaceCountdownCard
+          name={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
+          badge={settings.raceType2 === 'marathon' ? 'M' : 'HM'}
+          date={raceDate2}
+        />
       </div>
     </div>
   )
@@ -288,22 +296,45 @@ function PaceRow({ label, range, color }: { label: string; range: string; color:
   )
 }
 
-function RaceItem({ type, date, icon }: { type: string; date: Date; icon: string }) {
-  const diffMs    = date.getTime() - new Date().getTime()
-  const diffDays  = Math.max(0, Math.ceil(diffMs / (24 * 3600 * 1000)))
-  const diffWeeks = Math.floor(diffDays / 7)
-  const dateStr   = date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' })
+function RaceCountdownCard({ name, badge, date }: { name: string; badge: string; date: Date }) {
+  const today    = new Date()
+  today.setHours(0, 0, 0, 0)
+  const raceDay  = new Date(date)
+  raceDay.setHours(0, 0, 0, 0)
+  const diffMs   = raceDay.getTime() - today.getTime()
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  const isPast   = diffDays < 0
+  const isToday  = diffDays === 0
+  const dateStr  = date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' })
+
+  const accentColor = isToday
+    ? 'var(--red)'
+    : diffDays <= 30
+    ? 'var(--orange)'
+    : diffDays <= 90
+    ? 'var(--yellow)'
+    : 'var(--accent)'
+
   return (
-    <div className="race-item">
-      <span className="race-icon">{icon}</span>
-      <div className="race-info">
-        <span className="race-type">{type}</span>
-        <span className="race-date">{dateStr}</span>
+    <div className={`race-countdown-card ${isPast ? 'past' : ''}`} style={{ borderColor: isPast ? 'var(--border)' : accentColor }}>
+      <div className="rcc-left">
+        <span className="rcc-badge" style={{ background: isPast ? 'var(--bg3)' : accentColor }}>{badge}</span>
       </div>
-      <div className="race-countdown">
-        {diffDays === 0
-          ? <span className="countdown-today">Heute!</span>
-          : <><span className="countdown-weeks">{diffWeeks}W</span><span className="countdown-days">{diffDays} Tage</span></>
+      <div className="rcc-info">
+        <span className="rcc-name">{name}</span>
+        <span className="rcc-date">{dateStr}</span>
+      </div>
+      <div className="rcc-countdown">
+        {isPast
+          ? <span className="rcc-past">Absolviert</span>
+          : isToday
+          ? <span className="rcc-today">Heute!</span>
+          : (
+            <>
+              <span className="rcc-days" style={{ color: accentColor }}>{diffDays}</span>
+              <span className="rcc-days-label">Tage</span>
+            </>
+          )
         }
       </div>
     </div>
