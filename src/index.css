@@ -2,3 +2,18 @@
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; }
 select { font-family: inherit; }
+
+/* ── Design Tokens (Glassmorphism / Premium Dark) ─── */
+:root {
+  --bg-base:     #0d0d0f;
+  --bg-surface:  rgba(255,255,255,0.06);
+  --bg-overlay:  rgba(255,255,255,0.10);
+  --blur:        blur(12px);
+  --accent-1:    #FF6B35;
+  --accent-2:    #FF9F6B;
+  --accent-grd:  linear-gradient(135deg, #FF6B35, #FF9F6B);
+  --border:      rgba(255,255,255,0.12);
+  --text-1:      #FAFAFA;
+  --text-2:      rgba(250,250,250,0.6);
+  --radius-card: 16px;
+}
