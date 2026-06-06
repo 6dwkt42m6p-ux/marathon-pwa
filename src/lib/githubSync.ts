@@ -35,7 +35,7 @@ export async function fetchSync(): Promise<{ data: SyncData; sha: string } | nul
   return { data, sha: j.sha }
 }
 
-export async function pushSync(data: SyncData, sha?: string): Promise<void> {
+export async function pushSync(data: SyncData, sha?: string, _retried = false): Promise<void> {
   if (!hasToken()) return
   const payload: SyncData = { ...data, lastModified: new Date().toISOString(), lastDevice: 'pwa' }
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))))
@@ -47,6 +47,11 @@ export async function pushSync(data: SyncData, sha?: string): Promise<void> {
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${PATH}`, {
     method: 'PUT', headers: headers(), body: JSON.stringify(body),
   })
+  if (res.status === 409 && !_retried) {
+    // Stale sha due to concurrent Streamlit write — fetch fresh sha and retry once
+    const fresh = await fetchSync()
+    return pushSync(data, fresh?.sha, true)
+  }
   if (!res.ok) throw new Error(`GitHub push ${res.status}`)
 }
 
