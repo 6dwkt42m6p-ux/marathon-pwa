@@ -1,9 +1,19 @@
-import { useState, useMemo } from 'react'
-import { generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay, type PlanDeviation } from '../lib/plan'
+import { useState, useMemo, useEffect, useRef } from 'react'
+import {
+  generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay,
+  syncedCurrentWeek, isPlanStale,
+  type PlanDeviation,
+} from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
-import { getCachedActivities, thisWeekKm, DAY_TAGS, parseAllActivities, computeAtlCtl, mondayOf } from '../lib/strava'
+import {
+  getCachedActivities, thisWeekKm, DAY_TAGS, parseAllActivities,
+  computeAtlCtl, mondayOf,
+} from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
-import { hasToken, fetchSync, pushSync } from '../lib/githubSync'
+import {
+  hasToken, fetchSync, pushSync,
+  type SyncedPlan, type SyncedPlanSession,
+} from '../lib/githubSync'
 
 interface Props { settings: AppSettings }
 
@@ -11,8 +21,9 @@ const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
 interface DayAssignment { originalDay: string; currentDay: string }
 
-function weekKey(weekStart: Date): string {
-  return weekStart.toISOString().slice(0, 10)
+function weekKey(weekStart: string | Date): string {
+  const d = typeof weekStart === 'string' ? weekStart : weekStart.toISOString()
+  return d.slice(0, 10)
 }
 
 function loadOverrides(key: string): DayAssignment[] | null {
@@ -26,64 +37,135 @@ function saveOverrides(key: string, a: DayAssignment[]) {
   try { localStorage.setItem(`week_override_${key}`, JSON.stringify(a)) } catch {}
 }
 
+// T-024: plan-relevant input fingerprint — when this changes, request recompute
+function planInputFingerprint(s: AppSettings): string {
+  return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
+}
+
 export default function TodayWorkout({ settings }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
 
-  const plan       = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-  const paces      = buildPaceTable(settings.vdot)
-  const currentRow = plan.find(r => r.isCurrent)
+  // ── T-024: Synced plan state ────────────────────────────────────────────────
+  const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
+  const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
+  const [remoteSha, setRemoteSha] = useState<string | null>(null)
+  const [planRecomputeRequested, setPlanRecomputeRequested] = useState(false)
+  const [syncLoading, setSyncLoading] = useState(true)
 
-  const weekNum    = currentRow?.weekNr ?? 1
-  const totalWeeks = plan.length - 1
-  const phase      = currentRow?.phase ?? '—'
-  const plannedKm  = currentRow?.plannedKm ?? 0
+  // Track previous settings fingerprint to detect plan-relevant changes
+  const prevFingerprintRef = useRef<string | null>(null)
 
+  useEffect(() => {
+    fetchSync()
+      .then(result => {
+        if (result) {
+          setSyncedPlan(result.data.plan ?? null)
+          setSyncSettings(result.data.settings ?? null)
+          setRemoteSha(result.sha)
+          setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
+        }
+      })
+      .catch(() => { /* offline — keep null, use local fallback */ })
+      .finally(() => setSyncLoading(false))
+  }, [])
+
+  // T-024: Push planRecomputeRequested flag when plan-relevant inputs change
+  useEffect(() => {
+    const fp = planInputFingerprint(settings)
+    if (prevFingerprintRef.current === null) {
+      // First render — just record fingerprint
+      prevFingerprintRef.current = fp
+      return
+    }
+    if (fp === prevFingerprintRef.current) return
+    // Settings changed — request recompute
+    prevFingerprintRef.current = fp
+    if (!hasToken()) return
+    // Fire-and-forget: best effort, non-critical
+    fetchSync()
+      .then(fresh => {
+        if (!fresh) return
+        return pushSync(
+          {
+            ...fresh.data,
+            planRecomputeRequested: true,
+            // Include changed settings so Desktop can see what changed
+            settings: {
+              ...(fresh.data.settings ?? {}),
+              vdot: settings.vdot,
+              event1: { date: settings.raceDate1, dist: settings.raceType1 === 'hm' ? 'Halbmarathon (21.1 km)' : 'Marathon (42.2 km)' },
+              event2: { date: settings.raceDate2, dist: settings.raceType2 === 'marathon' ? 'Marathon (42.2 km)' : 'Halbmarathon (21.1 km)' },
+            },
+          },
+          fresh.sha,
+        )
+      })
+      .catch(() => { /* non-critical */ })
+  }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Common data ─────────────────────────────────────────────────────────────
+  const paces         = buildPaceTable(settings.vdot)
   const cached        = getCachedActivities()
+  const allActs       = parseAllActivities(cached)
+  const tsbData       = cached.length > 0 ? computeAtlCtl(cached) : null
+  const tsb           = tsbData?.tsb ?? 0
   const actualKmWeek  = Math.round(thisWeekKm(cached) * 10) / 10
-  const progressPct   = plannedKm > 0 ? Math.min(100, (actualKmWeek / plannedKm) * 100) : 0
-  const progressColor = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
+  const todayTag      = DAY_TAGS[new Date().getDay()]
 
-  const todayTag  = DAY_TAGS[new Date().getDay()]
-  const rawSessions = currentRow
-    ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
-    : []
+  // ── T-024: Render from synced plan ──────────────────────────────────────────
+  const syncedCurrentW = syncedPlan ? syncedCurrentWeek(syncedPlan) : null
+  const stale = syncedPlan
+    ? isPlanStale(syncedPlan, settings.vdot, settings.raceDate1, settings.raceDate2, syncSettings)
+    : false
 
-  // ── Plan-Abweichungserkennung (T-014) ───────────────────────────────────────
-  // Show deviation for the most recent activity (today or latest available)
-  const tsbData     = cached.length > 0 ? computeAtlCtl(cached) : null
-  const tsb         = tsbData?.tsb ?? 0
-  const allActs     = parseAllActivities(cached)
-  const latestAct   = allActs.length > 0 ? allActs[0] : null
-
+  // Derive PlanDeviation for the most recent activity against the synced plan
   let latestDeviation: PlanDeviation | null = null
-  if (latestAct && currentRow) {
-    const actDay      = new Date(latestAct.date)
+  const latestAct = allActs.length > 0 ? allActs[0] : null
+
+  if (latestAct && syncedCurrentW) {
+    const actDay    = new Date(latestAct.date)
     actDay.setHours(0, 0, 0, 0)
-    const actMonday   = mondayOf(actDay)
-    const planMonday  = new Date(currentRow.weekStart)
+    const actMonday = mondayOf(actDay)
+    const planMonday = new Date(syncedCurrentW.week_start)
     planMonday.setHours(0, 0, 0, 0)
-    // Only show if the activity falls in the current plan week
+
     if (actMonday.getTime() === planMonday.getTime()) {
-      const tag = DAY_TAGS[latestAct.date.getDay()]
-      const sessionForDay = rawSessions.find(s => s.wochentag === tag) ?? null
-      if (sessionForDay) {
-        latestDeviation = assessDeviation(sessionForDay, latestAct, null, tsb)
+      const tag         = DAY_TAGS[latestAct.date.getDay()]
+      const planSession = syncedCurrentW.sessions.find(s => s.tag === tag) ?? null
+      if (planSession) {
+        // Convert SyncedPlanSession to the shape assessDeviation expects
+        const pseudoSession = {
+          session:   planSession.typ,
+          typ:       planSession.typ,
+          distanzKm: planSession.km ?? 0,
+          vorgabe:   planSession.vorgabe,
+          struktur:  planSession.struktur,
+          dauerMin:  planSession.dauer,
+          hinweis:   planSession.hinweis,
+          wochentag: planSession.tag,
+        }
+        latestDeviation = assessDeviation(pseudoSession, latestAct, null, tsb)
       } else {
         latestDeviation = assessDeviationForRestDay(latestAct, tsb)
       }
     }
   }
 
-  // ── Day-swap state ──────────────────────────────────────────────────────────
-  const wKey = currentRow ? weekKey(currentRow.weekStart) : 'noweek'
-  const defaultAssignments: DayAssignment[] = rawSessions.map(s => ({ originalDay: s.wochentag, currentDay: s.wochentag }))
+  // Day-swap state — keyed to the synced week's start date or fallback
+  const wKey = syncedCurrentW ? weekKey(syncedCurrentW.week_start) : 'noweek'
+
+  // Build DayAssignment array from synced sessions
+  const rawSyncedSessions: SyncedPlanSession[] = syncedCurrentW?.sessions ?? []
+  const defaultAssignments: DayAssignment[] = rawSyncedSessions
+    .map(s => ({ originalDay: s.tag, currentDay: s.tag }))
 
   const [assignments, setAssignments] = useState<DayAssignment[]>(() =>
     loadOverrides(wKey) ?? defaultAssignments
   )
-  const [swapping, setSwapping] = useState<string | null>(null) // originalDay currently being moved
+  const [swapping, setSwapping] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(todayTag)
 
   async function pushOverridesToGitHub(overrides: DayAssignment[]) {
     if (!hasToken()) return
@@ -92,7 +174,7 @@ export default function TodayWorkout({ settings }: Props) {
       const map: Record<string, string> = {}
       overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
       const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }
-      await pushSync({ settings: current?.data.settings, weekOverrides: allWeekOverrides }, current?.sha)
+      await pushSync({ ...current?.data, weekOverrides: allWeekOverrides }, current?.sha)
     } catch { /* sync failure is non-critical */ }
   }
 
@@ -116,27 +198,54 @@ export default function TodayWorkout({ settings }: Props) {
     pushOverridesToGitHub(defaultAssignments)
   }
 
-  // Apply current assignments to sessions and sort by calendar order
-  const displaySessions = useMemo(() =>
-    rawSessions
+  // Apply assignments to synced sessions and sort
+  const displaySessions = useMemo(() => {
+    if (!rawSyncedSessions.length) return []
+    return rawSyncedSessions
       .map(s => {
-        const assigned = assignments.find(a => a.originalDay === s.wochentag)
-        return { ...s, wochentag: assigned?.currentDay ?? s.wochentag, originalDay: s.wochentag }
+        const assigned = assignments.find(a => a.originalDay === s.tag)
+        return { ...s, tag: assigned?.currentDay ?? s.tag, originalTag: s.tag }
       })
-      .sort((a, b) => DAYS_ORDER.indexOf(a.wochentag) - DAYS_ORDER.indexOf(b.wochentag)),
-  [rawSessions, assignments])
+      .sort((a, b) => DAYS_ORDER.indexOf(a.tag) - DAYS_ORDER.indexOf(b.tag))
+  }, [rawSyncedSessions, assignments])
 
   const hasOverrides = assignments.some(a => a.originalDay !== a.currentDay)
 
-  const [expanded, setExpanded] = useState<string | null>(todayTag)
+  const plannedKmSynced  = syncedCurrentW?.planned_km ?? 0
+  const progressPct      = plannedKmSynced > 0 ? Math.min(100, (actualKmWeek / plannedKmSynced) * 100) : 0
+  const progressColor    = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
 
-  const phaseColor: Record<string, string> = {
-    'Basis': '#42A5F5', 'Aufbau': '#FFC107', 'Peak': '#FF9800',
-    'Tapering': '#9C27B0', 'HM-Tapering': '#AB47BC', 'HM-Erholung': '#4CAF50',
-    'Halbmarathon': '#e53935', 'Renntag': '#e53935',
+  const phase  = syncedCurrentW?.phase ?? '—'
+  const pColor = PHASE_COLORS[phase.split(' ')[0]] || '#42A5F5'
+  const totalWeeks = syncedPlan?.weeks.length ?? 0
+  const weekNum    = syncedCurrentW?.week_nr ?? 1
+
+  // ── No synced plan → local fallback ────────────────────────────────────────
+  if (!syncLoading && !syncedPlan) {
+    return (
+      <FallbackTodayWorkout
+        settings={settings}
+        preRaceDate={preRaceDate}
+        cached={cached}
+        tsb={tsb}
+        latestAct={latestAct}
+        remoteSha={remoteSha}
+        paces={paces}
+      />
+    )
   }
-  const pColor = phaseColor[phase.split(' ')[0]] || '#42A5F5'
 
+  if (syncLoading) {
+    return (
+      <div className="tab-content">
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '13px' }}>
+          Plan wird geladen…
+        </div>
+      </div>
+    )
+  }
+
+  // ── Synced plan available → render verbatim ─────────────────────────────────
   return (
     <div className="tab-content">
       {/* This-week progress */}
@@ -145,12 +254,26 @@ export default function TodayWorkout({ settings }: Props) {
           <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
             <span>Diese Woche</span>
             <span style={{ color: progressColor, fontWeight: 700 }}>
-              {actualKmWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
+              {actualKmWeek} km von {plannedKmSynced} km ({Math.round(progressPct)}%)
             </span>
           </div>
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${progressPct}%`, background: progressColor }} />
           </div>
+        </div>
+      )}
+
+      {/* Staleness banner */}
+      {(stale || planRecomputeRequested) && (
+        <div style={{
+          background: '#FF980020',
+          border: '1px solid #FF980055',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#FF9800',
+        }}>
+          ⚠️ Plan ggf. veraltet — am Desktop aktualisieren
         </div>
       )}
 
@@ -194,7 +317,7 @@ export default function TodayWorkout({ settings }: Props) {
           <span className="week-num">Woche {weekNum} / {totalWeeks}</span>
           <span className="phase-tag" style={{ color: pColor }}>{phase}</span>
         </div>
-        <span className="planned-km">{plannedKm} km geplant diese Woche</span>
+        <span className="planned-km">{plannedKmSynced} km geplant diese Woche</span>
       </div>
 
       {/* Wochenplan header row */}
@@ -214,13 +337,344 @@ export default function TodayWorkout({ settings }: Props) {
           </div>
         )}
 
-        {/* All 7 days — training days + rest days interleaved */}
+        {DAYS_ORDER.map(day => {
+          const session = displaySessions.find(s => s.tag === day) as (SyncedPlanSession & { originalTag: string }) | undefined
+          const isToday = day === todayTag
+
+          if (!session) {
+            return (
+              <div key={day} className={`session-row rest-day ${isToday ? 'today' : ''}`}>
+                <div className="session-header" style={{ cursor: 'default' }}>
+                  <div className="session-day-col">
+                    <span className={`session-day ${isToday ? 'today-day' : ''}`}>{day}</span>
+                    {isToday && <span className="today-dot" />}
+                  </div>
+                  <div className="session-summary">
+                    <span className="session-name" style={{ color: 'var(--text2)' }}>Ruhetag</span>
+                  </div>
+                  <span className="rest-badge">😴</span>
+                </div>
+              </div>
+            )
+          }
+
+          const isOpen     = expanded === day
+          const isSwapping = swapping === session.originalTag
+          const isShifted  = session.originalTag !== session.tag
+          const kmDisplay  = session.km !== null ? `${session.km} km` : '—'
+
+          return (
+            <div key={day} className={`session-row ${isToday ? 'today' : ''} ${isOpen ? 'open' : ''}`}>
+              <div className="session-header" onClick={() => { if (!isSwapping) setExpanded(isOpen ? null : day) }}>
+                <div className="session-day-col">
+                  <span className={`session-day ${isToday ? 'today-day' : ''}`}>{day}</span>
+                  {isToday && <span className="today-dot" />}
+                  {isShifted && <span className="shifted-dot" title="Verschoben" />}
+                </div>
+                <div className="session-summary">
+                  {/* Verbatim typ as session name (T-024) */}
+                  <span className="session-name">{session.typ}</span>
+                  <span className="session-meta">
+                    {kmDisplay}
+                    {' · '}{session.dauer}
+                    {isShifted && <span style={{ color: 'var(--yellow)', marginLeft: 4 }}>↻ verschoben</span>}
+                  </span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <button
+                    className={`swap-btn ${isSwapping ? 'active' : ''}`}
+                    onClick={e => { e.stopPropagation(); setSwapping(isSwapping ? null : session.originalTag) }}
+                    title="Einheit verschieben"
+                  >
+                    📅
+                  </button>
+                  <div className="session-typ-badge"><span>{session.typ}</span></div>
+                  <span className="session-chevron">{isOpen ? '▲' : '▼'}</span>
+                </div>
+              </div>
+
+              {/* Day picker for swapping */}
+              {isSwapping && (
+                <div className="day-picker">
+                  <div className="day-picker-label">Verschieben auf:</div>
+                  <div className="day-picker-row">
+                    {DAYS_ORDER.map(targetDay => {
+                      const targetSession = displaySessions.find(
+                        s => s.tag === targetDay && (s as SyncedPlanSession & { originalTag: string }).originalTag !== session.originalTag
+                      )
+                      const isCurrent = day === targetDay
+                      return (
+                        <button
+                          key={targetDay}
+                          className={`day-pick-btn ${isCurrent ? 'current' : ''} ${targetDay === todayTag ? 'is-today' : ''}`}
+                          onClick={() => !isCurrent && handleSwap(session.originalTag, targetDay)}
+                          disabled={isCurrent}
+                        >
+                          <span className="day-pick-label">{targetDay}</span>
+                          <span className="day-pick-sub">{targetSession ? '🏃' : isCurrent ? '●' : 'Ruhe'}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <div className="day-picker-hint">
+                    {displaySessions.length > 0 ? 'Trainingstag = tauschen · Ruhetag = verschieben' : ''}
+                  </div>
+                </div>
+              )}
+
+              {/* Session detail — verbatim vorgabe, struktur, hinweis (T-024) */}
+              {isOpen && !isSwapping && (
+                <div className="session-detail">
+                  <div className="detail-block">
+                    <span className="detail-label">Vorgabe</span>
+                    <p className="detail-vorgabe">{session.vorgabe}</p>
+                  </div>
+                  <div className="detail-block">
+                    <span className="detail-label">Struktur</span>
+                    <p>{session.struktur}</p>
+                  </div>
+                  <div className="detail-hinweis">
+                    <span>💡</span>
+                    <p>{session.hinweis}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Quick pace reference — verbatim from synced plan paces */}
+      {syncedPlan && (
+        <>
+          <div className="section-title">Pace-Referenz (VDOT {syncedPlan.vdot})</div>
+          <div className="pace-grid">
+            <PaceRow label="Easy" range={`${syncedPlan.paces.E_high} – ${syncedPlan.paces.E_low}`} color="#4CAF50" />
+            <PaceRow label="Marathon-Pace" range={syncedPlan.paces.M} color="#FFC107" />
+            <PaceRow label="Schwelle (T)" range={syncedPlan.paces.T} color="#FF9800" />
+            <PaceRow label="Intervall (I)" range={syncedPlan.paces.I} color="#e53935" />
+          </div>
+        </>
+      )}
+
+      {/* Race countdowns */}
+      <div className="section-title">Renntermine</div>
+      <div className="race-list">
+        <RaceCountdownCard
+          name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
+          badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
+          date={raceDate1}
+        />
+        <RaceCountdownCard
+          name={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
+          badge={settings.raceType2 === 'marathon' ? 'M' : 'HM'}
+          date={raceDate2}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Phase colors (shared) ────────────────────────────────────────────────────
+const PHASE_COLORS: Record<string, string> = {
+  'Basis': '#42A5F5', 'Aufbau': '#FFC107', 'Peak': '#FF9800',
+  'Tapering': '#9C27B0', 'HM-Tapering': '#AB47BC', 'HM-Erholung': '#4CAF50',
+  'Halbmarathon': '#e53935', 'Renntag': '#e53935',
+}
+
+// ── Fallback component when no synced plan is available ─────────────────────
+
+interface FallbackProps {
+  settings:     AppSettings
+  preRaceDate:  Date | undefined
+  cached:       ReturnType<typeof getCachedActivities>
+  tsb:          number
+  latestAct:    ReturnType<typeof parseAllActivities>[0] | null
+  remoteSha:    string | null
+  paces:        ReturnType<typeof buildPaceTable>
+}
+
+function FallbackTodayWorkout({ settings, preRaceDate, cached, tsb, latestAct, paces }: FallbackProps) {
+  const raceDate2     = new Date(settings.raceDate2)
+  const raceDate1     = new Date(settings.raceDate1)
+  const todayTag      = DAY_TAGS[new Date().getDay()]
+
+  const plan          = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
+  const currentRow    = plan.find(r => r.isCurrent)
+  const weekNum       = currentRow?.weekNr ?? 1
+  const totalWeeks    = plan.length - 1
+  const phase         = currentRow?.phase ?? '—'
+  const plannedKm     = currentRow?.plannedKm ?? 0
+
+  const actualKmWeek  = Math.round(thisWeekKm(cached) * 10) / 10
+  const progressPct   = plannedKm > 0 ? Math.min(100, (actualKmWeek / plannedKm) * 100) : 0
+  const progressColor = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
+
+  const rawSessions = currentRow
+    ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
+    : []
+
+  // Plan-Abweichungserkennung against local plan
+  let latestDeviation: PlanDeviation | null = null
+  if (latestAct && currentRow) {
+    const actDay    = new Date(latestAct.date)
+    actDay.setHours(0, 0, 0, 0)
+    const actMonday = mondayOf(actDay)
+    const planMonday = new Date(currentRow.weekStart)
+    planMonday.setHours(0, 0, 0, 0)
+    if (actMonday.getTime() === planMonday.getTime()) {
+      const tag            = DAY_TAGS[latestAct.date.getDay()]
+      const sessionForDay  = rawSessions.find(s => s.wochentag === tag) ?? null
+      if (sessionForDay) {
+        latestDeviation = assessDeviation(sessionForDay, latestAct, null, tsb)
+      } else {
+        latestDeviation = assessDeviationForRestDay(latestAct, tsb)
+      }
+    }
+  }
+
+  const wKey = currentRow ? currentRow.weekStart.toISOString().slice(0, 10) : 'noweek'
+  const defaultAssignments: DayAssignment[] = rawSessions.map(s => ({ originalDay: s.wochentag, currentDay: s.wochentag }))
+  const [assignments, setAssignments] = useState<DayAssignment[]>(() => loadOverrides(wKey) ?? defaultAssignments)
+  const [swapping, setSwapping] = useState<string | null>(null)
+  const [expanded, setExpanded] = useState<string | null>(todayTag)
+
+  const displaySessions = useMemo(() =>
+    rawSessions
+      .map(s => {
+        const assigned = assignments.find(a => a.originalDay === s.wochentag)
+        return { ...s, wochentag: assigned?.currentDay ?? s.wochentag, originalDay: s.wochentag }
+      })
+      .sort((a, b) => DAYS_ORDER.indexOf(a.wochentag) - DAYS_ORDER.indexOf(b.wochentag)),
+  [rawSessions, assignments])
+
+  const hasOverrides = assignments.some(a => a.originalDay !== a.currentDay)
+  const pColor = PHASE_COLORS[phase.split(' ')[0]] || '#42A5F5'
+
+  async function pushOverridesToGitHub(overrides: DayAssignment[]) {
+    if (!hasToken()) return
+    try {
+      const current = await fetchSync()
+      const map: Record<string, string> = {}
+      overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
+      const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }
+      await pushSync({ ...current?.data, weekOverrides: allWeekOverrides }, current?.sha)
+    } catch {}
+  }
+
+  function handleSwap(originalDay: string, targetDay: string) {
+    const next = assignments.map(a => ({ ...a }))
+    const moving    = next.find(a => a.originalDay === originalDay)!
+    const displaced = next.find(a => a.currentDay === targetDay && a.originalDay !== originalDay)
+    if (displaced) displaced.currentDay = moving.currentDay
+    moving.currentDay = targetDay
+    setAssignments(next)
+    saveOverrides(wKey, next)
+    setSwapping(null)
+    setExpanded(targetDay)
+    pushOverridesToGitHub(next)
+  }
+
+  function resetOverrides() {
+    setAssignments(defaultAssignments)
+    saveOverrides(wKey, defaultAssignments)
+    setSwapping(null)
+    pushOverridesToGitHub(defaultAssignments)
+  }
+
+  return (
+    <div className="tab-content">
+      {/* "No plan" info banner */}
+      <div style={{
+        background: '#42A5F520',
+        border: '1px solid #42A5F555',
+        borderRadius: '8px',
+        padding: '10px 12px',
+        fontSize: '12px',
+        color: '#42A5F5',
+        lineHeight: 1.5,
+      }}>
+        Noch kein Plan — am Desktop erstellen (Trainingsplan-Tab öffnen).
+        <br />
+        <span style={{ color: 'var(--text2)' }}>Unten: lokale Schätzung (nicht maßgeblich).</span>
+      </div>
+
+      {cached.length > 0 && (
+        <div className="activity-card" style={{ padding: '10px 12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+            <span>Diese Woche</span>
+            <span style={{ color: progressColor, fontWeight: 700 }}>
+              {actualKmWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
+            </span>
+          </div>
+          <div className="progress-bar">
+            <div className="progress-fill" style={{ width: `${progressPct}%`, background: progressColor }} />
+          </div>
+        </div>
+      )}
+
+      {latestDeviation && latestDeviation.badge !== 'frei' && latestAct && (
+        <div style={{
+          background: `${latestDeviation.badgeColor}12`,
+          border: `1px solid ${latestDeviation.badgeColor}33`,
+          borderRadius: '8px',
+          padding: '10px 12px',
+          fontSize: '12px',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text2)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+            LETZTE EINHEIT — PLAN-CHECK
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: '3px', columnGap: '10px' }}>
+            <span style={{ color: 'var(--text2)' }}>Geplant:</span>
+            <span style={{ fontWeight: 600 }}>{latestDeviation.plannedLabel}</span>
+            <span style={{ color: 'var(--text2)' }}>Trainiert:</span>
+            <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
+              {latestDeviation.actualType} — {latestDeviation.actualKm} km
+            </span>
+            {latestDeviation.kmDelta !== 0 && (
+              <>
+                <span style={{ color: 'var(--text2)' }}>Abweichung:</span>
+                <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
+                  {latestDeviation.kmDelta > 0 ? '+' : ''}{latestDeviation.kmDelta} km
+                </span>
+              </>
+            )}
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text2)', fontStyle: 'italic', lineHeight: 1.5 }}>
+            {latestDeviation.coachComment}
+          </div>
+        </div>
+      )}
+
+      <div className="week-badge" style={{ borderColor: pColor }}>
+        <div className="week-badge-row">
+          <span className="week-num">Woche {weekNum} / {totalWeeks}</span>
+          <span className="phase-tag" style={{ color: pColor }}>{phase}</span>
+        </div>
+        <span className="planned-km">{plannedKm} km geplant diese Woche</span>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="section-title" style={{ flex: 1 }}>Wochenplan</div>
+        {hasOverrides && (
+          <button className="btn-small" onClick={resetOverrides} style={{ fontSize: '11px', padding: '3px 8px' }}>
+            ↺ Zurücksetzen
+          </button>
+        )}
+      </div>
+
+      <div className="sessions-list">
+        {displaySessions.length === 0 && (
+          <div className="workout-card empty">
+            <p>Kein Trainingsplan — Renntermin in den Einstellungen eintragen.</p>
+          </div>
+        )}
+
         {DAYS_ORDER.map(day => {
           const session = displaySessions.find(s => s.wochentag === day)
           const isToday = day === todayTag
 
           if (!session) {
-            // Rest day
             return (
               <div key={day} className={`session-row rest-day ${isToday ? 'today' : ''}`}>
                 <div className="session-header" style={{ cursor: 'default' }}>
@@ -270,7 +724,6 @@ export default function TodayWorkout({ settings }: Props) {
                 </div>
               </div>
 
-              {/* Day picker for swapping */}
               {isSwapping && (
                 <div className="day-picker">
                   <div className="day-picker-label">Verschieben auf:</div>
@@ -297,7 +750,6 @@ export default function TodayWorkout({ settings }: Props) {
                 </div>
               )}
 
-              {/* Session detail */}
               {isOpen && !isSwapping && (
                 <div className="session-detail">
                   <div className="detail-block">
@@ -319,7 +771,6 @@ export default function TodayWorkout({ settings }: Props) {
         })}
       </div>
 
-      {/* Quick pace reference */}
       <div className="section-title">Pace-Referenz (VDOT {settings.vdot})</div>
       <div className="pace-grid">
         <PaceRow label="Easy" range={`${paces.E_high} – ${paces.E_low}`} color="#4CAF50" />
@@ -328,7 +779,6 @@ export default function TodayWorkout({ settings }: Props) {
         <PaceRow label="Intervall (I)" range={paces.I} color="#e53935" />
       </div>
 
-      {/* Race countdowns */}
       <div className="section-title">Renntermine</div>
       <div className="race-list">
         <RaceCountdownCard
@@ -345,6 +795,8 @@ export default function TodayWorkout({ settings }: Props) {
     </div>
   )
 }
+
+// ── Shared sub-components ───────────────────────────────────────────────────
 
 function PaceRow({ label, range, color }: { label: string; range: string; color: string }) {
   return (
