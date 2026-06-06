@@ -1,6 +1,45 @@
 // Pfitzinger-style periodized plan generator — ported from coach.py
+// T-024: Local generation is kept as fallback only when no synced plan exists.
+//        All active rendering uses the verbatim synced plan from Streamlit.
 import { trainingPaces, formatPace } from './vdot'
 import { mondayOf, DAY_TAGS, type ActivitySummary, type WorkoutClassification } from './strava'
+import type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession } from './githubSync'
+
+// Re-export synced plan types for convenience in components
+export type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession }
+
+// Return the current week from a synced plan (is_current === true)
+export function syncedCurrentWeek(plan: SyncedPlan): SyncedPlanWeek | null {
+  return plan.weeks.find(w => w.is_current) ?? null
+}
+
+// Return the session for today's weekday tag from a synced plan week
+export function syncedTodaySession(week: SyncedPlanWeek): SyncedPlanSession | null {
+  const todayTag = DAY_TAGS[new Date().getDay()]
+  return week.sessions.find(s => s.tag === todayTag) ?? null
+}
+
+// True when the local settings diverge from what the synced plan was generated with.
+// Uses the vdot stored in the plan as a lightweight staleness signal.
+// Full staleness is only known via planRecomputeRequested flag from GitHub sync.
+export function isPlanStale(
+  plan: SyncedPlan,
+  localVdot: number,
+  localRaceDate1: string,
+  localRaceDate2: string,
+  syncSettings: Record<string, unknown> | null,
+): boolean {
+  // VDOT mismatch
+  if (Math.abs(plan.vdot - localVdot) > 0.1) return true
+  // Race date mismatch via sync.json settings (written by Streamlit)
+  if (syncSettings) {
+    const e1 = syncSettings['event1'] as { date?: string } | undefined
+    const e2 = syncSettings['event2'] as { date?: string } | undefined
+    if (e1?.date && e1.date !== localRaceDate1) return true
+    if (e2?.date && e2.date !== localRaceDate2) return true
+  }
+  return false
+}
 
 export interface PlanRow {
   weekNr:      number
