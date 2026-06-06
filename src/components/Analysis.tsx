@@ -1,6 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   getCachedActivities,
+  syncActivities,
+  getValidToken,
   parseRuns,
   parseAllActivities,
   computeWeeklyStats,
@@ -10,24 +12,23 @@ import {
   computeAtlCtl,
   mondayOf,
   DAY_TAGS,
-  fetchActivityStreams,
-  fetchActivityLaps,
-  detectStrides,
+  type StravaActivity,
   type ActivitySummary,
-  type StrideAnalysis,
 } from '../lib/strava'
-import { analyzeRun, analyzeRide, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
-import { generatePlan, allWeekSessions, type PlanRow, type WorkoutSession } from '../lib/plan'
+import { analyzeRun, analyzeRide } from '../lib/vdot'
+import { generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay, hasPlanRowForDate, type PlanRow, type WorkoutSession, type PlanDeviation } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
-import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
+import { loadNote } from '../lib/storage'
+import RunDetail from './RunDetail'
 
 interface Props {
   settings: AppSettings
   onGoToSettings: () => void
 }
 
-const ZONE_COLORS: Record<string, string> = {
-  Z1: '#42A5F5', Z2: '#4CAF50', Z3: '#FFC107', Z4: '#FF9800', Z5: '#e53935',
+function fmt(s: number) {
+  const m = Math.floor(s / 60); const sec = Math.round(s % 60)
+  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 function isoWeek(d: Date): string {
@@ -57,13 +58,23 @@ function getPhaseForDate(plan: PlanRow[], date: Date): string {
   return row?.phase ?? 'Aufbau'
 }
 
+
 export default function Analysis({ settings, onGoToSettings }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
+  const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
 
   function onNoteSaved() { setNoteVersion(v => v + 1) }
 
-  const cached      = getCachedActivities()
+  // Stale-while-revalidate: show cache immediately, delta-sync in background
+  useEffect(() => {
+    getValidToken().then(token => {
+      if (!token) return
+      syncActivities(52).then(fresh => {
+        if (fresh && fresh.length > 0) setCached(fresh)
+      }).catch(() => {})
+    }).catch(() => {})
+  }, [])
   const hasStrava   = cached.length > 0
   const runs        = parseRuns(cached)
   const allActs     = parseAllActivities(cached)
@@ -322,7 +333,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             Keine Aktivitäten vorhanden.
           </div>
         )}
-        {recentActs.map(act => {
+        {recentActs.map((act, actIdx) => {
           const isExpanded = expandedId === act.id
           const phase          = getPhaseForDate(plan, act.date)
           const plannedSession = getPlannedSession(plan, act.date, settings)
@@ -368,6 +379,26 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           const dateStr = act.date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
           const actIcon = act.isTrail ? '🏔️' : act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
 
+          // Deviation badge for last 7 activities when plan data is available
+          let deviation: PlanDeviation | null = null
+          if (actIdx < 7 && hasPlanRowForDate(plan, act.date)) {
+            const tsb = tsbData?.tsb ?? 0
+            if (!plannedSession) {
+              deviation = assessDeviationForRestDay(act, tsb)
+            } else {
+              // null classification is fine — assessDeviation handles it
+              deviation = assessDeviation(plannedSession, act, null, tsb)
+            }
+          }
+
+          const BADGE_LABELS: Record<string, string> = {
+            plangemäß: '📋 plangemäß',
+            mehr:      '↗️ mehr',
+            weniger:   '↘️ weniger',
+            ruhetag:   '💤 Ruhetag trainiert',
+            frei:      '',  // no plan — don't show badge
+          }
+
           // noteVersion read ensures the list re-renders after a note is saved
           const hasNote = noteVersion >= 0 && loadNote(act.id) !== null
           return (
@@ -378,8 +409,24 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
               >
                 <span style={{ fontSize: '16px' }}>{actIcon}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    {act.name}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '5px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '160px' }}>
+                      {act.name}
+                    </span>
+                    {deviation && deviation.badge !== 'frei' && (
+                      <span style={{
+                        fontSize: '10px',
+                        padding: '1px 5px',
+                        borderRadius: '8px',
+                        background: `${deviation.badgeColor}22`,
+                        color: deviation.badgeColor,
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0,
+                        fontWeight: 600,
+                      }}>
+                        {BADGE_LABELS[deviation.badge]}
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text2)' }}>
                     {dateStr} ·{' '}
@@ -419,6 +466,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       act={act}
                       phase={phase}
                       plannedSession={plannedSession}
+                      deviation={deviation}
                       vdot={settings.vdot}
                       onNoteSaved={onNoteSaved}
                     />
@@ -653,446 +701,6 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   )
 }
 
-const ZONE_LABELS_SHORT: Record<string, string> = {
-  Z1: 'Z1 · Regeneration', Z2: 'Z2 · Grundlage', Z3: 'Z3 · Aerob',
-  Z4: 'Z4 · Schwelle', Z5: 'Z5 · Maximal',
-}
-
-function fmt(s: number) {
-  const m = Math.floor(s / 60); const sec = Math.round(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
-}
-
-function planCheck(planned: WorkoutSession, act: ActivitySummary, strideData: StrideAnalysis | null, analysis: ReturnType<typeof analyzeRun>): { icon: string; text: string; color: string }[] {
-  const checks: { icon: string; text: string; color: string }[] = []
-  const sessionName = planned.session.toLowerCase()
-  const plannedKm = typeof planned.distanzKm === 'number' ? planned.distanzKm : parseFloat(String(planned.distanzKm))
-
-  // Distance check
-  if (!isNaN(plannedKm) && plannedKm > 0) {
-    const pct = act.distanceKm / plannedKm
-    if (pct >= 0.90)       checks.push({ icon: '✅', text: `Distanz: ${act.distanceKm} km (geplant ${plannedKm} km)`, color: '#4CAF50' })
-    else if (pct >= 0.75)  checks.push({ icon: '🟡', text: `Distanz: ${act.distanceKm} km — etwas kürzer als geplant ${plannedKm} km`, color: '#FFC107' })
-    else                   checks.push({ icon: '⚠️', text: `Distanz: nur ${act.distanceKm} km von ${plannedKm} km`, color: '#e53935' })
-  }
-
-  // Stride count check
-  const strideMatch = planned.session.match(/(\d+)[×x]/)
-  if (strideMatch && strideData) {
-    const targetN = parseInt(strideMatch[1])
-    const actualN = strideData.strideCount
-    if (actualN >= targetN)          checks.push({ icon: '✅', text: `Strides: ${actualN} erkannt (${targetN} geplant)`, color: '#4CAF50' })
-    else if (actualN >= targetN - 1) checks.push({ icon: '🟡', text: `Strides: ${actualN} erkannt (${targetN} geplant — fast vollständig)`, color: '#FFC107' })
-    else                             checks.push({ icon: '⚠️', text: `Strides: nur ${actualN} erkannt (${targetN} geplant)`, color: '#e53935' })
-  } else if (strideMatch && !strideData) {
-    const targetN = parseInt(strideMatch[1])
-    checks.push({ icon: '📈', text: `${targetN} Strides geplant — Pace-Verlauf laden um zu prüfen`, color: '#FF9800' })
-  }
-
-  // Recovery pattern check (for stride sessions)
-  if (strideData && strideData.avgRecoverySec !== null && sessionName.includes('stride')) {
-    const rec = strideData.avgRecoverySec
-    if (rec >= 35 && rec <= 70) checks.push({ icon: '✅', text: `Erholung Ø ${rec} s zwischen Strides — ideal`, color: '#4CAF50' })
-    else if (rec < 35)          checks.push({ icon: '🟡', text: `Erholung Ø ${rec} s — etwas kurz, min. 35 s empfohlen`, color: '#FFC107' })
-    else                        checks.push({ icon: '🟡', text: `Erholung Ø ${rec} s — sehr locker, passt`, color: '#4CAF50' })
-  }
-
-  // Tempo session check (e.g. "7km easy + 3km M-Pace")
-  if ((sessionName.includes('marathon-pace') || sessionName.includes('m-pace') || sessionName.includes('tempo')) && !sessionName.includes('stride')) {
-    if (analysis.zoneCode === 'M' || analysis.zoneCode === 'T') {
-      checks.push({ icon: '✅', text: `Tempo korrekt — Pace im ${analysis.zoneName}-Bereich`, color: '#4CAF50' })
-    } else if (analysis.zoneCode === 'E') {
-      checks.push({ icon: '🟡', text: `Durchschnitt Easy — Tempo-Abschnitt evtl. kürzer als geplant`, color: '#FFC107' })
-    }
-  }
-
-  return checks
-}
-
-function RunDetail({
-  analysis,
-  act,
-  phase,
-  plannedSession,
-  vdot,
-  onNoteSaved,
-}: {
-  analysis: ReturnType<typeof analyzeRun>
-  act: ActivitySummary
-  phase: string
-  plannedSession: WorkoutSession | null
-  vdot: number
-  onNoteSaved: () => void
-}) {
-  const [strideData,    setStrideData]    = useState<StrideAnalysis | null>(null)
-  const [loadingStream, setLoadingStream] = useState(false)
-  const [streamErr,     setStreamErr]     = useState<string | null>(null)
-  const [lapData,       setLapData]       = useState<WorkoutLapAnalysis | null>(null)
-  const [loadingLaps,   setLoadingLaps]   = useState(false)
-  const [lapErr,        setLapErr]        = useState<string | null>(null)
-
-  const existingNote                  = loadNote(act.id)
-  const [noteText,   setNoteText]     = useState<string>(existingNote?.text ?? '')
-  const [noteRating, setNoteRating]   = useState<number>(existingNote?.rating ?? 0)
-  const [noteSaved,  setNoteSaved]    = useState<ActivityNote | null>(existingNote)
-
-  function handleSaveNote() {
-    if (!noteText.trim() && noteRating === 0) return
-    saveNote(act.id, noteText.trim(), noteRating)
-    const saved = loadNote(act.id)!
-    setNoteSaved(saved)
-    onNoteSaved()
-  }
-
-  function handleDeleteNote() {
-    deleteNote(act.id)
-    setNoteText('')
-    setNoteRating(0)
-    setNoteSaved(null)
-    onNoteSaved()
-  }
-
-  async function loadLaps(vdot: number) {
-    setLoadingLaps(true); setLapErr(null)
-    try {
-      const laps = await fetchActivityLaps(act.id)
-      if (!laps || laps.length === 0) { setLapErr('Keine Lap-Daten verfügbar — bitte Lap-Taste auf der Uhr nutzen.'); return }
-      const result = analyzeWorkoutLaps(laps, vdot)
-      if (!result) setLapErr('Zu wenige Laps für Intervallauswertung.')
-      else         setLapData(result)
-    } catch { setLapErr('Fehler beim Laden der Lap-Daten.') }
-    finally   { setLoadingLaps(false) }
-  }
-
-  async function loadStreams() {
-    setLoadingStream(true); setStreamErr(null)
-    try {
-      const streams = await fetchActivityStreams(act.id)
-      if (!streams || streams.velocity_smooth.length === 0) {
-        setStreamErr('Keine Stream-Daten verfügbar.')
-      } else {
-        setStrideData(detectStrides(streams, act.paceSec))
-      }
-    } catch { setStreamErr('Fehler beim Laden der Stream-Daten.') }
-    finally { setLoadingStream(false) }
-  }
-
-  const durationMin = act.durationSec > 0 ? Math.round(act.durationSec / 60) : null
-  return (
-    <>
-      {/* Verdict row */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: 700 }}>{analysis.verdict}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '3px' }}>{analysis.note}</div>
-        </div>
-        <div style={{
-          fontSize: '11px', padding: '3px 8px', borderRadius: '12px',
-          background: `${analysis.zoneColor}22`, color: analysis.zoneColor, whiteSpace: 'nowrap', flexShrink: 0,
-        }}>
-          {analysis.zoneName}
-        </div>
-      </div>
-
-      {/* Temperature adjustment note */}
-      {analysis.tempNote && (
-        <div style={{ fontSize: '11px', color: '#FF9800', marginTop: '4px', lineHeight: 1.4 }}>
-          {analysis.tempNote}
-        </div>
-      )}
-
-      {/* Key metrics grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginTop: '6px' }}>
-        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>
-            Ø Pace{act.tempC !== undefined ? ` · ${Math.round(act.tempC)}°C` : ''}
-          </div>
-          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.paceFmt} /km</div>
-          <div style={{ fontSize: '10px', color: 'var(--text2)' }}>
-            {analysis.adjPaceSec
-              ? `≈ ${Math.floor(analysis.adjPaceSec / 60)}:${String(Math.round(analysis.adjPaceSec % 60)).padStart(2, '0')} bereinigt`
-              : `Abw. E-Mitte: ${analysis.devStr}`}
-          </div>
-        </div>
-        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Herzfrequenz</div>
-          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.avgHr ? `${Math.round(act.avgHr)} bpm` : '—'}</div>
-          <div style={{ fontSize: '10px', color: analysis.hrZone ? (ZONE_COLORS[analysis.hrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
-            {analysis.hrZone ? ZONE_LABELS_SHORT[analysis.hrZone] ?? analysis.hrZone : '—'}
-          </div>
-        </div>
-        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>HF-Max</div>
-          <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}</div>
-          <div style={{ fontSize: '10px', color: analysis.maxHrZone ? (ZONE_COLORS[analysis.maxHrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
-            {analysis.maxHrZone ? `${ZONE_LABELS_SHORT[analysis.maxHrZone] ?? analysis.maxHrZone} · ${analysis.maxHrPct}% HFR` : '—'}
-          </div>
-        </div>
-      </div>
-
-      {/* Stride detection block */}
-      {analysis.strideDetected && (
-        <div style={{ background: '#FF980022', border: '1px solid #FF980044', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-            <span style={{ fontWeight: 700, color: '#FF9800' }}>⚡ Stride-Analyse</span>
-            {!strideData && (
-              <button
-                style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', border: '1px solid #FF9800', background: 'transparent', color: '#FF9800', cursor: 'pointer' }}
-                onClick={loadStreams}
-                disabled={loadingStream}
-              >
-                {loadingStream ? '⏳ Lädt…' : '📈 Pace-Verlauf laden'}
-              </button>
-            )}
-          </div>
-          <div style={{ color: 'var(--text2)', lineHeight: 1.5 }}>
-            <span style={{ color: 'var(--text1)' }}>HF-Spitzen: +{analysis.hrSpikeBpm} bpm</span> über Ø — Intensitätsspitzen bestätigt.{' '}
-            HF-Max ({act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}) {analysis.maxHrZone ?? ''} ({analysis.maxHrPct}% HFR).
-          </div>
-          {streamErr && <div style={{ color: '#e53935', fontSize: '11px', marginTop: '4px' }}>{streamErr}</div>}
-
-          {/* Stream-based stride results */}
-          {strideData && (
-            <div style={{ marginTop: '8px', borderTop: '1px solid #FF980033', paddingTop: '8px' }}>
-              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '6px' }}>
-                <span><strong style={{ color: '#FF9800' }}>{strideData.strideCount}</strong> <span style={{ color: 'var(--text2)' }}>Strides erkannt</span></span>
-                {strideData.fastestPaceSec > 0 && (
-                  <span><strong style={{ color: '#FF9800' }}>{fmt(strideData.fastestPaceSec)}</strong> <span style={{ color: 'var(--text2)' }}>/km schnellste</span></span>
-                )}
-                {strideData.avgPeakPaceSec > 0 && (
-                  <span><strong style={{ color: '#FF9800' }}>{fmt(strideData.avgPeakPaceSec)}</strong> <span style={{ color: 'var(--text2)' }}>/km Ø Peak</span></span>
-                )}
-              </div>
-              {strideData.strides.length > 0 && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                  {strideData.strides.map((s, i) => (
-                    <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
-                      <span style={{ color: '#FF9800', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
-                      <span>{s.distanceM} m</span>
-                      <span>{s.durationSec} s</span>
-                      <span style={{ color: 'var(--text1)' }}>⚡ {fmt(s.peakPaceSec)} /km</span>
-                      {s.peakHr && <span>♡ {s.peakHr}</span>}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {strideData.strideCount === 0 && (
-                <div style={{ color: 'var(--text2)', fontSize: '11px' }}>
-                  Keine klaren Pace-Spitzen im Stream erkannt. GPS-Genauigkeit oder sehr kurze Strides können Erkennung erschweren.
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Stream load button for non-stride runs */}
-      {!analysis.strideDetected && !strideData && (
-        <button
-          style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', cursor: 'pointer', alignSelf: 'flex-start' }}
-          onClick={loadStreams}
-          disabled={loadingStream}
-        >
-          {loadingStream ? '⏳ Lädt…' : '📈 Pace-Verlauf analysieren'}
-        </button>
-      )}
-      {!analysis.strideDetected && strideData && strideData.strideCount > 0 && (
-        <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-          <div style={{ fontWeight: 700, marginBottom: '4px' }}>📈 Pace-Spitzen</div>
-          {strideData.strides.map((s, i) => (
-            <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
-              <span style={{ color: 'var(--accent)', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
-              <span>{s.distanceM} m</span>
-              <span>{s.durationSec} s</span>
-              <span style={{ color: 'var(--text1)' }}>⚡ {fmt(s.peakPaceSec)} /km</span>
-              {s.peakHr && <span>♡ {s.peakHr}</span>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Workout Lap Analysis */}
-      {(act.workoutType ?? 0) > 1 && (
-        <div style={{ background: '#FFC10722', border: '1px solid #FFC10744', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: lapData ? '8px' : '0' }}>
-            <span style={{ fontWeight: 700, color: '#FFC107' }}>🏋️ Intervallauswertung</span>
-            {!lapData && (
-              <button
-                style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', border: '1px solid #FFC107', background: 'transparent', color: '#FFC107', cursor: 'pointer' }}
-                onClick={() => loadLaps(vdot)}
-                disabled={loadingLaps}
-              >
-                {loadingLaps ? '⏳ Lädt…' : '📊 Laps laden'}
-              </button>
-            )}
-          </div>
-          {lapErr && <div style={{ color: '#e53935', fontSize: '11px' }}>{lapErr}</div>}
-          {lapData && (
-            <>
-              {lapData.isAutoSplit ? (
-                <div style={{ color: 'var(--text2)', fontSize: '11px' }}>
-                  ℹ️ Nur automatische 1km-Splits erkannt — für Intervallauswertung bitte Lap-Taste auf der Uhr drücken.
-                </div>
-              ) : (
-                <>
-                  <div style={{ color: 'var(--text2)', marginBottom: '6px', lineHeight: 1.5 }}>
-                    {lapData.wuNote} · {lapData.cdNote}<br />{lapData.rvNote}
-                  </div>
-                  {lapData.nIntervals > 0 && (
-                    <div style={{ borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>
-                        {lapData.nIntervals} INTERVALLE · ZIEL {lapData.iPaceTarget} /km
-                      </div>
-                      {lapData.intervals.map((iv, i) => (
-                        <div key={i} style={{ lineHeight: 1.6, color: iv.dev <= 6 ? '#4CAF50' : iv.dev > 15 ? '#e53935' : '#FFC107' }}>
-                          #{i + 1} {iv.verdict}{iv.hrStr}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {lapData.laps.length > 0 && (
-                    <div style={{ marginTop: '8px', borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>ALLE LAPS</div>
-                      {lapData.laps.map((lp, i) => {
-                        const roleColor: Record<string, string> = { warmup: '#42A5F5', interval: '#e53935', recovery: '#4CAF50', cooldown: '#42A5F5', easy: 'var(--text2)' }
-                        return (
-                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center', lineHeight: 1.7 }}>
-                            <span style={{ color: roleColor[lp.role] ?? 'var(--text2)', minWidth: '18px', fontWeight: 600 }}>#{lp.idx}</span>
-                            <span style={{ color: roleColor[lp.role], fontSize: '10px', minWidth: '56px' }}>{lp.role}</span>
-                            <span style={{ color: 'var(--text1)', fontWeight: lp.role === 'interval' ? 700 : 400 }}>{lp.paceFmt}</span>
-                            <span>{lp.distKm} km</span>
-                            {lp.avgHr && <span>♡ {Math.round(lp.avgHr)}</span>}
-                          </div>
-                        )
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Plan-Check */}
-      {plannedSession && (() => {
-        const checks = planCheck(plannedSession, act, strideData, analysis)
-        if (checks.length === 0) return null
-        return (
-          <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-            <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '11px', color: 'var(--text2)' }}>
-              PLAN-CHECK · {plannedSession.session}
-            </div>
-            {checks.map((c, i) => (
-              <div key={i} style={{ color: c.color, lineHeight: 1.6 }}>{c.icon} {c.text}</div>
-            ))}
-          </div>
-        )
-      })()}
-
-      {/* Secondary info */}
-      <div style={{ fontSize: '11px', color: 'var(--text2)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-        <span>Phase: {phase}</span>
-        {act.distanceKm > 0 && <span>{act.distanceKm} km</span>}
-        {durationMin && <span>{durationMin} min</span>}
-        {act.elevationM > 0 && <span>↑ {act.elevationM} m</span>}
-      </div>
-
-      {/* HR note (non-stride mismatch) */}
-      {analysis.hrNote && !analysis.strideDetected && (
-        <div style={{ fontSize: '12px', color: 'var(--text2)', fontStyle: 'italic' }}>
-          💬 {analysis.hrNote}
-        </div>
-      )}
-
-      {/* Training note */}
-      <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '10px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text2)', marginBottom: '8px', letterSpacing: '0.04em' }}>
-          📝 NOTIZ & BEFINDEN
-        </div>
-        {/* Star rating */}
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
-          {[1, 2, 3, 4, 5].map(star => (
-            <button
-              key={star}
-              onClick={() => setNoteRating(prev => prev === star ? 0 : star)}
-              style={{
-                fontSize: '20px',
-                background: 'transparent',
-                border: 'none',
-                cursor: 'pointer',
-                padding: '0',
-                lineHeight: 1,
-                opacity: star <= noteRating ? 1 : 0.25,
-              }}
-              aria-label={`Befinden: ${star} von 5`}
-            >
-              ⭐
-            </button>
-          ))}
-        </div>
-        {/* Text input */}
-        <textarea
-          value={noteText}
-          onChange={e => setNoteText(e.target.value)}
-          placeholder="Wie war das Training? Besonderheiten, Müdigkeit, Stimmung…"
-          rows={3}
-          style={{
-            width: '100%',
-            fontSize: '13px',
-            padding: '8px',
-            borderRadius: '6px',
-            border: '1px solid var(--border)',
-            background: 'var(--surface1)',
-            color: 'var(--text1)',
-            resize: 'vertical',
-            boxSizing: 'border-box',
-          }}
-        />
-        {/* Actions */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '8px', alignItems: 'center' }}>
-          <button
-            onClick={handleSaveNote}
-            disabled={!noteText.trim() && noteRating === 0}
-            style={{
-              fontSize: '12px',
-              padding: '5px 14px',
-              borderRadius: '8px',
-              border: 'none',
-              background: 'var(--accent)',
-              color: '#fff',
-              cursor: (!noteText.trim() && noteRating === 0) ? 'not-allowed' : 'pointer',
-              opacity: (!noteText.trim() && noteRating === 0) ? 0.5 : 1,
-            }}
-          >
-            Speichern
-          </button>
-          {noteSaved && (
-            <button
-              onClick={handleDeleteNote}
-              style={{
-                fontSize: '12px',
-                padding: '5px 14px',
-                borderRadius: '8px',
-                border: '1px solid var(--border)',
-                background: 'transparent',
-                color: 'var(--text2)',
-                cursor: 'pointer',
-              }}
-            >
-              Löschen
-            </button>
-          )}
-          {noteSaved && (
-            <span style={{ fontSize: '11px', color: '#4CAF50', marginLeft: '4px' }}>
-              ✓ Gespeichert {new Date(noteSaved.savedAt).toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })}
-            </span>
-          )}
-        </div>
-      </div>
-    </>
-  )
-}
 
 function RideDetail({
   analysis,

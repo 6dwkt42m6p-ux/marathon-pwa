@@ -23,6 +23,18 @@ export default function App() {
   const hasOAuthCode = new URLSearchParams(window.location.search).has('code')
   const [tab, setTab]           = useState<Tab>(hasOAuthCode ? 'settings' : 'today')
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
+  const [online, setOnline] = useState(navigator.onLine)
+
+  useEffect(() => {
+    const handleOnline  = () => setOnline(true)
+    const handleOffline = () => setOnline(false)
+    window.addEventListener('online',  handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online',  handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
 
   // On startup: pull sync data from GitHub and apply
   useEffect(() => {
@@ -71,6 +83,13 @@ export default function App() {
         </div>
         <div className="header-vdot">VDOT {settings.vdot.toFixed(1)}</div>
       </header>
+
+      {!online && (
+        <div className="offline-banner" role="status" aria-live="polite">
+          <span className="offline-banner-dot" />
+          Offline — Strava-Sync nicht verfügbar
+        </div>
+      )}
 
       <main className="app-main">
         {tab === 'today'    && <TodayWorkout settings={settings} />}

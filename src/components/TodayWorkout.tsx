@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
-import { generatePlan, allWeekSessions } from '../lib/plan'
+import { generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay, type PlanDeviation } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
-import { getCachedActivities, thisWeekKm, DAY_TAGS } from '../lib/strava'
+import { getCachedActivities, thisWeekKm, DAY_TAGS, parseAllActivities, computeAtlCtl, mondayOf } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 import { hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
@@ -49,6 +49,32 @@ export default function TodayWorkout({ settings }: Props) {
   const rawSessions = currentRow
     ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
     : []
+
+  // ── Plan-Abweichungserkennung (T-014) ───────────────────────────────────────
+  // Show deviation for the most recent activity (today or latest available)
+  const tsbData     = cached.length > 0 ? computeAtlCtl(cached) : null
+  const tsb         = tsbData?.tsb ?? 0
+  const allActs     = parseAllActivities(cached)
+  const latestAct   = allActs.length > 0 ? allActs[0] : null
+
+  let latestDeviation: PlanDeviation | null = null
+  if (latestAct && currentRow) {
+    const actDay      = new Date(latestAct.date)
+    actDay.setHours(0, 0, 0, 0)
+    const actMonday   = mondayOf(actDay)
+    const planMonday  = new Date(currentRow.weekStart)
+    planMonday.setHours(0, 0, 0, 0)
+    // Only show if the activity falls in the current plan week
+    if (actMonday.getTime() === planMonday.getTime()) {
+      const tag = DAY_TAGS[latestAct.date.getDay()]
+      const sessionForDay = rawSessions.find(s => s.wochentag === tag) ?? null
+      if (sessionForDay) {
+        latestDeviation = assessDeviation(sessionForDay, latestAct, null, tsb)
+      } else {
+        latestDeviation = assessDeviationForRestDay(latestAct, tsb)
+      }
+    }
+  }
 
   // ── Day-swap state ──────────────────────────────────────────────────────────
   const wKey = currentRow ? weekKey(currentRow.weekStart) : 'noweek'
@@ -124,6 +150,40 @@ export default function TodayWorkout({ settings }: Props) {
           </div>
           <div className="progress-bar">
             <div className="progress-fill" style={{ width: `${progressPct}%`, background: progressColor }} />
+          </div>
+        </div>
+      )}
+
+      {/* Plan-Abweichung letzte Aktivität (T-014) */}
+      {latestDeviation && latestDeviation.badge !== 'frei' && latestAct && (
+        <div style={{
+          background: `${latestDeviation.badgeColor}12`,
+          border: `1px solid ${latestDeviation.badgeColor}33`,
+          borderRadius: '8px',
+          padding: '10px 12px',
+          fontSize: '12px',
+        }}>
+          <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text2)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+            LETZTE EINHEIT — PLAN-CHECK
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: '3px', columnGap: '10px' }}>
+            <span style={{ color: 'var(--text2)' }}>Geplant:</span>
+            <span style={{ fontWeight: 600 }}>{latestDeviation.plannedLabel}</span>
+            <span style={{ color: 'var(--text2)' }}>Trainiert:</span>
+            <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
+              {latestDeviation.actualType} — {latestDeviation.actualKm} km
+            </span>
+            {latestDeviation.kmDelta !== 0 && (
+              <>
+                <span style={{ color: 'var(--text2)' }}>Abweichung:</span>
+                <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
+                  {latestDeviation.kmDelta > 0 ? '+' : ''}{latestDeviation.kmDelta} km
+                </span>
+              </>
+            )}
+          </div>
+          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text2)', fontStyle: 'italic', lineHeight: 1.5 }}>
+            {latestDeviation.coachComment}
           </div>
         </div>
       )}

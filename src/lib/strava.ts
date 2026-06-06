@@ -6,8 +6,9 @@ const CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET || ''
 // This works for both localhost dev and GitHub Pages (/marathon-pwa/) without any secrets config
 export const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
   (window.location.origin + import.meta.env.BASE_URL)
-const TOKEN_KEY     = 'strava_tokens'
-const ACTS_KEY      = 'strava_activities'
+const TOKEN_KEY          = 'strava_tokens'
+const ACTS_KEY           = 'strava_activities'
+export const STRAVA_LAST_SYNC_KEY = 'strava_last_sync'
 
 export interface StravaTokens {
   access_token:  string
@@ -59,6 +60,19 @@ export function saveTokens(t: StravaTokens): void {
 export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ACTS_KEY)
+}
+
+export function saveLastSyncTimestamp(): void {
+  try { localStorage.setItem(STRAVA_LAST_SYNC_KEY, new Date().toISOString()) } catch {}
+}
+
+export function loadLastSyncTimestamp(): Date | null {
+  try {
+    const raw = localStorage.getItem(STRAVA_LAST_SYNC_KEY)
+    if (!raw) return null
+    const d = new Date(raw)
+    return isNaN(d.getTime()) ? null : d
+  } catch { return null }
 }
 
 export function isAuthenticated(): boolean {
@@ -121,7 +135,7 @@ function saveCachedActivities(acts: StravaActivity[]): void {
   try { localStorage.setItem(ACTS_KEY, JSON.stringify(acts)) }
   catch (e) {
     // LocalStorage might be full — trim older entries and retry
-    const trimmed = acts.slice(-300)
+    const trimmed = acts.slice(-500)
     try { localStorage.setItem(ACTS_KEY, JSON.stringify(trimmed)) } catch {}
   }
 }
@@ -136,14 +150,14 @@ async function fetchActivitiesAfter(token: string, afterTs: number): Promise<Str
   let page = 1
   while (true) {
     const r = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${afterTs}&page=${page}&per_page=100`,
+      `https://www.strava.com/api/v3/athlete/activities?after=${afterTs}&page=${page}&per_page=200`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     if (!r.ok) throw new Error(`Strava API error: ${r.status}`)
     const batch: StravaActivity[] = await r.json()
     if (!batch.length) break
     all.push(...batch)
-    if (batch.length < 100) break
+    if (batch.length < 200) break
     page++
   }
   return all
@@ -168,6 +182,7 @@ export async function syncActivities(weeksBack = 52): Promise<StravaActivity[]> 
   for (const a of newActs) idMap.set(a.id, a)
   const merged = Array.from(idMap.values()).filter(a => activityTs(a) >= cutoffTs)
   saveCachedActivities(merged)
+  saveLastSyncTimestamp()
   return merged
 }
 
@@ -603,6 +618,7 @@ export async function fetchActivityStreams(activityId: number): Promise<Activity
   }
 }
 
+// Strava lap raw data — variable structure, parsed in analyzeWorkoutLaps()
 export async function fetchActivityLaps(activityId: number): Promise<any[] | null> {
   const token = await getValidToken()
   if (!token) return null
@@ -612,6 +628,218 @@ export async function fetchActivityLaps(activityId: number): Promise<any[] | nul
   )
   if (!res.ok) return null
   return res.json()
+}
+
+// ── Workout Classification v3 ────────────────────────────────────────────────
+
+export interface WorkoutStrideSegment {
+  startSec:    number
+  durationSec: number
+  peakSpeedMs: number  // m/s
+}
+
+export interface IntervalBlock {
+  startSec:   number
+  durationSec: number
+  avgPaceSec: number   // sec/km
+  avgHr?:     number
+}
+
+export interface TempoBlock {
+  startSec:     number
+  durationSec:  number
+  avgPaceSec:   number   // sec/km
+  paceDeviation: number  // drift %, end vs start
+}
+
+export interface WorkoutClassification {
+  workoutType:    'easy' | 'strides' | 'intervals' | 'tempo' | 'mixed'
+  strides:        WorkoutStrideSegment[]
+  intervalBlocks: IntervalBlock[]
+  tempoBlocks:    TempoBlock[]
+}
+
+function median(values: number[]): number {
+  if (values.length === 0) return 0
+  const sorted = [...values].sort((a, b) => a - b)
+  const mid = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 0
+    ? (sorted[mid - 1] + sorted[mid]) / 2
+    : sorted[mid]
+}
+
+export function classifyWorkoutStructure(
+  timeStream: number[],
+  velocityStream: number[],
+  heartrateStream?: number[],
+): WorkoutClassification {
+  const empty: WorkoutClassification = { workoutType: 'easy', strides: [], intervalBlocks: [], tempoBlocks: [] }
+  if (velocityStream.length < 20) return empty
+
+  // ── 5-point moving average smoothing ────────────────────────────────────────
+  const smoothed = velocityStream.map((_v, i) => {
+    const slice = velocityStream.slice(Math.max(0, i - 2), Math.min(velocityStream.length, i + 3))
+    return slice.reduce((s, x) => s + x, 0) / slice.length
+  })
+
+  // ── Step 1: Varianz-Gate — CV of smoothed velocity ──────────────────────────
+  const meanSpeed = smoothed.reduce((s, v) => s + v, 0) / smoothed.length
+  if (meanSpeed <= 0) return empty
+  const variance = smoothed.reduce((s, v) => s + (v - meanSpeed) ** 2, 0) / smoothed.length
+  const cv = Math.sqrt(variance) / meanSpeed
+  if (cv < 0.05) return empty
+
+  // ── Baseline: median of smoothed speeds (captures the easy/base pace) ───────
+  const baseSpeed = median(smoothed)
+  if (baseSpeed <= 0) return empty
+
+  // Peak threshold: +20% above median base
+  const peakThreshold = baseSpeed * 1.20
+  // Recovery check threshold: 108% of base
+  const recoveryThreshold = baseSpeed * 1.08
+
+  // ── Step 2: Find peaks — must stay ≥3s above threshold ──────────────────────
+  // Mark all indices above threshold, then group into contiguous blocks
+  const aboveThreshold = smoothed.map(v => v >= peakThreshold)
+
+  interface PeakBlock { startIdx: number; endIdx: number; peakIdx: number; peakSpeed: number }
+  const peakBlocks: PeakBlock[] = []
+
+  let i = 0
+  while (i < aboveThreshold.length) {
+    if (!aboveThreshold[i]) { i++; continue }
+    const blockStart = i
+    while (i < aboveThreshold.length && aboveThreshold[i]) i++
+    const blockEnd = i - 1
+
+    const tStart = timeStream[blockStart]
+    const tEnd   = timeStream[blockEnd]
+    const dur    = tEnd - tStart
+
+    // Must be ≥3s (prevents GPS spikes)
+    if (dur < 3) continue
+
+    let peakIdx = blockStart
+    for (let j = blockStart + 1; j <= blockEnd; j++) {
+      if (smoothed[j] > smoothed[peakIdx]) peakIdx = j
+    }
+
+    peakBlocks.push({ startIdx: blockStart, endIdx: blockEnd, peakIdx, peakSpeed: smoothed[peakIdx] })
+  }
+
+  if (peakBlocks.length === 0) return empty
+
+  // ── Step 3 & 4: Classify each peak block, check recovery ────────────────────
+  const strides:        WorkoutStrideSegment[] = []
+  const intervalBlocks: IntervalBlock[]        = []
+  const tempoBlocks:    TempoBlock[]           = []
+
+  // Expand each peak block outward to the baseline crossing (recoveryThreshold)
+  for (const block of peakBlocks) {
+    let startIdx = block.startIdx
+    while (startIdx > 0 && smoothed[startIdx - 1] > recoveryThreshold) startIdx--
+    let endIdx = block.endIdx
+    while (endIdx < smoothed.length - 1 && smoothed[endIdx + 1] > recoveryThreshold) endIdx++
+
+    const tStart = timeStream[startIdx]
+    const tEnd   = timeStream[endIdx]
+    const dur    = tEnd - tStart
+    if (dur <= 0) continue
+
+    const seg    = smoothed.slice(startIdx, endIdx + 1)
+    const avgMs  = seg.reduce((s, v) => s + v, 0) / seg.length
+    const paceSec = avgMs > 0 ? Math.round(1000 / avgMs) : 0
+
+    if (dur <= 25) {
+      // Stride candidate — check recovery valley in 30s after block
+      const recoveryEndTime = tEnd + 30
+      const recoveryIdx = timeStream.findIndex((t, idx) => idx > endIdx && t >= recoveryEndTime)
+      const checkEnd = recoveryIdx !== -1 ? recoveryIdx : Math.min(endIdx + 30, smoothed.length - 1)
+
+      const recoverySlice = smoothed.slice(endIdx + 1, checkEnd + 1)
+      // Empty slice = end of activity, no recovery data → treat as interval (no confirmed recovery)
+      const recoveryReturned = recoverySlice.length > 0 &&
+        recoverySlice.some(v => v < recoveryThreshold)
+
+      if (recoveryReturned && dur >= 8) {
+        strides.push({
+          startSec:    tStart,
+          durationSec: dur,
+          peakSpeedMs: Math.round(block.peakSpeed * 100) / 100,
+        })
+      } else if (dur >= 8) {
+        // No recovery → treat as interval
+        const hrSeg  = heartrateStream?.slice(startIdx, endIdx + 1)
+        const avgHr  = hrSeg && hrSeg.length > 0
+          ? Math.round(hrSeg.reduce((s, v) => s + v, 0) / hrSeg.length)
+          : undefined
+        intervalBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, avgHr })
+      }
+      // dur < 8: below minimum stride/interval threshold — discard (GPS noise)
+    } else if (dur <= 180) {
+      // Interval block
+      const hrSeg = heartrateStream?.slice(startIdx, endIdx + 1)
+      const avgHr = hrSeg && hrSeg.length > 0
+        ? Math.round(hrSeg.reduce((s, v) => s + v, 0) / hrSeg.length)
+        : undefined
+      intervalBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, avgHr })
+    } else {
+      // Tempo block — compute pace drift (end third vs start third)
+      const third = Math.floor(seg.length / 3)
+      const startSlice = seg.slice(0, Math.max(1, third))
+      const endSlice   = seg.slice(seg.length - Math.max(1, third))
+      const startAvgMs = startSlice.reduce((s, v) => s + v, 0) / startSlice.length
+      const endAvgMs   = endSlice.reduce((s, v) => s + v, 0) / endSlice.length
+      // Drift in pace: positive = pace got slower (higher sec/km), as %
+      const startPace = startAvgMs > 0 ? 1000 / startAvgMs : 0
+      const endPace   = endAvgMs   > 0 ? 1000 / endAvgMs   : 0
+      const paceDeviation = startPace > 0
+        ? Math.round(((endPace - startPace) / startPace) * 100 * 10) / 10
+        : 0
+      tempoBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, paceDeviation })
+    }
+  }
+
+  // Merge adjacent tempo blocks (gap <15s means one sustained block)
+  const mergedTempo: TempoBlock[] = []
+  for (const tb of tempoBlocks) {
+    if (mergedTempo.length === 0) { mergedTempo.push(tb); continue }
+    const prev = mergedTempo[mergedTempo.length - 1]
+    if (tb.startSec - (prev.startSec + prev.durationSec) < 15) {
+      const totalDur = tb.startSec + tb.durationSec - prev.startSec
+      const wPrev = prev.durationSec / totalDur
+      const wCurr = tb.durationSec  / totalDur
+      mergedTempo[mergedTempo.length - 1] = {
+        startSec:      prev.startSec,
+        durationSec:   totalDur,
+        avgPaceSec:    Math.round(prev.avgPaceSec * wPrev + tb.avgPaceSec * wCurr),
+        paceDeviation: Math.round((prev.paceDeviation + tb.paceDeviation) / 2 * 10) / 10,
+      }
+    } else {
+      mergedTempo.push(tb)
+    }
+  }
+
+  // ── Determine workoutType from what was found ────────────────────────────────
+  const hasStrides    = strides.length > 0
+  const hasIntervals  = intervalBlocks.length > 0
+  const hasTempo      = mergedTempo.length > 0
+  const typeCount     = [hasStrides, hasIntervals, hasTempo].filter(Boolean).length
+
+  let workoutType: WorkoutClassification['workoutType']
+  if (typeCount === 0) {
+    workoutType = 'easy'
+  } else if (typeCount > 1) {
+    workoutType = 'mixed'
+  } else if (hasStrides) {
+    workoutType = 'strides'
+  } else if (hasIntervals) {
+    workoutType = 'intervals'
+  } else {
+    workoutType = 'tempo'
+  }
+
+  return { workoutType, strides, intervalBlocks, tempoBlocks: mergedTempo }
 }
 
 // ── Stride detection from velocity stream ────────────────────────────────────

@@ -1,6 +1,6 @@
 // Pfitzinger-style periodized plan generator — ported from coach.py
 import { trainingPaces, formatPace } from './vdot'
-import { mondayOf, DAY_TAGS } from './strava'
+import { mondayOf, DAY_TAGS, type ActivitySummary, type WorkoutClassification } from './strava'
 
 export interface PlanRow {
   weekNr:      number
@@ -354,4 +354,136 @@ export function allWeekSessions(phase: string, plannedKm: number, vdot: number, 
   }
 
   return sessions.slice(0, runsPerWeek)
+}
+
+// ── Plan-Abweichungserkennung (T-014) ────────────────────────────────────────
+
+export interface PlanDeviation {
+  plannedLabel: string       // e.g. "Ruhetag", "Easy-DL", "Intervalle (400–800m)"
+  actualType:   string       // from WorkoutClassification.workoutType or zoneCode
+  actualKm:     number
+  kmDelta:      number       // actual − planned (0 when rest day planned)
+  coachComment: string
+  badge:        'plangemäß' | 'mehr' | 'weniger' | 'ruhetag' | 'frei'
+  badgeColor:   string
+}
+
+// Maps WorkoutSession.typ to broad intensity categories for comparison
+function sessionIntensityLevel(typ: string): 'easy' | 'quality' | 'long' {
+  const t = typ.toLowerCase()
+  if (t.includes('qualität') || t.includes('speed') || t.includes('schärfung')) return 'quality'
+  if (t.includes('ausdauer')) return 'long'
+  return 'easy'
+}
+
+function classificationIntensityLevel(wt: WorkoutClassification['workoutType']): 'easy' | 'quality' {
+  return (wt === 'strides' || wt === 'intervals' || wt === 'tempo' || wt === 'mixed') ? 'quality' : 'easy'
+}
+
+export function assessDeviation(
+  plannedSession: WorkoutSession | null,  // null = rest day
+  actual: ActivitySummary,
+  classification: WorkoutClassification | null,
+  tsb: number,
+): PlanDeviation {
+  const actualKm    = actual.distanceKm
+  const tsbContext  = tsb > -10 ? 'im grünen Bereich' : 'bereits im Minus'
+  const actualLabel = classification
+    ? classification.workoutType.charAt(0).toUpperCase() + classification.workoutType.slice(1)
+    : actual.actType === 'run' ? 'Lauf' : actual.actType === 'ride' ? 'Radfahrt' : 'Wanderung'
+
+  // No plan for this day
+  if (!plannedSession) {
+    return {
+      plannedLabel: 'Kein Plantag',
+      actualType:   actualLabel,
+      actualKm,
+      kmDelta:      0,
+      coachComment: 'Kein Plantag — freies Training.',
+      badge:        'frei',
+      badgeColor:   '#9C27B0',
+    }
+  }
+
+  const plannedLabel = plannedSession.session
+  const plannedKm    = typeof plannedSession.distanzKm === 'number'
+    ? plannedSession.distanzKm
+    : parseFloat(String(plannedSession.distanzKm)) || 0
+
+  const plannedIntensity = sessionIntensityLevel(plannedSession.typ)
+  const actualIntensity  = classification ? classificationIntensityLevel(classification.workoutType) : 'easy'
+
+  // Rest day (no planned session typ that indicates running) → we use null session for rest
+  // At this point we have a planned session, so check if it's a quality mismatch
+  const kmDelta   = plannedKm > 0 ? Math.round((actualKm - plannedKm) * 10) / 10 : actualKm
+  const pct       = plannedKm > 0 ? actualKm / plannedKm : Infinity
+
+  let coachComment: string
+  let badge: PlanDeviation['badge']
+  let badgeColor: string
+
+  if (plannedIntensity === 'easy' && actualIntensity === 'quality') {
+    // Easy or long planned but higher intensity done
+    coachComment = 'Intensiver als geplant — stelle sicher dass der nächste Long Run trotzdem klappt.'
+    badge = 'mehr'
+    badgeColor = '#FF9800'
+  } else if (pct > 1.20) {
+    // >20% more km than planned
+    coachComment = `Deutlich mehr Volumen als geplant — gönn dir in den nächsten 48h extra Erholung.`
+    badge = 'mehr'
+    badgeColor = '#FF9800'
+  } else if (pct < 0.70) {
+    // <70% of planned km (i.e. <-30%)
+    coachComment = 'Weniger als geplant — kein Nachholen empfohlen, einfach weiter im Rhythmus.'
+    badge = 'weniger'
+    badgeColor = '#42A5F5'
+  } else {
+    // Typ + km within ±20%
+    coachComment = 'Plangemäß trainiert. ✓'
+    badge = 'plangemäß'
+    badgeColor = '#4CAF50'
+  }
+
+  // TSB context appended for intensity-mismatch case
+  if (badge === 'mehr' && plannedIntensity === 'easy' && actualIntensity === 'quality') {
+    coachComment += ` TSB aktuell ${tsbContext}.`
+  }
+
+  return {
+    plannedLabel,
+    actualType: actualLabel,
+    actualKm,
+    kmDelta: Math.round(kmDelta * 10) / 10,
+    coachComment,
+    badge,
+    badgeColor,
+  }
+}
+
+// Returns true when the given date falls within a plan week (rest day is meaningful)
+export function hasPlanRowForDate(plan: PlanRow[], date: Date): boolean {
+  const monday = mondayOf(date)
+  return plan.some(r => {
+    const ws = new Date(r.weekStart)
+    ws.setHours(0, 0, 0, 0)
+    return ws.getTime() === monday.getTime()
+  })
+}
+
+// assessDeviationForRestDay: used when the plan shows a rest day and the user trained anyway
+export function assessDeviationForRestDay(
+  actual: ActivitySummary,
+  tsb: number,
+): PlanDeviation {
+  const tsbContext  = tsb > -10 ? 'im grünen Bereich' : 'bereits im Minus'
+  const actualLabel = actual.actType === 'run' ? 'Lauf' : actual.actType === 'ride' ? 'Radfahrt' : 'Wanderung'
+  return {
+    plannedLabel: 'Ruhetag',
+    actualType:   actualLabel,
+    actualKm:     actual.distanceKm,
+    kmDelta:      actual.distanceKm,
+    coachComment: `Training statt Ruhetag — TSB aktuell ${tsbContext}, beobachte die Erholung.`,
+    badge:        'ruhetag',
+    badgeColor:   '#FFC107',
+  }
 }

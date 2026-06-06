@@ -5,6 +5,7 @@ import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
+  loadLastSyncTimestamp,
 } from '../lib/strava'
 import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync } from '../lib/githubSync'
 
@@ -55,6 +56,16 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [syncing,   setSyncing]  = useState(false)
   const [syncMsg,   setSyncMsg]  = useState<string | null>(null)
   const [stravaErr, setStravaErr] = useState<string | null>(null)
+  const [lastSyncTime, setLastSyncTime] = useState<Date | null>(loadLastSyncTimestamp)
+  const [online,    setOnline]   = useState(navigator.onLine)
+
+  useEffect(() => {
+    const up = () => setOnline(true)
+    const dn = () => setOnline(false)
+    window.addEventListener('online', up)
+    window.addEventListener('offline', dn)
+    return () => { window.removeEventListener('online', up); window.removeEventListener('offline', dn) }
+  }, [])
 
   // Handle OAuth redirect — exchange code, then auto-sync
   useEffect(() => {
@@ -68,6 +79,7 @@ export default function Settings({ settings, onUpdate }: Props) {
           setSyncing(true)
           try {
             await syncActivities(52)
+            setLastSyncTime(new Date())
             setSyncMsg('Aktivitäten synchronisiert ✓')
             setTimeout(() => setSyncMsg(null), 4000)
           } catch (e) {
@@ -99,10 +111,15 @@ export default function Settings({ settings, onUpdate }: Props) {
   }
 
   async function handleStravaSync() {
+    if (!online) { setStravaErr('Kein Internet — Sync nicht möglich.'); return }
     setSyncing(true)
     setStravaErr(null)
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('Timeout — Verbindung prüfen und erneut versuchen')), 30_000)
+    )
     try {
-      const acts = await syncActivities(52)
+      const acts = await Promise.race([syncActivities(52), timeout])
+      setLastSyncTime(new Date())
       setSyncMsg(`${acts.length} Aktivitäten synchronisiert`)
       setTimeout(() => setSyncMsg(null), 3000)
     } catch (e) {
@@ -118,6 +135,16 @@ export default function Settings({ settings, onUpdate }: Props) {
     ? new Date(tokens.expires_at * 1000).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : null
   const cachedCount = getCachedActivities().length
+
+  function formatLastSync(d: Date): string {
+    const now   = new Date()
+    const today = now.toDateString() === d.toDateString()
+    const yesterday = new Date(now.getTime() - 86400 * 1000).toDateString() === d.toDateString()
+    const time = d.toLocaleTimeString('de-AT', { hour: '2-digit', minute: '2-digit' })
+    if (today)     return `heute ${time}`
+    if (yesterday) return `gestern ${time}`
+    return d.toLocaleString('de-AT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
 
   function update<K extends keyof AppSettings>(key: K, val: AppSettings[K]) {
     setS(prev => ({ ...prev, [key]: val }))
@@ -233,12 +260,13 @@ export default function Settings({ settings, onUpdate }: Props) {
           <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.8 }}>
             {cachedCount > 0 && <div>📦 {cachedCount} Aktivitäten im Cache</div>}
             {tokenExpiry && <div>🔑 Token gültig bis {tokenExpiry}</div>}
+            {lastSyncTime && <div>🔄 Zuletzt gesynct: {formatLastSync(lastSyncTime)}</div>}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               className="btn-primary"
               onClick={handleStravaSync}
-              disabled={syncing}
+              disabled={syncing || !online}
               style={{ flex: 1 }}
             >
               {syncing ? '⏳ Synchronisiere…' : '🔄 Sync'}
