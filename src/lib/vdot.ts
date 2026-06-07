@@ -260,7 +260,7 @@ export function analyzeRun(
     else                  hrZone = 'Z5'
 
     const spikeBpm = (activityMaxHr ?? 0) - avgHr
-    const hasSpikes = isWorkout || spikeBpm > 15
+    const hasSpikes = isWorkout || spikeBpm >= 22
 
     // HF-max zone
     if (activityMaxHr && activityMaxHr > 0) {
@@ -274,11 +274,13 @@ export function analyzeRun(
       hrSpikeBpm = Math.round(spikeBpm)
     }
 
-    // Stride detection: Easy/Z1 average pace but clear HR spikes ≥ 15 bpm
-    if ((zoneCode === 'E' || zoneCode === 'Z1') && spikeBpm >= 15 && distanceKm >= 4) {
+    // Stride detection: Easy/Z1 average pace but clear HR spikes ≥ 22 bpm
+    // Threshold raised (was 15): wrist/watch HR has ±10–15 bpm noise; 22 bpm requires
+    // a sustained cardiac response, not just sensor artefact.
+    if ((zoneCode === 'E' || zoneCode === 'Z1') && spikeBpm >= 22 && distanceKm >= 4) {
       strideDetected = true
-      verdict = '⚡ Strides / Beschleunigungen'
-      note    = `Durchschnittspace Easy — korrekt für Stride-Einheit. HF-Spitzen +${Math.round(spikeBpm)} bpm über Ø deuten auf Beschleunigungen hin.`
+      verdict = '⚡ Mögliche Strides / Beschleunigungen'
+      note    = `Durchschnittspace Easy — korrekt für Stride-Einheit. HF-Spitzen +${Math.round(spikeBpm)} bpm über Ø könnten auf Beschleunigungen hindeuten. Pace-Verlauf laden für genaue Erkennung.`
     }
 
     // Heat elevates HR by ~0.5 bpm/°C above 15°C — suppress false mismatch warnings in hot conditions
