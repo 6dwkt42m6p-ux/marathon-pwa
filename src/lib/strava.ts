@@ -1,4 +1,5 @@
 // Strava OAuth2 + activity sync
+import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
 
 const CLIENT_ID     = import.meta.env.VITE_STRAVA_CLIENT_ID || ''
 const CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET || ''
@@ -330,8 +331,6 @@ export interface VdotTrend {
   easyHrTrend?:           EasyHrTrend
 }
 
-import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
-
 export function vdotTrendFromActivities(
   runs: RunSummary[],
   currentVdot: number,
@@ -630,7 +629,30 @@ export async function fetchActivityLaps(activityId: number): Promise<any[] | nul
   return res.json()
 }
 
-// ── Workout Classification v3 ────────────────────────────────────────────────
+// ── Workout Classification v5 ───────────────────────────────────────────────
+
+/**
+ * Derive stable easy-baseline speed (m/s) from VDOT anchor.
+ * Returns null when anchor is implausible (stale VDOT or wrong profile).
+ * Plausibility gate: activity median must lie within ±40 % of VDOT-easy speed.
+ */
+function _vdotAnchor(vdot: number | null | undefined, activityMedianMs: number): number | null {
+  if (vdot == null || isNaN(vdot)) return null
+  try {
+    const p = trainingPaces(vdot)
+    const eHighSec = p['E_high']
+    if (!eHighSec || !isFinite(eHighSec) || eHighSec <= 0) return null
+    const easySpeedMs = 1000 / eHighSec  // convert sec/km → m/s
+    if (activityMedianMs > 0) {
+      const ratio = activityMedianMs / easySpeedMs
+      // Athlete's activity must sit in easy–tempo range (0.6× to 1.4× easy speed)
+      if (ratio < 0.60 || ratio > 1.40) return null
+    }
+    return easySpeedMs
+  } catch {
+    return null
+  }
+}
 
 export interface WorkoutStrideSegment {
   startSec:    number
@@ -659,187 +681,181 @@ export interface WorkoutClassification {
   tempoBlocks:    TempoBlock[]
 }
 
-function median(values: number[]): number {
-  if (values.length === 0) return 0
-  const sorted = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(sorted.length / 2)
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid]
-}
-
 export function classifyWorkoutStructure(
   timeStream: number[],
   velocityStream: number[],
   heartrateStream?: number[],
+  vdot?: number | null,
 ): WorkoutClassification {
   const empty: WorkoutClassification = { workoutType: 'easy', strides: [], intervalBlocks: [], tempoBlocks: [] }
-  if (velocityStream.length < 20) return empty
+  const n = velocityStream.length
+  if (n < 10 || n !== timeStream.length) return empty
 
-  // ── 5-point moving average smoothing ────────────────────────────────────────
-  const smoothed = velocityStream.map((_v, i) => {
-    const slice = velocityStream.slice(Math.max(0, i - 2), Math.min(velocityStream.length, i + 3))
-    return slice.reduce((s, x) => s + x, 0) / slice.length
-  })
+  // ── Step 1: ~25s rolling-window smoothing (time-based, matches streams.py) ──
+  // Estimate sample rate from the time stream, then derive half-window in samples.
+  const nForDt = Math.min(n - 1, 60)
+  const rawDeltas: number[] = []
+  for (let i = 0; i < nForDt; i++) {
+    const d = timeStream[i + 1] - timeStream[i]
+    if (d > 0) rawDeltas.push(d)
+  }
+  rawDeltas.sort((a, b) => a - b)
+  const dtMedian = rawDeltas.length > 0 ? rawDeltas[Math.floor(rawDeltas.length / 2)] : 1.0
+  // half-window ≈ 12 s on each side → total ~25 s
+  const hw = Math.max(1, Math.round(12.0 / dtMedian))
 
-  // ── Step 1: Varianz-Gate — CV of smoothed velocity ──────────────────────────
-  const meanSpeed = smoothed.reduce((s, v) => s + v, 0) / smoothed.length
-  if (meanSpeed <= 0) return empty
-  const variance = smoothed.reduce((s, v) => s + (v - meanSpeed) ** 2, 0) / smoothed.length
-  const cv = Math.sqrt(variance) / meanSpeed
-  if (cv < 0.05) return empty
-
-  // ── Baseline: median of smoothed speeds (captures the easy/base pace) ───────
-  const baseSpeed = median(smoothed)
-  if (baseSpeed <= 0) return empty
-
-  // Peak threshold: +20% above median base
-  const peakThreshold = baseSpeed * 1.20
-  // Recovery check threshold: 108% of base
-  const recoveryThreshold = baseSpeed * 1.08
-
-  // ── Step 2: Find peaks — must stay ≥3s above threshold ──────────────────────
-  // Mark all indices above threshold, then group into contiguous blocks
-  const aboveThreshold = smoothed.map(v => v >= peakThreshold)
-
-  interface PeakBlock { startIdx: number; endIdx: number; peakIdx: number; peakSpeed: number }
-  const peakBlocks: PeakBlock[] = []
-
-  let i = 0
-  while (i < aboveThreshold.length) {
-    if (!aboveThreshold[i]) { i++; continue }
-    const blockStart = i
-    while (i < aboveThreshold.length && aboveThreshold[i]) i++
-    const blockEnd = i - 1
-
-    const tStart = timeStream[blockStart]
-    const tEnd   = timeStream[blockEnd]
-    const dur    = tEnd - tStart
-
-    // Must be ≥3s (prevents GPS spikes)
-    if (dur < 3) continue
-
-    let peakIdx = blockStart
-    for (let j = blockStart + 1; j <= blockEnd; j++) {
-      if (smoothed[j] > smoothed[peakIdx]) peakIdx = j
-    }
-
-    peakBlocks.push({ startIdx: blockStart, endIdx: blockEnd, peakIdx, peakSpeed: smoothed[peakIdx] })
+  const smoothed: number[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - hw)
+    const hi = Math.min(n, i + hw + 1)
+    let sum = 0; let cnt = 0
+    for (let j = lo; j < hi; j++) { sum += velocityStream[j]; cnt++ }
+    smoothed[i] = cnt > 0 ? sum / cnt : 0
   }
 
-  if (peakBlocks.length === 0) return empty
+  // ── Step 2: Varianz-Gate — uniformly paced run needs no structure analysis ──
+  const posS = smoothed.filter(s => s > 0)
+  if (posS.length === 0) return empty
+  const meanS = posS.reduce((a, b) => a + b, 0) / posS.length
+  if (meanS <= 0) return empty
+  const varS = posS.reduce((a, b) => a + (b - meanS) ** 2, 0) / posS.length
+  const cv   = Math.sqrt(varS) / meanS
+  if (cv < 0.05) return empty
 
-  // ── Step 3 & 4: Classify each peak block, check recovery ────────────────────
+  // ── Step 3: Easy-Baseline ────────────────────────────────────────────────────
+  // Priority 1 (VDOT anchor): VDOT-derived E_high speed when plausible.
+  // Priority 2 (self-reference): p30–p35 percentile of smoothed distribution
+  // (avoids median being pulled up by work-dominant fast blocks — core v5 fix).
+  const sortedPos = [...posS].sort((a, b) => a - b)
+  const actMedianMs = sortedPos[Math.floor(sortedPos.length / 2)] ?? 0
+
+  const anchoredBase = _vdotAnchor(vdot, actMedianMs)
+  let baseSpeed: number
+  if (anchoredBase !== null) {
+    baseSpeed = anchoredBase
+  } else {
+    const p30idx = Math.max(0, Math.floor(sortedPos.length * 0.30) - 1)
+    const p35idx = Math.max(0, Math.floor(sortedPos.length * 0.35) - 1)
+    baseSpeed = (sortedPos[p30idx] + sortedPos[p35idx]) / 2
+  }
+  if (baseSpeed <= 0) return empty
+
+  // Hysteresis: enter at +10%, exit at +5%
+  const enterThr = baseSpeed * 1.10
+  const exitThr  = baseSpeed * 1.05
+
+  // ── Step 4: Hysteresis state machine to find elevated-pace blocks ───────────
+  const rawBlocks: [number, number][] = []   // [startIdx, endIdx]
+  let inBlock = false
+  let blkStart = 0
+  for (let i = 0; i < n; i++) {
+    const s = smoothed[i]
+    if (!inBlock) {
+      if (s >= enterThr) { inBlock = true; blkStart = i }
+    } else {
+      if (s < exitThr) { inBlock = false; rawBlocks.push([blkStart, i - 1]) }
+    }
+  }
+  if (inBlock) rawBlocks.push([blkStart, n - 1])
+  if (rawBlocks.length === 0) return empty
+
+  // ── Step 5: Gap-Merge (90s) + Merge-Guard (≥45s on one side) ───────────────
+  const MERGE_GAP_S = 90
+  const MERGE_MIN_S = 45
+
+  const mergedBlocks: [number, number][] = [rawBlocks[0]]
+  for (let k = 1; k < rawBlocks.length; k++) {
+    const [s2, e2] = rawBlocks[k]
+    const [s1, e1] = mergedBlocks[mergedBlocks.length - 1]
+    const gapS    = timeStream[s2] - timeStream[e1]
+    const durTail = timeStream[e1] - timeStream[s1]
+    const durNext = timeStream[e2] - timeStream[s2]
+    const blockWorthy = durTail >= MERGE_MIN_S || durNext >= MERGE_MIN_S
+    if (gapS <= MERGE_GAP_S && blockWorthy) {
+      mergedBlocks[mergedBlocks.length - 1] = [s1, e2]
+    } else {
+      mergedBlocks.push([s2, e2])
+    }
+  }
+
+  // ── Step 6: Classify each merged block by duration ──────────────────────────
+  const MIN_TEMPO_S    = 180   // ≥ 3 min → tempo
+  const MIN_INTERVAL_S = 45   // ≥ 45 s  → interval
+  const MIN_STRIDE_S   = 8    // ≥ 8 s   → stride candidate; shorter = GPS spike
+
+  const hrUsable = (() => {
+    if (!heartrateStream || heartrateStream.length !== n) return false
+    const nValid = heartrateStream.filter(h => h > 0).length
+    return nValid / n >= 0.40
+  })()
+
   const strides:        WorkoutStrideSegment[] = []
   const intervalBlocks: IntervalBlock[]        = []
   const tempoBlocks:    TempoBlock[]           = []
 
-  // Expand each peak block outward to the baseline crossing (recoveryThreshold)
-  for (const block of peakBlocks) {
-    let startIdx = block.startIdx
-    while (startIdx > 0 && smoothed[startIdx - 1] > recoveryThreshold) startIdx--
-    let endIdx = block.endIdx
-    while (endIdx < smoothed.length - 1 && smoothed[endIdx + 1] > recoveryThreshold) endIdx++
-
-    const tStart = timeStream[startIdx]
-    const tEnd   = timeStream[endIdx]
-    const dur    = tEnd - tStart
-    if (dur <= 0) continue
-
-    const seg    = smoothed.slice(startIdx, endIdx + 1)
-    const avgMs  = seg.reduce((s, v) => s + v, 0) / seg.length
+  for (const [blkS, blkE] of mergedBlocks) {
+    const segT  = timeStream[blkE] - timeStream[blkS]
+    const segV  = smoothed.slice(blkS, blkE + 1)
+    const avgMs = segV.length > 0 ? segV.reduce((a, b) => a + b, 0) / segV.length : 0
     const paceSec = avgMs > 0 ? Math.round(1000 / avgMs) : 0
 
-    if (dur <= 25) {
-      // Stride candidate — check recovery valley in 30s after block
-      const recoveryEndTime = tEnd + 30
-      const recoveryIdx = timeStream.findIndex((t, idx) => idx > endIdx && t >= recoveryEndTime)
-      const checkEnd = recoveryIdx !== -1 ? recoveryIdx : Math.min(endIdx + 30, smoothed.length - 1)
-
-      const recoverySlice = smoothed.slice(endIdx + 1, checkEnd + 1)
-      // Empty slice = end of activity, no recovery data → treat as interval (no confirmed recovery)
-      const recoveryReturned = recoverySlice.length > 0 &&
-        recoverySlice.some(v => v < recoveryThreshold)
-
-      if (recoveryReturned && dur >= 8) {
-        strides.push({
-          startSec:    tStart,
-          durationSec: dur,
-          peakSpeedMs: Math.round(block.peakSpeed * 100) / 100,
-        })
-      } else if (dur >= 8) {
-        // No recovery → treat as interval
-        const hrSeg  = heartrateStream?.slice(startIdx, endIdx + 1)
-        const avgHr  = hrSeg && hrSeg.length > 0
-          ? Math.round(hrSeg.reduce((s, v) => s + v, 0) / hrSeg.length)
-          : undefined
-        intervalBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, avgHr })
-      }
-      // dur < 8: below minimum stride/interval threshold — discard (GPS noise)
-    } else if (dur <= 180) {
-      // Interval block
-      const hrSeg = heartrateStream?.slice(startIdx, endIdx + 1)
-      const avgHr = hrSeg && hrSeg.length > 0
-        ? Math.round(hrSeg.reduce((s, v) => s + v, 0) / hrSeg.length)
-        : undefined
-      intervalBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, avgHr })
-    } else {
-      // Tempo block — compute pace drift (end third vs start third)
-      const third = Math.floor(seg.length / 3)
-      const startSlice = seg.slice(0, Math.max(1, third))
-      const endSlice   = seg.slice(seg.length - Math.max(1, third))
-      const startAvgMs = startSlice.reduce((s, v) => s + v, 0) / startSlice.length
-      const endAvgMs   = endSlice.reduce((s, v) => s + v, 0) / endSlice.length
-      // Drift in pace: positive = pace got slower (higher sec/km), as %
-      const startPace = startAvgMs > 0 ? 1000 / startAvgMs : 0
-      const endPace   = endAvgMs   > 0 ? 1000 / endAvgMs   : 0
-      const paceDeviation = startPace > 0
-        ? Math.round(((endPace - startPace) / startPace) * 100 * 10) / 10
-        : 0
-      tempoBlocks.push({ startSec: tStart, durationSec: dur, avgPaceSec: paceSec, paceDeviation })
+    let avgHr: number | undefined
+    if (hrUsable && heartrateStream) {
+      const hrSeg = heartrateStream.slice(blkS, blkE + 1).filter(h => h > 0)
+      if (hrSeg.length > 0) avgHr = Math.round(hrSeg.reduce((a, b) => a + b, 0) / hrSeg.length)
     }
-  }
 
-  // Merge adjacent tempo blocks (gap <15s means one sustained block)
-  const mergedTempo: TempoBlock[] = []
-  for (const tb of tempoBlocks) {
-    if (mergedTempo.length === 0) { mergedTempo.push(tb); continue }
-    const prev = mergedTempo[mergedTempo.length - 1]
-    if (tb.startSec - (prev.startSec + prev.durationSec) < 15) {
-      const totalDur = tb.startSec + tb.durationSec - prev.startSec
-      const wPrev = prev.durationSec / totalDur
-      const wCurr = tb.durationSec  / totalDur
-      mergedTempo[mergedTempo.length - 1] = {
-        startSec:      prev.startSec,
-        durationSec:   totalDur,
-        avgPaceSec:    Math.round(prev.avgPaceSec * wPrev + tb.avgPaceSec * wCurr),
-        paceDeviation: Math.round((prev.paceDeviation + tb.paceDeviation) / 2 * 10) / 10,
+    if (segT < MIN_STRIDE_S) continue  // GPS spike — skip
+
+    if (segT < MIN_INTERVAL_S) {
+      // Short peak → stride candidate
+      const peakMs = Math.max(...segV)
+      strides.push({
+        startSec:    timeStream[blkS],
+        durationSec: Math.round(segT),
+        peakSpeedMs: Math.round(peakMs * 1000) / 1000,
+      })
+    } else if (segT < MIN_TEMPO_S) {
+      // 45s–179s → interval block
+      if (paceSec > 0) {
+        intervalBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, avgHr })
       }
     } else {
-      mergedTempo.push(tb)
+      // ≥ 180s → tempo block (pace drift: intra-block, first vs second half)
+      if (paceSec > 0) {
+        const rawSeg = velocityStream.slice(blkS, blkE + 1)
+        const half = Math.floor(rawSeg.length / 2)
+        let paceDeviation = 0
+        if (half > 0) {
+          const firstHalf  = rawSeg.slice(0, half)
+          const secondHalf = rawSeg.slice(half)
+          const avgFirst  = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
+          const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
+          if (avgFirst > 0 && avgSecond > 0) {
+            const pFirst  = 1000 / avgFirst
+            const pSecond = 1000 / avgSecond
+            paceDeviation = Math.round((pSecond - pFirst) / pFirst * 100 * 10) / 10
+          }
+        }
+        tempoBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, paceDeviation })
+      }
     }
   }
 
   // ── Determine workoutType from what was found ────────────────────────────────
-  const hasStrides    = strides.length > 0
-  const hasIntervals  = intervalBlocks.length > 0
-  const hasTempo      = mergedTempo.length > 0
-  const typeCount     = [hasStrides, hasIntervals, hasTempo].filter(Boolean).length
+  const hasStrides   = strides.length > 0
+  const hasIntervals = intervalBlocks.length > 0
+  const hasTempo     = tempoBlocks.length > 0
+  const typeCount    = [hasStrides, hasIntervals, hasTempo].filter(Boolean).length
 
   let workoutType: WorkoutClassification['workoutType']
-  if (typeCount === 0) {
-    workoutType = 'easy'
-  } else if (typeCount > 1) {
-    workoutType = 'mixed'
-  } else if (hasStrides) {
-    workoutType = 'strides'
-  } else if (hasIntervals) {
-    workoutType = 'intervals'
-  } else {
-    workoutType = 'tempo'
-  }
+  if (typeCount === 0)       workoutType = 'easy'
+  else if (typeCount > 1)    workoutType = 'mixed'
+  else if (hasStrides)       workoutType = 'strides'
+  else if (hasIntervals)     workoutType = 'intervals'
+  else                       workoutType = 'tempo'
 
-  return { workoutType, strides, intervalBlocks, tempoBlocks: mergedTempo }
+  return { workoutType, strides, intervalBlocks, tempoBlocks }
 }
 
 // ── Stride detection from velocity stream ────────────────────────────────────
@@ -866,27 +882,45 @@ export interface StrideAnalysis {
 export function detectStrides(
   streams: ActivityStreams,
   avgPaceSec: number,
+  vdot?: number | null,
 ): StrideAnalysis {
   const { time, velocity_smooth, heartrate } = streams
-  if (velocity_smooth.length < 10) {
+  const n = velocity_smooth.length
+  if (n < 10) {
     return { strides: [], strideCount: 0, avgPeakPaceSec: 0, fastestPaceSec: 0, thresholdMs: 0, avgRecoverySec: null }
   }
 
-  const avgSpeedMs = 1000 / avgPaceSec
-  // Peak threshold: stride peak must be ≥15% above avg (catches progressive acceleration)
-  const peakThreshold  = avgSpeedMs * 1.15
-  // Baseline: stride boundaries traced to where speed drops ≤8% above avg (captures full incl. run-up)
-  const baselineFactor = 1.08
+  const avgSpeedMs = avgPaceSec > 0 ? 1000 / avgPaceSec : 0
 
-  // 5-point moving average — smoother than 3-point, better for finding true peaks
-  const smoothed = velocity_smooth.map((_v, i) => {
-    const slice = velocity_smooth.slice(Math.max(0, i - 2), Math.min(velocity_smooth.length, i + 3))
-    return slice.reduce((s, x) => s + x, 0) / slice.length
-  })
+  // Compute activity median for VDOT plausibility gate
+  const posVel = velocity_smooth.filter(v => v > 0)
+  const sortedVel = [...posVel].sort((a, b) => a - b)
+  const actMedianMs = sortedVel.length > 0 ? sortedVel[Math.floor(sortedVel.length / 2)] : avgSpeedMs
 
-  // Step 1: Find local speed peaks above peakThreshold
-  const peakIdxs: number[] = []
-  for (let i = 2; i < smoothed.length - 2; i++) {
+  // VDOT anchor: use VDOT-derived E_high as reference when plausible.
+  // This makes thresholds athlete-specific (absolute) instead of relative to
+  // session average, which is elevated in work-dominant runs.
+  const anchoredEasyMs = _vdotAnchor(vdot, actMedianMs)
+  const refSpeedMs     = anchoredEasyMs ?? avgSpeedMs
+
+  // Raised thresholds (v3): 1.25× ref for peak (was 1.15), 1.12× for trace boundary (was 1.08).
+  // At typical Easy 5:30/km, 1.25× ≈ 4:24/km — clearly sprint territory, not GPS drift.
+  const peakThreshold = refSpeedMs * 1.25
+  const baselineMs    = refSpeedMs * 1.12
+
+  const DWELL_MIN_S    = 3.0   // smoothed speed must stay ≥ peakThreshold for ≥3s contiguously
+  const MIN_STRIDE_DUR = 10    // seconds (raised from 8)
+
+  // 5-point moving average to reduce GPS noise
+  const smoothed: number[] = new Array(n)
+  for (let i = 0; i < n; i++) {
+    const slice = velocity_smooth.slice(Math.max(0, i - 2), Math.min(n, i + 3))
+    smoothed[i] = slice.reduce((s, x) => s + x, 0) / slice.length
+  }
+
+  // Step 1: Find strict local peaks ≥ peakThreshold (5-point local max)
+  let peakIdxs: number[] = []
+  for (let i = 2; i < n - 2; i++) {
     if (
       smoothed[i] >= peakThreshold &&
       smoothed[i] >= smoothed[i - 1] && smoothed[i] >= smoothed[i - 2] &&
@@ -896,42 +930,44 @@ export function detectStrides(
     }
   }
 
-  // Step 2: For each peak, expand outward to baseline crossings
-  const baseline = avgSpeedMs * baselineFactor
+  // Step 1b: Dwell-Gate — smoothed speed must stay ≥ peakThreshold for ≥ DWELL_MIN_S seconds
+  // contiguously around the peak. Eliminates single-sample GPS spikes.
+  peakIdxs = peakIdxs.filter(peakI => {
+    let lo = peakI; let hi = peakI
+    while (lo > 0     && smoothed[lo - 1] >= peakThreshold) lo--
+    while (hi < n - 1 && smoothed[hi + 1] >= peakThreshold) hi++
+    const dwellS = hi > lo ? time[hi] - time[lo] : 0
+    return dwellS >= DWELL_MIN_S
+  })
+
+  // Step 2: For each peak, trace back/forward to baseline crossing
   const strides: StrideSegment[] = []
 
   for (const peakIdx of peakIdxs) {
-    // Trace back to find acceleration start (last crossing of baseline going upward)
+    // Enforce ≥15s recovery gap from previous stride
+    if (strides.length > 0) {
+      const recoverySec = time[peakIdx] - strides[strides.length - 1].endSec
+      if (recoverySec < 15) continue
+    }
+
+    // Trace back to baseline
     let startIdx = peakIdx
-    while (startIdx > 0 && smoothed[startIdx - 1] > baseline) startIdx--
-    // Trace forward to find deceleration end
+    while (startIdx > 0 && smoothed[startIdx - 1] > baselineMs) startIdx--
+    // Trace forward to baseline
     let endIdx = peakIdx
-    while (endIdx < smoothed.length - 1 && smoothed[endIdx + 1] > baseline) endIdx++
+    while (endIdx < n - 1 && smoothed[endIdx + 1] > baselineMs) endIdx++
 
     const tStart = time[startIdx]
     const tEnd   = time[endIdx]
     const dur    = tEnd - tStart
 
-    // Sanity bounds: 8–60 s, 30–250 m (100m at 2:30–8:00 pace covers this range)
-    if (dur < 8 || dur > 60) continue
+    if (dur < MIN_STRIDE_DUR || dur > 60) continue
+
     const seg    = smoothed.slice(startIdx, endIdx + 1)
     const peakMs = Math.max(...seg)
     const avgMs  = seg.reduce((s, v) => s + v, 0) / seg.length
     const distM  = Math.round(avgMs * dur)
     if (distM < 30 || distM > 250) continue
-
-    // Skip if this overlaps with the previous stride (recovery must be ≥15 s)
-    if (strides.length > 0) {
-      const prevEnd = strides[strides.length - 1].endSec
-      if (tStart - prevEnd < 15) {
-        // Overlap — keep whichever has the higher peak
-        if (peakMs > 1000 / strides[strides.length - 1].peakPaceSec) {
-          strides.pop()
-        } else {
-          continue
-        }
-      }
-    }
 
     const hrSeg  = heartrate?.slice(startIdx, endIdx + 1)
     const peakHr = hrSeg && hrSeg.length > 0 ? Math.max(...hrSeg) : undefined
@@ -939,7 +975,7 @@ export function detectStrides(
     strides.push({
       startSec:    tStart,
       endSec:      tEnd,
-      durationSec: dur,
+      durationSec: Math.round(dur),
       distanceM:   distM,
       peakPaceSec: peakMs > 0 ? Math.round(1000 / peakMs) : 0,
       avgPaceSec:  avgMs  > 0 ? Math.round(1000 / avgMs)  : 0,

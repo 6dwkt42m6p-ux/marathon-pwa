@@ -204,6 +204,7 @@ export default function RunDetail({
           streams.time,
           streams.velocity_smooth,
           streams.heartrate,
+          vdot,
         ))
       }
     } catch { setStreamErr('Fehler beim Laden der Stream-Daten.') }
