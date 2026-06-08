@@ -20,6 +20,12 @@ interface Env {
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
 
+// WHY: Strava API Policy (1.6.2026) prohibits forwarding Strava data to third-party AI services.
+// The /claude route must not be live as long as the system prompt / context includes Strava activity data.
+// Code is preserved for future use — re-enable ONLY if Strava data is excluded from the Claude context.
+// Reaktivierung: Flag auf true setzen + wrangler deploy.
+const CLAUDE_ENDPOINT_ENABLED = false
+
 // --- CORS helpers -----------------------------------------------------------
 
 function corsHeaders(origin: string, allowedOrigin: string): Record<string, string> {
@@ -171,7 +177,8 @@ type RouteHandler = (req: Request, env: Env, cors: Record<string, string>) => Pr
 const ROUTES: Record<string, RouteHandler> = {
   'POST /strava/token':   handleStravaToken,
   'POST /strava/refresh': handleStravaRefresh,
-  'POST /claude':         handleClaude,
+  // /claude intentionally omitted when CLAUDE_ENDPOINT_ENABLED = false (Strava-AI-Policy 1.6.2026)
+  ...(CLAUDE_ENDPOINT_ENABLED ? { 'POST /claude': handleClaude } : {}),
 }
 
 // --- Main entry point -------------------------------------------------------
@@ -184,7 +191,7 @@ export default {
     // Resolve allowed origin: secret takes priority over wrangler.toml var
     const allowedOrigin =
       env.ALLOWED_ORIGIN ??
-      'https://philippknoedler.github.io'   // fallback — set via wrangler secret in production
+      'https://6dwkt42m6p-ux.github.io'   // fallback — überschrieben von ALLOWED_ORIGIN ([vars]/secret)
 
     const cors = corsHeaders(origin, allowedOrigin)
 
