@@ -1,0 +1,16 @@
+name = "marathon-coach-proxy"
+main = "src/index.ts"
+compatibility_date = "2024-01-01"
+
+# Non-secret config — safe to commit
+[vars]
+STRAVA_CLIENT_ID = "246396"
+# STRAVA_CLIENT_SECRET must be set via: wrangler secret put STRAVA_CLIENT_SECRET
+# ALLOWED_ORIGIN should be set via:     wrangler secret put ALLOWED_ORIGIN
+# ANTHROPIC_API_KEY must be set via:    wrangler secret put ANTHROPIC_API_KEY
+# Default fallback defined in worker code for local dev.
+
+# For local dev with wrangler dev, create worker/.dev.vars (gitignored):
+#   STRAVA_CLIENT_SECRET=<your-secret>
+#   ALLOWED_ORIGIN=http://localhost:5173
+#   ANTHROPIC_API_KEY=<your-anthropic-key>

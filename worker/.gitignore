@@ -1,0 +1,2 @@
+# Cloudflare local dev secrets — never commit
+.dev.vars

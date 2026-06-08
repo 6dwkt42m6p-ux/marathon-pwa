@@ -2,7 +2,8 @@
 import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
 
 const CLIENT_ID     = import.meta.env.VITE_STRAVA_CLIENT_ID || ''
-const CLIENT_SECRET = import.meta.env.VITE_STRAVA_CLIENT_SECRET || ''
+// Token exchange/refresh go through the server-side proxy — secret never enters the client bundle.
+const TOKEN_PROXY   = import.meta.env.VITE_STRAVA_TOKEN_PROXY || ''
 // Use env var if set explicitly, otherwise derive from current origin + Vite BASE_URL
 // This works for both localhost dev and GitHub Pages (/marathon-pwa/) without any secrets config
 export const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
@@ -81,15 +82,12 @@ export function isAuthenticated(): boolean {
 }
 
 async function refreshTokens(refreshToken: string): Promise<StravaTokens> {
-  const r = await fetch('https://www.strava.com/oauth/token', {
+  if (!TOKEN_PROXY) throw new Error('VITE_STRAVA_TOKEN_PROXY not configured')
+  const r = await fetch(`${TOKEN_PROXY}/strava/refresh`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:     CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      refresh_token: refreshToken,
-      grant_type:    'refresh_token',
-    }),
+    // Worker appends client_id + client_secret server-side
+    body: JSON.stringify({ refresh_token: refreshToken }),
   })
   if (!r.ok) throw new Error(`Token refresh failed: ${r.status}`)
   const tokens = await r.json()
@@ -108,16 +106,12 @@ export async function getValidToken(): Promise<string | null> {
 }
 
 export async function exchangeCode(code: string): Promise<StravaTokens> {
-  const r = await fetch('https://www.strava.com/oauth/token', {
+  if (!TOKEN_PROXY) throw new Error('VITE_STRAVA_TOKEN_PROXY not configured')
+  const r = await fetch(`${TOKEN_PROXY}/strava/token`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:     CLIENT_ID,
-      client_secret: CLIENT_SECRET,
-      code,
-      grant_type:    'authorization_code',
-      redirect_uri:  REDIRECT_URI,
-    }),
+    // Worker appends client_id + client_secret server-side
+    body: JSON.stringify({ code, redirect_uri: REDIRECT_URI }),
   })
   if (!r.ok) throw new Error(`Auth failed: ${r.status} ${await r.text()}`)
   const tokens = await r.json()
