@@ -32,7 +32,7 @@ jobs:
       - name: Build
         env:
           VITE_STRAVA_CLIENT_ID: ${{ secrets.VITE_STRAVA_CLIENT_ID }}
-          VITE_STRAVA_CLIENT_SECRET: ${{ secrets.VITE_STRAVA_CLIENT_SECRET }}
+          VITE_STRAVA_TOKEN_PROXY: ${{ secrets.VITE_STRAVA_TOKEN_PROXY }}
           VITE_STRAVA_REDIRECT_URI: ${{ secrets.VITE_STRAVA_REDIRECT_URI }}
         run: npm run build
 

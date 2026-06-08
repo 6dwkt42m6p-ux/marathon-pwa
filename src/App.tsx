@@ -6,18 +6,29 @@ import TrainingPlan from './components/TrainingPlan'
 import VdotPaces from './components/VdotPaces'
 import Analysis from './components/Analysis'
 import Settings from './components/Settings'
+// CoachChat import kept intentionally — deaktiviert via COACH_TAB_ENABLED (separate Anthropic-API-Kosten).
+// Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
+import CoachChat from './components/CoachChat'
 import { hasToken, fetchSync } from './lib/githubSync'
 import './App.css'
 
-type Tab = 'today' | 'analyse' | 'plan' | 'paces' | 'settings'
+// WHY false: Coach-Tab deaktiviert wegen separater Anthropic-API-Kosten (unabhaengig von Claude Pro).
+// Code (CoachChat.tsx, coachChat.ts, Worker /claude-Route) bleibt vollstaendig erhalten.
+// Reaktivierung: diesen Flag auf true setzen — fertig.
+const COACH_TAB_ENABLED = false
 
-const TABS: { id: Tab; label: string; icon: string }[] = [
+type Tab = 'today' | 'analyse' | 'plan' | 'paces' | 'coach' | 'settings'
+
+const ALL_TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'today',    label: 'Heute',   icon: '🏃' },
   { id: 'analyse',  label: 'Analyse', icon: '📊' },
   { id: 'plan',     label: 'Plan',    icon: '📅' },
   { id: 'paces',    label: 'Paces',   icon: '⚡' },
+  { id: 'coach',    label: 'Coach',   icon: '🤖' },
   { id: 'settings', label: 'Settings',icon: '⚙️' },
 ]
+
+const TABS = COACH_TAB_ENABLED ? ALL_TABS : ALL_TABS.filter(t => t.id !== 'coach')
 
 export default function App() {
   const hasOAuthCode = new URLSearchParams(window.location.search).has('code')
@@ -96,6 +107,7 @@ export default function App() {
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} />}
+        {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
       </main>
 
