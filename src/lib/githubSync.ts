@@ -89,9 +89,15 @@ export async function pushSync(data: SyncData, sha?: string, _retried = false): 
     method: 'PUT', headers: headers(), body: JSON.stringify(body),
   })
   if (res.status === 409 && !_retried) {
-    // Stale sha due to concurrent Streamlit write — fetch fresh sha and retry once
+    // Stale sha due to concurrent Streamlit write — fetch fresh sha and retry once.
+    // If the refresh-fetch fails or returns null (no token / 404), throw a clear
+    // error rather than silently proceeding with sha=undefined (last-write-wins
+    // overwrite that could clobber a concurrent PWA write).
     const fresh = await fetchSync()
-    return pushSync(data, fresh?.sha, true)
+    if (!fresh) {
+      throw new Error('Konflikt beim Speichern — frischer Stand nicht abrufbar. Bitte erneut versuchen.')
+    }
+    return pushSync(data, fresh.sha, true)
   }
   if (!res.ok) throw new Error(`GitHub push ${res.status}`)
 }
