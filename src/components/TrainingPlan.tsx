@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { generatePlan } from '../lib/plan'
-import { getCachedActivities, parseRuns, computeWeeklyStats } from '../lib/strava'
+import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
 import { isPlanStale } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
@@ -221,7 +221,10 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
   const kmDiffPct = actualKm !== undefined && week.planned_km > 0
     ? Math.abs(actualKm - week.planned_km) / week.planned_km
     : 0
-  const isPast    = !week.is_current && new Date(week.week_start) < new Date()
+  // Use date-based current-week detection — is_current flag is stale after generation day
+  const todayMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const isCurrent = week.week_start === todayMonday
+  const isPast    = !isCurrent && new Date(week.week_start) < new Date()
   const plannedColor = actualKm !== undefined && isPast && kmDiffPct > 0.2
     ? (actualKm < week.planned_km ? '#FF9800' : '#4CAF50')
     : color
@@ -235,7 +238,7 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
   return (
     <>
       <div
-        className={`plan-row ${week.is_current ? 'current' : ''} ${isPast ? 'past' : ''}`}
+        className={`plan-row ${isCurrent ? 'current' : ''} ${isPast ? 'past' : ''}`}
         onClick={() => setExpanded(e => !e)}
         style={{ cursor: 'pointer' }}
       >
