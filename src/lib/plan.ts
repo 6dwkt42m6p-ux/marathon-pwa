@@ -8,8 +8,13 @@ import type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession } from './githubSync
 // Re-export synced plan types for convenience in components
 export type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession }
 
-// Return the current week from a synced plan (is_current === true)
+// Return the current week from a synced plan — matched by today's Monday date,
+// not by the is_current flag (which is baked in at generation time and goes stale).
+// Falls back to is_current only when no week_start matches today's Monday.
 export function syncedCurrentWeek(plan: SyncedPlan): SyncedPlanWeek | null {
+  const todayMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const byDate = plan.weeks.find(w => w.week_start === todayMonday)
+  if (byDate) return byDate
   return plan.weeks.find(w => w.is_current) ?? null
 }
 
