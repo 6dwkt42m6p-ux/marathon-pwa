@@ -19,9 +19,11 @@ export function syncedTodaySession(week: SyncedPlanWeek): SyncedPlanSession | nu
   return week.sessions.find(s => s.tag === todayTag) ?? null
 }
 
-// True when the local settings diverge from what the synced plan was generated with.
-// Uses the vdot stored in the plan as a lightweight staleness signal.
-// Full staleness is only known via planRecomputeRequested flag from GitHub sync.
+// Plans older than this many days are considered stale regardless of other signals.
+const PLAN_STALE_DAYS = 7
+
+// True when the local settings diverge from what the synced plan was generated with,
+// or the plan itself is too old to be considered current.
 export function isPlanStale(
   plan: SyncedPlan,
   localVdot: number,
@@ -31,13 +33,24 @@ export function isPlanStale(
 ): boolean {
   // VDOT mismatch
   if (Math.abs(plan.vdot - localVdot) > 0.1) return true
-  // Race date mismatch via sync.json settings (written by Streamlit)
-  if (syncSettings) {
-    const e1 = syncSettings['event1'] as { date?: string } | undefined
-    const e2 = syncSettings['event2'] as { date?: string } | undefined
-    if (e1?.date && e1.date !== localRaceDate1) return true
-    if (e2?.date && e2.date !== localRaceDate2) return true
+
+  // Age check: plan generated more than PLAN_STALE_DAYS days ago
+  if (plan.generatedAt) {
+    const generatedMs = new Date(plan.generatedAt).getTime()
+    if (!isNaN(generatedMs)) {
+      const ageDays = (Date.now() - generatedMs) / (1000 * 60 * 60 * 24)
+      if (ageDays > PLAN_STALE_DAYS) return true
+    }
   }
+
+  // Race date mismatch via sync.json settings keys raceDate1/raceDate2 (written by Streamlit)
+  if (syncSettings) {
+    const d1 = syncSettings['raceDate1'] as string | undefined
+    const d2 = syncSettings['raceDate2'] as string | undefined
+    if (d1 && d1 !== localRaceDate1) return true
+    if (d2 && d2 !== localRaceDate2) return true
+  }
+
   return false
 }
 
