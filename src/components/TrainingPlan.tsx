@@ -66,7 +66,7 @@ export default function TrainingPlan({ settings }: Props) {
   if (syncLoading) {
     return (
       <div className="tab-content">
-        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '13px' }}>
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-2)', fontSize: '13px' }}>
           Plan wird geladen…
         </div>
       </div>
@@ -97,7 +97,7 @@ export default function TrainingPlan({ settings }: Props) {
           actualKmMap={actualKmMap}
         />
 
-        <div style={{ fontSize: '11px', color: 'var(--text2)', textAlign: 'right', marginTop: '4px' }}>
+        <div style={{ fontSize: '11px', color: 'var(--text-2)', textAlign: 'right', marginTop: '4px' }}>
           Erstellt {new Date(syncedPlan.generatedAt).toLocaleDateString('de-AT')} · VDOT {syncedPlan.vdot}
         </div>
       </div>
@@ -125,7 +125,7 @@ export default function TrainingPlan({ settings }: Props) {
       }}>
         Noch kein Plan — am Desktop erstellen (Trainingsplan-Tab öffnen).
         <br />
-        <span style={{ color: 'var(--text2)' }}>Vorschau unten: lokale Schätzung (nicht maßgeblich).</span>
+        <span style={{ color: 'var(--text-2)' }}>Vorschau unten: lokale Schätzung (nicht maßgeblich).</span>
       </div>
 
       <div className="plan-selector">
@@ -179,7 +179,7 @@ export default function TrainingPlan({ settings }: Props) {
                 <span className="plan-km" style={{ color: plannedColor }}>{row.plannedKm}</span>
                 <span className="plan-km-unit">km</span>
                 {actualKm !== undefined && (
-                  <span style={{ fontSize: '10px', color: 'var(--text2)' }}>
+                  <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
                     {actualKm}
                   </span>
                 )}
@@ -257,11 +257,11 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
           <span className="plan-km" style={{ color: plannedColor }}>{week.planned_km}</span>
           <span className="plan-km-unit">km</span>
           {actualKm !== undefined && (
-            <span style={{ fontSize: '10px', color: 'var(--text2)' }}>
+            <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
               {actualKm}
             </span>
           )}
-          <span style={{ fontSize: '11px', color: 'var(--text2)', marginLeft: 4 }}>
+          <span style={{ fontSize: '11px', color: 'var(--text-2)', marginLeft: 4 }}>
             {expanded ? '▲' : '▼'}
           </span>
         </div>
@@ -279,12 +279,12 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '2px' }}>
                 <span style={{ fontWeight: 700, color }}>{s.tag}</span>
-                <span style={{ color: 'var(--text2)' }}>{s.typ}</span>
-                <span style={{ color: 'var(--text2)' }}>{s.km !== null ? `${s.km} km` : '—'} · {s.dauer}</span>
+                <span style={{ color: 'var(--text-2)' }}>{s.typ}</span>
+                <span style={{ color: 'var(--text-2)' }}>{s.km !== null ? `${s.km} km` : '—'} · {s.dauer}</span>
               </div>
               <div style={{ fontWeight: 600, marginBottom: '2px' }}>{s.vorgabe}</div>
-              <div style={{ color: 'var(--text2)', lineHeight: 1.5, marginBottom: '2px' }}>{s.struktur}</div>
-              <div style={{ color: 'var(--text2)', fontSize: '11px', fontStyle: 'italic', lineHeight: 1.5 }}>
+              <div style={{ color: 'var(--text-2)', lineHeight: 1.5, marginBottom: '2px' }}>{s.struktur}</div>
+              <div style={{ color: 'var(--text-2)', fontSize: '11px', fontStyle: 'italic', lineHeight: 1.5 }}>
                 💡 {s.hinweis}
               </div>
             </div>

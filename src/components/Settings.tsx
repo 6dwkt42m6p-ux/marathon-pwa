@@ -236,13 +236,13 @@ export default function Settings({ settings, onUpdate }: Props) {
       <div className="section-title">Strava</div>
       {!authed ? (
         <div className="settings-group">
-          <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.5 }}>
+          <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5 }}>
             Verbinde Strava um Aktivitäten zu synchronisieren und Analysen zu sehen.
           </p>
           <button className="btn-strava" onClick={handleStravaConnect}>
             Mit Strava verbinden
           </button>
-          <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '8px', lineHeight: 1.6 }}>
+          <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '8px', lineHeight: 1.6 }}>
             <div>Redirect URI: <code style={{ fontSize: '10px' }}>{REDIRECT_URI}</code></div>
             <div>Diese Domain muss in deiner <a href="https://www.strava.com/settings/api" target="_blank" rel="noreferrer" style={{ color: 'var(--accent)' }}>Strava API App</a> eingetragen sein.</div>
           </div>
@@ -254,10 +254,10 @@ export default function Settings({ settings, onUpdate }: Props) {
             <span style={{ fontSize: '18px' }}>🟠</span>
             <div style={{ flex: 1 }}>
               <div style={{ fontWeight: 700, fontSize: '14px' }}>Strava verbunden</div>
-              {athleteName && <div style={{ fontSize: '12px', color: 'var(--text2)' }}>{athleteName}</div>}
+              {athleteName && <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>{athleteName}</div>}
             </div>
           </div>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', lineHeight: 1.8 }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', lineHeight: 1.8 }}>
             {cachedCount > 0 && <div>📦 {cachedCount} Aktivitäten im Cache</div>}
             {tokenExpiry && <div>🔑 Token gültig bis {tokenExpiry}</div>}
             {lastSyncTime && <div>🔄 Zuletzt gesynct: {formatLastSync(lastSyncTime)}</div>}
@@ -285,7 +285,7 @@ export default function Settings({ settings, onUpdate }: Props) {
       <div className="settings-group">
         {!hasToken() ? (
           <>
-            <p style={{ fontSize: '13px', color: 'var(--text2)', lineHeight: 1.5 }}>
+            <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5 }}>
               Einstellungen und Trainingstausche zwischen iPhone und Mac synchronisieren.
             </p>
             <label className="setting-label">
@@ -308,7 +308,7 @@ export default function Settings({ settings, onUpdate }: Props) {
               <span style={{ fontSize: '18px' }}>🔗</span>
               <div style={{ flex: 1 }}>
                 <div style={{ fontWeight: 700, fontSize: '14px' }}>Sync aktiv</div>
-                <div style={{ fontSize: '12px', color: 'var(--text2)' }}>Einstellungen & Trainingstausch werden automatisch gespeichert</div>
+                <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>Einstellungen & Trainingstausch werden automatisch gespeichert</div>
               </div>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
