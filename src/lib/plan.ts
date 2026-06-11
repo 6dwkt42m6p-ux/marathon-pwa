@@ -18,6 +18,19 @@ export function syncedCurrentWeek(plan: SyncedPlan): SyncedPlanWeek | null {
   return plan.weeks.find(w => w.is_current) ?? null
 }
 
+// Return the synced plan week whose week_start matches the Monday of the given date.
+// Returns null if the date falls outside all synced weeks (no match = no plan for that week).
+export function syncedWeekForDate(plan: SyncedPlan, date: Date): SyncedPlanWeek | null {
+  const monday = mondayOf(date).toISOString().slice(0, 10)
+  return plan.weeks.find(w => w.week_start === monday) ?? null
+}
+
+// Return the session for a given weekday tag from a synced plan week.
+// Returns null if the weekday is a rest day or not in the plan.
+export function syncedSessionForTag(week: SyncedPlanWeek, tag: string): SyncedPlanSession | null {
+  return week.sessions.find(s => s.tag === tag) ?? null
+}
+
 // Return the session for today's weekday tag from a synced plan week
 export function syncedTodaySession(week: SyncedPlanWeek): SyncedPlanSession | null {
   const todayTag = DAY_TAGS[new Date().getDay()]
