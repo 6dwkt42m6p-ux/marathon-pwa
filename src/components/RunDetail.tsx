@@ -84,10 +84,10 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
           {strides.map((s, i) => {
             const peakPaceSec = s.peakSpeedMs > 0 ? Math.round(1000 / s.peakSpeedMs) : 0
             return (
-              <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
+              <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center' }}>
                 <span style={{ color: '#FF9800', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
                 <span>{s.durationSec} s</span>
-                {peakPaceSec > 0 && <span style={{ color: 'var(--text1)' }}>⚡ {fmt(peakPaceSec)} /km</span>}
+                {peakPaceSec > 0 && <span style={{ color: 'var(--text-1)' }}>⚡ {fmt(peakPaceSec)} /km</span>}
               </div>
             )
           })}
@@ -103,10 +103,10 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
               ? `${durMin}:${String(durSec).padStart(2, '0')} min`
               : `${durSec} s`
             return (
-              <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center' }}>
+              <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center' }}>
                 <span style={{ color: '#e53935', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
                 <span>{durLabel}</span>
-                <span style={{ color: 'var(--text1)', fontWeight: 600 }}>{fmt(b.avgPaceSec)} /km</span>
+                <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{fmt(b.avgPaceSec)} /km</span>
                 {b.avgHr && <span>♡ {b.avgHr}</span>}
               </div>
             )
@@ -117,12 +117,12 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
       {tempoBlocks.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
           {tempoBlocks.map((t, i) => (
-            <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ color: '#3b82f6', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
               <span>{Math.round(t.durationSec / 60)} min</span>
-              <span style={{ color: 'var(--text1)', fontWeight: 600 }}>{fmt(t.avgPaceSec)} /km</span>
+              <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{fmt(t.avgPaceSec)} /km</span>
               {t.paceDeviation !== 0 && (
-                <span style={{ color: Math.abs(t.paceDeviation) > 5 ? '#FFC107' : 'var(--text2)' }}>
+                <span style={{ color: Math.abs(t.paceDeviation) > 5 ? '#FFC107' : 'var(--text-2)' }}>
                   Drift: {t.paceDeviation > 0 ? '+' : ''}{t.paceDeviation}%
                 </span>
               )}
@@ -217,7 +217,7 @@ export default function RunDetail({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
           <div style={{ fontSize: '14px', fontWeight: 700 }}>{analysis.verdict}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '3px' }}>{analysis.note}</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '3px' }}>{analysis.note}</div>
         </div>
         <div style={{
           fontSize: '11px', padding: '3px 8px', borderRadius: '12px',
@@ -243,20 +243,20 @@ export default function RunDetail({
           marginTop: '6px',
         }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: '2px', columnGap: '10px' }}>
-            <span style={{ color: 'var(--text2)' }}>Geplant:</span>
+            <span style={{ color: 'var(--text-2)' }}>Geplant:</span>
             <span style={{ fontWeight: 600 }}>{deviation.plannedLabel}</span>
-            <span style={{ color: 'var(--text2)' }}>Trainiert:</span>
+            <span style={{ color: 'var(--text-2)' }}>Trainiert:</span>
             <span style={{ fontWeight: 600 }}>{deviation.actualType} — {deviation.actualKm} km</span>
             {deviation.kmDelta !== 0 && (
               <>
-                <span style={{ color: 'var(--text2)' }}>Abweichung:</span>
+                <span style={{ color: 'var(--text-2)' }}>Abweichung:</span>
                 <span style={{ fontWeight: 600, color: deviation.badgeColor }}>
                   {deviation.kmDelta > 0 ? '+' : ''}{deviation.kmDelta} km
                 </span>
               </>
             )}
           </div>
-          <div style={{ marginTop: '5px', fontSize: '11px', color: 'var(--text2)', fontStyle: 'italic', lineHeight: 1.4 }}>
+          <div style={{ marginTop: '5px', fontSize: '11px', color: 'var(--text-2)', fontStyle: 'italic', lineHeight: 1.4 }}>
             Coach: &ldquo;{deviation.coachComment}&rdquo;
           </div>
         </div>
@@ -264,27 +264,27 @@ export default function RunDetail({
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginTop: '6px' }}>
         <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>
             Ø Pace{act.tempC !== undefined ? ` · ${Math.round(act.tempC)}°C` : ''}
           </div>
           <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.paceFmt} /km</div>
-          <div style={{ fontSize: '10px', color: 'var(--text2)' }}>
+          <div style={{ fontSize: '10px', color: 'var(--text-2)' }}>
             {analysis.adjPaceSec
               ? `≈ ${Math.floor(analysis.adjPaceSec / 60)}:${String(Math.round(analysis.adjPaceSec % 60)).padStart(2, '0')} bereinigt`
               : `Abw. E-Mitte: ${analysis.devStr}`}
           </div>
         </div>
         <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>Ø Herzfrequenz</div>
+          <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>Ø Herzfrequenz</div>
           <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.avgHr ? `${Math.round(act.avgHr)} bpm` : '—'}</div>
-          <div style={{ fontSize: '10px', color: analysis.hrZone ? (ZONE_COLORS[analysis.hrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
+          <div style={{ fontSize: '10px', color: analysis.hrZone ? (ZONE_COLORS[analysis.hrZone] ?? 'var(--text-2)') : 'var(--text-2)' }}>
             {analysis.hrZone ? ZONE_LABELS_SHORT[analysis.hrZone] ?? analysis.hrZone : '—'}
           </div>
         </div>
         <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '6px 8px' }}>
-          <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '2px' }}>HF-Max</div>
+          <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>HF-Max</div>
           <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}</div>
-          <div style={{ fontSize: '10px', color: analysis.maxHrZone ? (ZONE_COLORS[analysis.maxHrZone] ?? 'var(--text2)') : 'var(--text2)' }}>
+          <div style={{ fontSize: '10px', color: analysis.maxHrZone ? (ZONE_COLORS[analysis.maxHrZone] ?? 'var(--text-2)') : 'var(--text-2)' }}>
             {analysis.maxHrZone ? `${ZONE_LABELS_SHORT[analysis.maxHrZone] ?? analysis.maxHrZone} · ${analysis.maxHrPct}% HFR` : '—'}
           </div>
         </div>
@@ -292,7 +292,7 @@ export default function RunDetail({
 
       {!classification && (
         <button
-          style={{ fontSize: '11px', padding: '3px 10px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text2)', cursor: 'pointer', alignSelf: 'flex-start' }}
+          style={{ fontSize: '11px', padding: '10px 14px', minHeight: '44px', borderRadius: '8px', border: '1px solid var(--border)', background: 'transparent', color: 'var(--text-2)', cursor: 'pointer', alignSelf: 'flex-start', display: 'flex', alignItems: 'center' }}
           onClick={loadStreams}
           disabled={loadingStream}
         >
@@ -309,7 +309,7 @@ export default function RunDetail({
             <span style={{ fontWeight: 700, color: '#FFC107' }}>🏋️ Intervallauswertung</span>
             {!lapData && (
               <button
-                style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '8px', border: '1px solid #FFC107', background: 'transparent', color: '#FFC107', cursor: 'pointer' }}
+                style={{ fontSize: '11px', padding: '10px 12px', minHeight: '44px', borderRadius: '8px', border: '1px solid #FFC107', background: 'transparent', color: '#FFC107', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
                 onClick={() => loadLaps(vdot)}
                 disabled={loadingLaps}
               >
@@ -321,17 +321,17 @@ export default function RunDetail({
           {lapData && (
             <>
               {lapData.isAutoSplit ? (
-                <div style={{ color: 'var(--text2)', fontSize: '11px' }}>
+                <div style={{ color: 'var(--text-2)', fontSize: '11px' }}>
                   ℹ️ Nur automatische 1km-Splits erkannt — für Intervallauswertung bitte Lap-Taste auf der Uhr drücken.
                 </div>
               ) : (
                 <>
-                  <div style={{ color: 'var(--text2)', marginBottom: '6px', lineHeight: 1.5 }}>
+                  <div style={{ color: 'var(--text-2)', marginBottom: '6px', lineHeight: 1.5 }}>
                     {lapData.wuNote} · {lapData.cdNote}<br />{lapData.rvNote}
                   </div>
                   {lapData.nIntervals > 0 && (
                     <div style={{ borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>
+                      <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600 }}>
                         {lapData.nIntervals} INTERVALLE · ZIEL {lapData.iPaceTarget} /km
                       </div>
                       {lapData.intervals.map((iv, i) => (
@@ -343,14 +343,14 @@ export default function RunDetail({
                   )}
                   {lapData.laps.length > 0 && (
                     <div style={{ marginTop: '8px', borderTop: '1px solid #FFC10733', paddingTop: '6px' }}>
-                      <div style={{ fontSize: '10px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600 }}>ALLE LAPS</div>
+                      <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600 }}>ALLE LAPS</div>
                       {lapData.laps.map((lp, i) => {
-                        const roleColor: Record<string, string> = { warmup: '#42A5F5', interval: '#e53935', recovery: '#4CAF50', cooldown: '#42A5F5', easy: 'var(--text2)' }
+                        const roleColor: Record<string, string> = { warmup: '#42A5F5', interval: '#e53935', recovery: '#4CAF50', cooldown: '#42A5F5', easy: 'var(--text-2)' }
                         return (
-                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text2)', alignItems: 'center', lineHeight: 1.7 }}>
-                            <span style={{ color: roleColor[lp.role] ?? 'var(--text2)', minWidth: '18px', fontWeight: 600 }}>#{lp.idx}</span>
+                          <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center', lineHeight: 1.7 }}>
+                            <span style={{ color: roleColor[lp.role] ?? 'var(--text-2)', minWidth: '18px', fontWeight: 600 }}>#{lp.idx}</span>
                             <span style={{ color: roleColor[lp.role], fontSize: '10px', minWidth: '56px' }}>{lp.role}</span>
-                            <span style={{ color: 'var(--text1)', fontWeight: lp.role === 'interval' ? 700 : 400 }}>{lp.paceFmt}</span>
+                            <span style={{ color: 'var(--text-1)', fontWeight: lp.role === 'interval' ? 700 : 400 }}>{lp.paceFmt}</span>
                             <span>{lp.distKm} km</span>
                             {lp.avgHr && <span>♡ {Math.round(lp.avgHr)}</span>}
                           </div>
@@ -370,7 +370,7 @@ export default function RunDetail({
         if (checks.length === 0) return null
         return (
           <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
-            <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '11px', color: 'var(--text2)' }}>
+            <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '11px', color: 'var(--text-2)' }}>
               PLAN-CHECK · {plannedSession.session}
             </div>
             {checks.map((c, i) => (
@@ -380,7 +380,7 @@ export default function RunDetail({
         )
       })()}
 
-      <div style={{ fontSize: '11px', color: 'var(--text2)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '11px', color: 'var(--text-2)', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
         <span>Phase: {phase}</span>
         {act.distanceKm > 0 && <span>{act.distanceKm} km</span>}
         {durationMin && <span>{durationMin} min</span>}
@@ -388,13 +388,13 @@ export default function RunDetail({
       </div>
 
       {analysis.hrNote && !analysis.strideDetected && (
-        <div style={{ fontSize: '12px', color: 'var(--text2)', fontStyle: 'italic' }}>
+        <div style={{ fontSize: '12px', color: 'var(--text-2)', fontStyle: 'italic' }}>
           💬 {analysis.hrNote}
         </div>
       )}
 
       <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '10px' }}>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text2)', marginBottom: '8px', letterSpacing: '0.04em' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-2)', marginBottom: '8px', letterSpacing: '0.04em' }}>
           📝 NOTIZ & BEFINDEN
         </div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '8px' }}>
@@ -429,7 +429,7 @@ export default function RunDetail({
             borderRadius: '6px',
             border: '1px solid var(--border)',
             background: 'var(--surface1)',
-            color: 'var(--text1)',
+            color: 'var(--text-1)',
             resize: 'vertical',
             boxSizing: 'border-box',
           }}
@@ -460,7 +460,7 @@ export default function RunDetail({
                 borderRadius: '8px',
                 border: '1px solid var(--border)',
                 background: 'transparent',
-                color: 'var(--text2)',
+                color: 'var(--text-2)',
                 cursor: 'pointer',
               }}
             >

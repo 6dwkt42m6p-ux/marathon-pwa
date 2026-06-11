@@ -215,7 +215,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             <span className="kpi-label">m Höhe</span>
           </div>
         </div>
-        <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px' }}>
+        <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
           {actualKmThisWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
         </div>
         <div className="progress-bar">
@@ -226,7 +226,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         </div>
         {/* Cross-sport row */}
         {(weekStats.ride.count > 0 || weekStats.hike.count > 0 || weekStats.swim.count > 0) && (
-          <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text2)' }}>
+          <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text-2)' }}>
             {weekStats.ride.count > 0 && (
               <span>🚴 <strong style={{ color: '#17a2b8' }}>{weekStats.ride.km} km</strong> · {Math.round(weekStats.ride.durationSec / 3600 * 10) / 10} h</span>
             )}
@@ -239,7 +239,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           </div>
         )}
         {(syncedCurrentW || localCurrentRow) && (
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '6px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
             {currentPhase} · Woche {currentWeekNr}/{totalWeeks}
           </div>
         )}
@@ -277,14 +277,14 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                 <span style={{ fontSize: '18px' }}>{tsbIcon}</span>
                 <div>
                   <span style={{ fontSize: '14px', fontWeight: 700, color: tsbColor }}>{tsbLabel}</span>
-                  <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '2px' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '2px' }}>
                     TSB = CTL − ATL · positiv = frisch, negativ = ermüdet
                   </div>
                 </div>
               </div>
               {/* TSB scale bar */}
               <div style={{ marginTop: '10px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text2)', marginBottom: '3px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: 'var(--text-2)', marginBottom: '3px' }}>
                   <span>−50</span>
                   <span>−30</span>
                   <span>0</span>
@@ -323,26 +323,26 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           {/* VDOT trend — only shown when effort runs are available */}
           {!trend.insufficientEffortRuns ? (
             <div className="activity-card" style={{ padding: '12px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT AUS TEMPOLÄUFEN</div>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT AUS TEMPOLÄUFEN</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div className="trend-badge" style={{ background: `${trend.color}22`, color: trend.color }}>
                   <span>{trend.direction}</span>
                   <span>{trend.label}</span>
                 </div>
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--text2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
+              <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
                 <span>Früher: {trend.early}</span>
                 <span>Aktuell: {trend.recent}</span>
                 <span style={{ color: trend.color }}>Δ {trend.delta > 0 ? '+' : ''}{trend.delta}</span>
               </div>
               {trend.fromTraining && (
-                <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
                   Aus Trainingsläufen — genauer nach Wettkampf- oder Tempoeinheiten
                 </div>
               )}
             </div>
           ) : (
-            <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text2)' }}>
+            <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-2)' }}>
               VDOT-Trend folgt ab der Aufbauphase — wird aus Tempo- und Intervallläufen berechnet, nicht aus Easy-Läufen.
             </div>
           )}
@@ -352,19 +352,19 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             const hr = trend.easyHrTrend!
             return (
               <div className="activity-card" style={{ padding: '12px', marginTop: '6px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>AEROBE EFFIZIENZ (EASY-LÄUFE)</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>AEROBE EFFIZIENZ (EASY-LÄUFE)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div className="trend-badge" style={{ background: `${hr.color}22`, color: hr.color }}>
                     <span>{hr.direction}</span>
                     <span>{hr.label}</span>
                   </div>
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--text2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
                   <span>Früher: Ø {hr.earlyAvgHr} bpm</span>
                   <span>Aktuell: Ø {hr.recentAvgHr} bpm</span>
                   <span style={{ color: hr.color }}>Δ {hr.deltaBpm > 0 ? '+' : ''}{hr.deltaBpm} bpm</span>
                 </div>
-                <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '4px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
                   Niedrigerer Puls bei gleicher Easy-Pace = aerobe Adaptation ✓
                 </div>
               </div>
@@ -376,13 +376,13 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
       {/* C: Coach-Auswertung */}
       <div className="section-title">Coach-Auswertung (letzte 14)</div>
       {!syncLoading && !syncedPlan && (
-        <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text2)', marginBottom: '6px' }}>
+        <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-2)', marginBottom: '6px' }}>
           Plan wird am Desktop berechnet — einmal Desktop-App öffnen um Plan-Abweichungen zu sehen.
         </div>
       )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {recentActs.length === 0 && (
-          <div style={{ fontSize: '13px', color: 'var(--text2)', padding: '12px 0' }}>
+          <div style={{ fontSize: '13px', color: 'var(--text-2)', padding: '12px 0' }}>
             Keine Aktivitäten vorhanden.
           </div>
         )}
@@ -493,7 +493,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       </span>
                     )}
                   </div>
-                  <div style={{ fontSize: '11px', color: 'var(--text2)' }}>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>
                     {dateStr} ·{' '}
                     {act.actType === 'ride'
                       ? `${act.durationSec > 0 ? Math.round(act.durationSec / 60) : 0} min`
@@ -518,7 +518,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                 {hasNote && (
                   <span style={{ fontSize: '12px', marginLeft: '2px', flexShrink: 0 }} title="Notiz vorhanden">📝</span>
                 )}
-                <span style={{ fontSize: '10px', color: 'var(--text2)', marginLeft: '4px' }}>
+                <span style={{ fontSize: '10px', color: 'var(--text-2)', marginLeft: '4px' }}>
                   {isExpanded ? '▲' : '▼'}
                 </span>
               </div>
@@ -538,7 +538,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />
                   ) : (
-                    <div style={{ fontSize: '13px', color: 'var(--text2)' }}>
+                    <div style={{ fontSize: '13px', color: 'var(--text-2)' }}>
                       Wanderung · {act.distanceKm} km · {act.elevationM} m Höhe
                     </div>
                   )}
@@ -555,7 +555,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           <div className="section-title">Wöchentliche km (letzte 8 Wochen)</div>
 
           <div className="activity-card" style={{ padding: '12px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text2)', marginBottom: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <span style={{ display: 'inline-block', width: '10px', height: '6px', background: 'var(--border)', borderRadius: '3px' }} />
                 Geplant
@@ -581,7 +581,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                     </div>
                     <div className="weekly-chart-km">
                       <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{actualW}</span>
-                      <span style={{ color: 'var(--text2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
+                      <span style={{ color: 'var(--text-2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
                     </div>
                   </div>
                 )
@@ -620,7 +620,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                 </div>
               </div>
               {peakWeek && (
-                <div style={{ fontSize: '11px', color: 'var(--text2)', marginBottom: '8px' }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px' }}>
                   Aktivste Woche: {isoWeek(peakWeek.weekStart)} · {peakWeek.actualKm} km
                 </div>
               )}
@@ -640,7 +640,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       </div>
                       <div className="weekly-chart-km">
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{week.actualKm}</span>
-                        <span style={{ color: 'var(--text2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
+                        <span style={{ color: 'var(--text-2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
                       </div>
                     </div>
                   )
@@ -676,13 +676,13 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
                       <span style={{ fontWeight: 600 }}>{sport.label}</span>
-                      <span style={{ color: 'var(--text2)' }}>{sport.km} km · {sport.h} h</span>
+                      <span style={{ color: 'var(--text-2)' }}>{sport.km} km · {sport.h} h</span>
                     </div>
                     <div style={{ height: '6px', background: 'var(--surface2)', borderRadius: '3px', overflow: 'hidden' }}>
                       <div style={{ height: '100%', background: sport.color, borderRadius: '3px', width: `${Math.min(100, sport.km / totalKm * 100)}%` }} />
                     </div>
                   </div>
-                  <span style={{ fontSize: '11px', color: 'var(--text2)', minWidth: '34px', textAlign: 'right' }}>
+                  <span style={{ fontSize: '11px', color: 'var(--text-2)', minWidth: '34px', textAlign: 'right' }}>
                     {Math.round(sport.km / totalKm * 100)}%
                   </span>
                 </div>
@@ -702,7 +702,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             <div className="activity-card" style={{ padding: '12px', overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px' }}>
                 <thead>
-                  <tr style={{ color: 'var(--text2)' }}>
+                  <tr style={{ color: 'var(--text-2)' }}>
                     <th style={{ textAlign: 'left',  padding: '3px 4px', fontWeight: 600 }}>Woche</th>
                     <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>km</th>
                     <th style={{ textAlign: 'right', padding: '3px 4px', fontWeight: 600 }}>Läufe</th>
@@ -716,9 +716,9 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                     const isCurrent = planWeekMap.has(key)
                     return (
                       <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
-                        <td style={{ padding: '4px', color: isCurrent ? 'var(--accent)' : 'var(--text2)', fontWeight: isCurrent ? 700 : 400 }}>{isoWeek(w.weekStart)}</td>
+                        <td style={{ padding: '4px', color: isCurrent ? 'var(--accent)' : 'var(--text-2)', fontWeight: isCurrent ? 700 : 400 }}>{isoWeek(w.weekStart)}</td>
                         <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>{w.actualKm}</td>
-                        <td style={{ padding: '4px', textAlign: 'right', color: 'var(--text2)' }}>{w.runs}</td>
+                        <td style={{ padding: '4px', textAlign: 'right', color: 'var(--text-2)' }}>{w.runs}</td>
                         <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgPaceSec ? fmt(w.avgPaceSec) : '—'}</td>
                         <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgHr ? Math.round(w.avgHr) : '—'}</td>
                       </tr>
@@ -755,7 +755,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                   <span className="kpi-label">m Höhe gesamt</span>
                 </div>
               </div>
-              <div style={{ fontSize: '11px', color: 'var(--text2)', marginTop: '8px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '8px' }}>
                 💡 Wandern zählt als aerobe Zusatzbelastung — Höhenmeter stärken die kardiale Grundlage.
               </div>
             </div>
@@ -780,7 +780,7 @@ function RideDetail({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
         <div>
           <div style={{ fontSize: '14px', fontWeight: 700 }}>{analysis.verdict}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '3px' }}>{analysis.note}</div>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '3px' }}>{analysis.note}</div>
         </div>
         <div
           style={{
@@ -796,7 +796,7 @@ function RideDetail({
           {analysis.hrZone}
         </div>
       </div>
-      <div style={{ fontSize: '12px', color: 'var(--text2)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+      <div style={{ fontSize: '12px', color: 'var(--text-2)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
         <span>{durationMin} min</span>
         {analysis.speedKmh > 0 && <span>{analysis.speedKmh} km/h</span>}
         <span>Laufäquivalent: ~{analysis.runEquivMin} min</span>

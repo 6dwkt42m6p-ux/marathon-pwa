@@ -231,7 +231,7 @@ export default function TodayWorkout({ settings }: Props) {
   if (syncLoading) {
     return (
       <div className="tab-content">
-        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text2)', fontSize: '13px' }}>
+        <div style={{ padding: '20px 0', textAlign: 'center', color: 'var(--text-2)', fontSize: '13px' }}>
           Plan wird geladen…
         </div>
       </div>
@@ -244,7 +244,7 @@ export default function TodayWorkout({ settings }: Props) {
       {/* This-week progress */}
       {cached.length > 0 && (
         <div className="activity-card" style={{ padding: '10px 12px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
             <span>Diese Woche</span>
             <span style={{ color: progressColor, fontWeight: 700 }}>
               {actualKmWeek} km von {plannedKmSynced} km ({Math.round(progressPct)}%)
@@ -279,26 +279,26 @@ export default function TodayWorkout({ settings }: Props) {
           padding: '10px 12px',
           fontSize: '12px',
         }}>
-          <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text2)', marginBottom: '6px', letterSpacing: '0.04em' }}>
+          <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', letterSpacing: '0.04em' }}>
             LETZTE EINHEIT — PLAN-CHECK
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: '3px', columnGap: '10px' }}>
-            <span style={{ color: 'var(--text2)' }}>Geplant:</span>
+            <span style={{ color: 'var(--text-2)' }}>Geplant:</span>
             <span style={{ fontWeight: 600 }}>{latestDeviation.plannedLabel}</span>
-            <span style={{ color: 'var(--text2)' }}>Trainiert:</span>
+            <span style={{ color: 'var(--text-2)' }}>Trainiert:</span>
             <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
               {latestDeviation.actualType} — {latestDeviation.actualKm} km
             </span>
             {latestDeviation.kmDelta !== 0 && (
               <>
-                <span style={{ color: 'var(--text2)' }}>Abweichung:</span>
+                <span style={{ color: 'var(--text-2)' }}>Abweichung:</span>
                 <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
                   {latestDeviation.kmDelta > 0 ? '+' : ''}{latestDeviation.kmDelta} km
                 </span>
               </>
             )}
           </div>
-          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text2)', fontStyle: 'italic', lineHeight: 1.5 }}>
+          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text-2)', fontStyle: 'italic', lineHeight: 1.5 }}>
             {latestDeviation.coachComment}
           </div>
         </div>
@@ -343,7 +343,7 @@ export default function TodayWorkout({ settings }: Props) {
                     {isToday && <span className="today-dot" />}
                   </div>
                   <div className="session-summary">
-                    <span className="session-name" style={{ color: 'var(--text2)' }}>Ruhetag</span>
+                    <span className="session-name" style={{ color: 'var(--text-2)' }}>Ruhetag</span>
                   </div>
                   <span className="rest-badge">😴</span>
                 </div>
@@ -504,7 +504,7 @@ function FallbackTodayWorkout({ settings, cached, paces }: FallbackProps) {
         marginBottom: '12px',
       }}>
         <div style={{ fontWeight: 700, marginBottom: '6px' }}>Plan wird am Desktop berechnet</div>
-        <div style={{ color: 'var(--text2)', fontSize: '12px' }}>
+        <div style={{ color: 'var(--text-2)', fontSize: '12px' }}>
           Einmal Desktop-App (Streamlit) öffnen und GitHub-Token verbinden — dann erscheint der
           vollständige Wochenplan inkl. Soll-km und Session-Details hier.
         </div>
@@ -512,7 +512,7 @@ function FallbackTodayWorkout({ settings, cached, paces }: FallbackProps) {
 
       {cached.length > 0 && (
         <div className="activity-card" style={{ padding: '10px 12px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
             Diese Woche gelaufen
           </div>
           <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent)' }}>
