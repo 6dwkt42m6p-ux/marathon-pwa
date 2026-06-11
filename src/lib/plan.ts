@@ -216,6 +216,7 @@ export function generatePlan(
   return rows
 }
 
+// DEPRECATED: SSoT via sync.json — nicht mehr für neue Features nutzen (T-078)
 export function todayWorkout(plan: PlanRow[], vdot: number, runsPerWeek = 5, raceType: 'hm' | 'marathon' = 'marathon'): WorkoutSession | null {
   const currentRow = plan.find(r => r.isCurrent)
   if (!currentRow) return null
@@ -224,6 +225,7 @@ export function todayWorkout(plan: PlanRow[], vdot: number, runsPerWeek = 5, rac
   return sessions.find(s => s.wochentag === todayTag) ?? sessions[0] ?? null
 }
 
+// DEPRECATED: SSoT via sync.json — nicht mehr für neue Features nutzen (T-078)
 export function allWeekSessions(phase: string, plannedKm: number, vdot: number, runsPerWeek: number, raceType: 'hm' | 'marathon' = 'marathon'): WorkoutSession[] {
   const paces = trainingPaces(vdot)
   const eHi  = formatPace(paces.E_high)
@@ -530,7 +532,7 @@ export function assessDeviation(
   }
 }
 
-// Returns true when the given date falls within a plan week (rest day is meaningful)
+// DEPRECATED: SSoT via sync.json — nicht mehr für neue Features nutzen (T-078)
 export function hasPlanRowForDate(plan: PlanRow[], date: Date): boolean {
   const monday = mondayOf(date)
   return plan.some(r => {

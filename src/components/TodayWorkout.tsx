@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
-  generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay,
+  assessDeviation, assessDeviationForRestDay,
   syncedCurrentWeek, isPlanStale,
   type PlanDeviation,
 } from '../lib/plan'
@@ -45,12 +45,10 @@ function planInputFingerprint(s: AppSettings): string {
 export default function TodayWorkout({ settings }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
-  const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
 
   // ── T-024: Synced plan state ────────────────────────────────────────────────
   const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
   const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
-  const [remoteSha, setRemoteSha] = useState<string | null>(null)
   const [planRecomputeRequested, setPlanRecomputeRequested] = useState(false)
   const [syncLoading, setSyncLoading] = useState(true)
 
@@ -63,11 +61,10 @@ export default function TodayWorkout({ settings }: Props) {
         if (result) {
           setSyncedPlan(result.data.plan ?? null)
           setSyncSettings(result.data.settings ?? null)
-          setRemoteSha(result.sha)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
         }
       })
-      .catch(() => { /* offline — keep null, use local fallback */ })
+      .catch(() => { /* offline — keep null, show hint screen */ })
       .finally(() => setSyncLoading(false))
   }, [])
 
@@ -220,16 +217,12 @@ export default function TodayWorkout({ settings }: Props) {
   const totalWeeks = syncedPlan?.weeks.length ?? 0
   const weekNum    = syncedCurrentW?.week_nr ?? 1
 
-  // ── No synced plan → local fallback ────────────────────────────────────────
+  // ── No synced plan → hint screen (no local generator, no assessDeviation) ──
   if (!syncLoading && !syncedPlan) {
     return (
       <FallbackTodayWorkout
         settings={settings}
-        preRaceDate={preRaceDate}
         cached={cached}
-        tsb={tsb}
-        latestAct={latestAct}
-        remoteSha={remoteSha}
         paces={paces}
       />
     )
@@ -483,293 +476,50 @@ const PHASE_COLORS: Record<string, string> = {
 }
 
 // ── Fallback component when no synced plan is available ─────────────────────
+// No local generator sessions or assessDeviation — SSoT via sync.json only.
 
 interface FallbackProps {
   settings:     AppSettings
-  preRaceDate:  Date | undefined
   cached:       ReturnType<typeof getCachedActivities>
-  tsb:          number
-  latestAct:    ReturnType<typeof parseAllActivities>[0] | null
-  remoteSha:    string | null
   paces:        ReturnType<typeof buildPaceTable>
 }
 
-function FallbackTodayWorkout({ settings, preRaceDate, cached, tsb, latestAct, paces }: FallbackProps) {
+function FallbackTodayWorkout({ settings, cached, paces }: FallbackProps) {
   const raceDate2     = new Date(settings.raceDate2)
   const raceDate1     = new Date(settings.raceDate1)
-  const todayTag      = DAY_TAGS[new Date().getDay()]
-
-  const plan          = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-  const currentRow    = plan.find(r => r.isCurrent)
-  const weekNum       = currentRow?.weekNr ?? 1
-  const totalWeeks    = plan.length - 1
-  const phase         = currentRow?.phase ?? '—'
-  const plannedKm     = currentRow?.plannedKm ?? 0
 
   const actualKmWeek  = Math.round(thisWeekKm(cached) * 10) / 10
-  const progressPct   = plannedKm > 0 ? Math.min(100, (actualKmWeek / plannedKm) * 100) : 0
-  const progressColor = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
-
-  const rawSessions = currentRow
-    ? allWeekSessions(currentRow.phase, currentRow.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
-    : []
-
-  // Plan-Abweichungserkennung against local plan
-  let latestDeviation: PlanDeviation | null = null
-  if (latestAct && currentRow) {
-    const actDay    = new Date(latestAct.date)
-    actDay.setHours(0, 0, 0, 0)
-    const actMonday = mondayOf(actDay)
-    const planMonday = new Date(currentRow.weekStart)
-    planMonday.setHours(0, 0, 0, 0)
-    if (actMonday.getTime() === planMonday.getTime()) {
-      const tag            = DAY_TAGS[latestAct.date.getDay()]
-      const sessionForDay  = rawSessions.find(s => s.wochentag === tag) ?? null
-      if (sessionForDay) {
-        latestDeviation = assessDeviation(sessionForDay, latestAct, null, tsb)
-      } else {
-        latestDeviation = assessDeviationForRestDay(latestAct, tsb)
-      }
-    }
-  }
-
-  const wKey = currentRow ? currentRow.weekStart.toISOString().slice(0, 10) : 'noweek'
-  const defaultAssignments: DayAssignment[] = rawSessions.map(s => ({ originalDay: s.wochentag, currentDay: s.wochentag }))
-  const [assignments, setAssignments] = useState<DayAssignment[]>(() => loadOverrides(wKey) ?? defaultAssignments)
-  const [swapping, setSwapping] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState<string | null>(todayTag)
-
-  const displaySessions = useMemo(() =>
-    rawSessions
-      .map(s => {
-        const assigned = assignments.find(a => a.originalDay === s.wochentag)
-        return { ...s, wochentag: assigned?.currentDay ?? s.wochentag, originalDay: s.wochentag }
-      })
-      .sort((a, b) => DAYS_ORDER.indexOf(a.wochentag) - DAYS_ORDER.indexOf(b.wochentag)),
-  [rawSessions, assignments])
-
-  const hasOverrides = assignments.some(a => a.originalDay !== a.currentDay)
-  const pColor = PHASE_COLORS[phase.split(' ')[0]] || '#42A5F5'
-
-  async function pushOverridesToGitHub(overrides: DayAssignment[]) {
-    if (!hasToken()) return
-    try {
-      const current = await fetchSync()
-      const map: Record<string, string> = {}
-      overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
-      const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }
-      await pushSync({ ...current?.data, weekOverrides: allWeekOverrides }, current?.sha)
-    } catch {}
-  }
-
-  function handleSwap(originalDay: string, targetDay: string) {
-    const next = assignments.map(a => ({ ...a }))
-    const moving    = next.find(a => a.originalDay === originalDay)!
-    const displaced = next.find(a => a.currentDay === targetDay && a.originalDay !== originalDay)
-    if (displaced) displaced.currentDay = moving.currentDay
-    moving.currentDay = targetDay
-    setAssignments(next)
-    saveOverrides(wKey, next)
-    setSwapping(null)
-    setExpanded(targetDay)
-    pushOverridesToGitHub(next)
-  }
-
-  function resetOverrides() {
-    setAssignments(defaultAssignments)
-    saveOverrides(wKey, defaultAssignments)
-    setSwapping(null)
-    pushOverridesToGitHub(defaultAssignments)
-  }
 
   return (
     <div className="tab-content">
-      {/* "No plan" info banner */}
+      {/* "No plan" info screen — no local session details, no assessDeviation */}
       <div style={{
         background: '#42A5F520',
         border: '1px solid #42A5F555',
         borderRadius: '8px',
-        padding: '10px 12px',
-        fontSize: '12px',
+        padding: '14px 14px',
+        fontSize: '13px',
         color: '#42A5F5',
-        lineHeight: 1.5,
+        lineHeight: 1.6,
+        marginBottom: '12px',
       }}>
-        Noch kein Plan — am Desktop erstellen (Trainingsplan-Tab öffnen).
-        <br />
-        <span style={{ color: 'var(--text2)' }}>Unten: lokale Schätzung (nicht maßgeblich).</span>
+        <div style={{ fontWeight: 700, marginBottom: '6px' }}>Plan wird am Desktop berechnet</div>
+        <div style={{ color: 'var(--text2)', fontSize: '12px' }}>
+          Einmal Desktop-App (Streamlit) öffnen und GitHub-Token verbinden — dann erscheint der
+          vollständige Wochenplan inkl. Soll-km und Session-Details hier.
+        </div>
       </div>
 
       {cached.length > 0 && (
         <div className="activity-card" style={{ padding: '10px 12px' }}>
-          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px', display: 'flex', justifyContent: 'space-between' }}>
-            <span>Diese Woche</span>
-            <span style={{ color: progressColor, fontWeight: 700 }}>
-              {actualKmWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
-            </span>
+          <div style={{ fontSize: '12px', color: 'var(--text2)', marginBottom: '4px' }}>
+            Diese Woche gelaufen
           </div>
-          <div className="progress-bar">
-            <div className="progress-fill" style={{ width: `${progressPct}%`, background: progressColor }} />
+          <div style={{ fontSize: '18px', fontWeight: 700, color: 'var(--accent)' }}>
+            {actualKmWeek} km
           </div>
         </div>
       )}
-
-      {latestDeviation && latestDeviation.badge !== 'frei' && latestAct && (
-        <div style={{
-          background: `${latestDeviation.badgeColor}12`,
-          border: `1px solid ${latestDeviation.badgeColor}33`,
-          borderRadius: '8px',
-          padding: '10px 12px',
-          fontSize: '12px',
-        }}>
-          <div style={{ fontWeight: 700, fontSize: '11px', color: 'var(--text2)', marginBottom: '6px', letterSpacing: '0.04em' }}>
-            LETZTE EINHEIT — PLAN-CHECK
-          </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', rowGap: '3px', columnGap: '10px' }}>
-            <span style={{ color: 'var(--text2)' }}>Geplant:</span>
-            <span style={{ fontWeight: 600 }}>{latestDeviation.plannedLabel}</span>
-            <span style={{ color: 'var(--text2)' }}>Trainiert:</span>
-            <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
-              {latestDeviation.actualType} — {latestDeviation.actualKm} km
-            </span>
-            {latestDeviation.kmDelta !== 0 && (
-              <>
-                <span style={{ color: 'var(--text2)' }}>Abweichung:</span>
-                <span style={{ fontWeight: 600, color: latestDeviation.badgeColor }}>
-                  {latestDeviation.kmDelta > 0 ? '+' : ''}{latestDeviation.kmDelta} km
-                </span>
-              </>
-            )}
-          </div>
-          <div style={{ marginTop: '6px', fontSize: '11px', color: 'var(--text2)', fontStyle: 'italic', lineHeight: 1.5 }}>
-            {latestDeviation.coachComment}
-          </div>
-        </div>
-      )}
-
-      <div className="week-badge" style={{ borderColor: pColor }}>
-        <div className="week-badge-row">
-          <span className="week-num">Woche {weekNum} / {totalWeeks}</span>
-          <span className="phase-tag" style={{ color: pColor }}>{phase}</span>
-        </div>
-        <span className="planned-km">{plannedKm} km geplant diese Woche</span>
-      </div>
-
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div className="section-title" style={{ flex: 1 }}>Wochenplan</div>
-        {hasOverrides && (
-          <button className="btn-small" onClick={resetOverrides} style={{ fontSize: '11px', padding: '3px 8px' }}>
-            ↺ Zurücksetzen
-          </button>
-        )}
-      </div>
-
-      <div className="sessions-list">
-        {displaySessions.length === 0 && (
-          <div className="workout-card empty">
-            <p>Kein Trainingsplan — Renntermin in den Einstellungen eintragen.</p>
-          </div>
-        )}
-
-        {DAYS_ORDER.map(day => {
-          const session = displaySessions.find(s => s.wochentag === day)
-          const isToday = day === todayTag
-
-          if (!session) {
-            return (
-              <div key={day} className={`session-row rest-day ${isToday ? 'today' : ''}`}>
-                <div className="session-header" style={{ cursor: 'default' }}>
-                  <div className="session-day-col">
-                    <span className={`session-day ${isToday ? 'today-day' : ''}`}>{day}</span>
-                    {isToday && <span className="today-dot" />}
-                  </div>
-                  <div className="session-summary">
-                    <span className="session-name" style={{ color: 'var(--text2)' }}>Ruhetag</span>
-                  </div>
-                  <span className="rest-badge">😴</span>
-                </div>
-              </div>
-            )
-          }
-
-          const isOpen     = expanded === day
-          const isSwapping = swapping === session.originalDay
-          const isShifted  = session.originalDay !== session.wochentag
-
-          return (
-            <div key={day} className={`session-row ${isToday ? 'today' : ''} ${isOpen ? 'open' : ''}`}>
-              <div className="session-header" onClick={() => { if (!isSwapping) setExpanded(isOpen ? null : day) }}>
-                <div className="session-day-col">
-                  <span className={`session-day ${isToday ? 'today-day' : ''}`}>{day}</span>
-                  {isToday && <span className="today-dot" />}
-                  {isShifted && <span className="shifted-dot" title="Verschoben" />}
-                </div>
-                <div className="session-summary">
-                  <span className="session-name">{session.session}</span>
-                  <span className="session-meta">
-                    {typeof session.distanzKm === 'number' ? `${session.distanzKm} km` : session.distanzKm}
-                    {' · '}{session.dauerMin}
-                    {isShifted && <span style={{ color: 'var(--yellow)', marginLeft: 4 }}>↻ verschoben</span>}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <button
-                    className={`swap-btn ${isSwapping ? 'active' : ''}`}
-                    onClick={e => { e.stopPropagation(); setSwapping(isSwapping ? null : session.originalDay) }}
-                    title="Einheit verschieben"
-                  >
-                    📅
-                  </button>
-                  <div className="session-typ-badge"><span>{session.typ}</span></div>
-                  <span className="session-chevron">{isOpen ? '▲' : '▼'}</span>
-                </div>
-              </div>
-
-              {isSwapping && (
-                <div className="day-picker">
-                  <div className="day-picker-label">Verschieben auf:</div>
-                  <div className="day-picker-row">
-                    {DAYS_ORDER.map(targetDay => {
-                      const targetSession = displaySessions.find(s => s.wochentag === targetDay && s.originalDay !== session.originalDay)
-                      const isCurrent = day === targetDay
-                      return (
-                        <button
-                          key={targetDay}
-                          className={`day-pick-btn ${isCurrent ? 'current' : ''} ${targetDay === todayTag ? 'is-today' : ''}`}
-                          onClick={() => !isCurrent && handleSwap(session.originalDay, targetDay)}
-                          disabled={isCurrent}
-                        >
-                          <span className="day-pick-label">{targetDay}</span>
-                          <span className="day-pick-sub">{targetSession ? '🏃' : isCurrent ? '●' : 'Ruhe'}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="day-picker-hint">
-                    {displaySessions.find(s => s.wochentag !== day) ? 'Trainingstag = tauschen · Ruhetag = verschieben' : ''}
-                  </div>
-                </div>
-              )}
-
-              {isOpen && !isSwapping && (
-                <div className="session-detail">
-                  <div className="detail-block">
-                    <span className="detail-label">Vorgabe</span>
-                    <p className="detail-vorgabe">{session.vorgabe}</p>
-                  </div>
-                  <div className="detail-block">
-                    <span className="detail-label">Struktur</span>
-                    <p>{session.struktur}</p>
-                  </div>
-                  <div className="detail-hinweis">
-                    <span>💡</span>
-                    <p>{session.hinweis}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
 
       <div className="section-title">Pace-Referenz (VDOT {settings.vdot})</div>
       <div className="pace-grid">
