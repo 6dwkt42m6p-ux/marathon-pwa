@@ -28,7 +28,7 @@ export default function Settings({ settings, onUpdate }: Props) {
   async function handleGhSync() {
     setGhSyncing(true); setGhErr(null); setGhMsg(null)
     try {
-      const result = await fetchSync()
+      const result = await fetchSync(true)  // force: bypass TTL cache on explicit refresh
       if (result) {
         setGhSha(result.sha)
         setGhMsg(`Synced — zuletzt geändert: ${result.data.lastDevice ?? '?'} ${result.data.lastModified ? new Date(result.data.lastModified).toLocaleString('de-AT') : ''}`)
@@ -158,7 +158,7 @@ export default function Settings({ settings, onUpdate }: Props) {
     setTimeout(() => setSaved(false), 2000)
     if (hasToken()) {
       try {
-        const current = await fetchSync()
+        const current = await fetchSync(true)  // force: need fresh sha before push
         await pushSync(
           { settings: s as unknown as Record<string, unknown>, weekOverrides: current?.data.weekOverrides },
           current?.sha
