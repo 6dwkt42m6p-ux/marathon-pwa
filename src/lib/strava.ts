@@ -279,8 +279,11 @@ export function localISODate(d: Date): string {
 }
 
 export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
-  const map     = new Map<string, WeekStats>()
-  const paceMap = new Map<string, number[]>()
+  const map      = new Map<string, WeekStats>()
+  const paceMap  = new Map<string, number[]>()
+  // Accumulate HR sum + count per week for true arithmetic mean (not rolling-pair average)
+  const hrSumMap   = new Map<string, number>()
+  const hrCountMap = new Map<string, number>()
 
   for (const r of runs) {
     const ws  = mondayOf(r.date)
@@ -288,24 +291,30 @@ export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
     if (!map.has(key)) {
       map.set(key, { weekStart: ws, actualKm: 0, runs: 0, avgHr: null, elevationM: 0, avgPaceSec: null })
       paceMap.set(key, [])
+      hrSumMap.set(key, 0)
+      hrCountMap.set(key, 0)
     }
     const s = map.get(key)!
     s.actualKm   += r.distanceKm
     s.runs        += 1
     s.elevationM  += r.elevationM
     if (r.avgHr) {
-      s.avgHr = s.avgHr === null ? r.avgHr : (s.avgHr + r.avgHr) / 2
+      hrSumMap.set(key, (hrSumMap.get(key) ?? 0) + r.avgHr)
+      hrCountMap.set(key, (hrCountMap.get(key) ?? 0) + 1)
     }
     if (r.paceSec > 0 && r.distanceKm >= 2) paceMap.get(key)!.push(r.paceSec)
   }
 
   return Array.from(map.values())
     .map(s => {
-      const paces = paceMap.get(localISODate(s.weekStart)) ?? []
+      const key = localISODate(s.weekStart)
+      const paces = paceMap.get(key) ?? []
       const avgPaceSec = paces.length > 0
         ? Math.round(paces.reduce((a, b) => a + b, 0) / paces.length)
         : null
-      return { ...s, actualKm: Math.round(s.actualKm * 10) / 10, avgPaceSec }
+      const hrCount = hrCountMap.get(key) ?? 0
+      const avgHr   = hrCount > 0 ? Math.round((hrSumMap.get(key) ?? 0) / hrCount) : null
+      return { ...s, actualKm: Math.round(s.actualKm * 10) / 10, avgPaceSec, avgHr }
     })
     .sort((a, b) => a.weekStart.getTime() - b.weekStart.getTime())
 }
