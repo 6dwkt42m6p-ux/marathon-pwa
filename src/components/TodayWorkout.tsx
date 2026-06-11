@@ -80,8 +80,8 @@ export default function TodayWorkout({ settings }: Props) {
     // Settings changed — request recompute
     prevFingerprintRef.current = fp
     if (!hasToken()) return
-    // Fire-and-forget: best effort, non-critical
-    fetchSync()
+    // Fire-and-forget: best effort, non-critical; force=true for fresh sha before push
+    fetchSync(true)
       .then(fresh => {
         if (!fresh) return
         return pushSync(
@@ -167,7 +167,7 @@ export default function TodayWorkout({ settings }: Props) {
   async function pushOverridesToGitHub(overrides: DayAssignment[]) {
     if (!hasToken()) return
     try {
-      const current = await fetchSync()
+      const current = await fetchSync(true)  // force: need fresh sha before push
       const map: Record<string, string> = {}
       overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
       const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }

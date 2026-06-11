@@ -66,14 +66,43 @@ function headers() {
   }
 }
 
-export async function fetchSync(): Promise<{ data: SyncData; sha: string } | null> {
-  if (!hasToken()) return null
+// Module-level cache for fetchSync — deduplicates parallel calls and avoids
+// redundant GitHub API requests on tab switches within the TTL window.
+const FETCH_TTL_MS = 60_000  // 60 s
+let _fetchCache: { result: { data: SyncData; sha: string } | null; ts: number } | null = null
+let _fetchInFlight: Promise<{ data: SyncData; sha: string } | null> | null = null
+
+async function _doFetchSync(): Promise<{ data: SyncData; sha: string } | null> {
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${PATH}`, { headers: headers() })
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
   const j = await res.json()
   const data: SyncData = JSON.parse(atob(j.content.replace(/\n/g, '')))
   return { data, sha: j.sha }
+}
+
+export async function fetchSync(force = false): Promise<{ data: SyncData; sha: string } | null> {
+  if (!hasToken()) return null
+
+  // Bypass cache for explicit refresh actions (e.g. Settings sync button)
+  if (!force) {
+    if (_fetchCache && Date.now() - _fetchCache.ts < FETCH_TTL_MS) {
+      return _fetchCache.result
+    }
+    // Share in-flight promise so concurrent callers get the same request
+    if (_fetchInFlight) return _fetchInFlight
+  }
+
+  _fetchInFlight = _doFetchSync().then(result => {
+    _fetchCache = { result, ts: Date.now() }
+    _fetchInFlight = null
+    return result
+  }).catch(err => {
+    _fetchInFlight = null
+    throw err
+  })
+
+  return _fetchInFlight
 }
 
 export async function pushSync(data: SyncData, sha?: string, _retried = false): Promise<void> {
