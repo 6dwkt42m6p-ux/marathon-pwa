@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { generatePlan } from '../lib/plan'
 import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
@@ -37,26 +37,29 @@ export default function TrainingPlan({ settings }: Props) {
 
   // Fetch plan from sync.json on mount
   useEffect(() => {
+    let mounted = true
     fetchSync()
       .then(result => {
-        if (result) {
+        if (mounted && result) {
           setSyncedPlan(result.data.plan ?? null)
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
         }
       })
       .catch(() => { /* offline — keep null, show fallback */ })
-      .finally(() => setSyncLoading(false))
+      .finally(() => { if (mounted) setSyncLoading(false) })
+    return () => { mounted = false }
   }, [])
 
-  // Build actual km per week from Strava cache
-  const cached      = getCachedActivities()
-  const runs        = parseRuns(cached)
-  const weeklyStats = computeWeeklyStats(runs)
-  const actualKmMap = new Map<string, number>()
-  for (const w of weeklyStats) {
-    actualKmMap.set(localISODate(w.weekStart), w.actualKm)
-  }
+  // Build actual km per week from Strava cache — recompute when syncedPlan changes (post-sync timing)
+  const cached = useMemo(() => getCachedActivities(), [syncedPlan])  // eslint-disable-line react-hooks/exhaustive-deps
+  const runs   = useMemo(() => parseRuns(cached), [cached])
+  const weeklyStats = useMemo(() => computeWeeklyStats(runs), [runs])
+  const actualKmMap = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const w of weeklyStats) map.set(localISODate(w.weekStart), w.actualKm)
+    return map
+  }, [weeklyStats])
 
   // Staleness check
   const stale = syncedPlan

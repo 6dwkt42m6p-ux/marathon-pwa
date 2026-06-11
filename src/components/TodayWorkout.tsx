@@ -56,16 +56,18 @@ export default function TodayWorkout({ settings }: Props) {
   const prevFingerprintRef = useRef<string | null>(null)
 
   useEffect(() => {
+    let mounted = true
     fetchSync()
       .then(result => {
-        if (result) {
+        if (mounted && result) {
           setSyncedPlan(result.data.plan ?? null)
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
         }
       })
       .catch(() => { /* offline — keep null, show hint screen */ })
-      .finally(() => setSyncLoading(false))
+      .finally(() => { if (mounted) setSyncLoading(false) })
+    return () => { mounted = false }
   }, [])
 
   // T-024: Push planRecomputeRequested flag when plan-relevant inputs change
@@ -103,12 +105,14 @@ export default function TodayWorkout({ settings }: Props) {
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Common data ─────────────────────────────────────────────────────────────
-  const paces         = buildPaceTable(settings.vdot)
-  const cached        = getCachedActivities()
-  const allActs       = parseAllActivities(cached)
-  const tsbData       = cached.length > 0 ? computeAtlCtl(cached) : null
+  const paces = useMemo(() => buildPaceTable(settings.vdot), [settings.vdot])
+  // getCachedActivities reads localStorage; recompute when syncedPlan changes (post-sync re-render)
+  // or when settings change. [] dep would freeze on mount — syncedPlan captures post-sync timing.
+  const cached = useMemo(() => getCachedActivities(), [syncedPlan, settings.vdot])  // eslint-disable-line react-hooks/exhaustive-deps
+  const allActs      = useMemo(() => parseAllActivities(cached), [cached])
+  const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached) : null, [cached])
   const tsb           = tsbData?.tsb ?? 0
-  const actualKmWeek  = Math.round(thisWeekKm(cached) * 10) / 10
+  const actualKmWeek  = useMemo(() => Math.round(thisWeekKm(cached) * 10) / 10, [cached])
   const todayTag      = DAY_TAGS[new Date().getDay()]
 
   // ── T-024: Render from synced plan ──────────────────────────────────────────

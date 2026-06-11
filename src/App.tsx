@@ -50,8 +50,9 @@ export default function App() {
   // On startup: pull sync data from GitHub and apply
   useEffect(() => {
     if (!hasToken()) return
+    let mounted = true
     fetchSync().then(result => {
-      if (!result) return
+      if (!mounted || !result) return
       const { data } = result
       // Apply remote settings if they exist (remote wins on first load)
       if (data.settings) {
@@ -78,6 +79,7 @@ export default function App() {
         })
       }
     }).catch(() => { /* silent — sync is best-effort */ })
+    return () => { mounted = false }
   }, [])
 
   function handleSettingsUpdate(s: AppSettings) {

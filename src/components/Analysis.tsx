@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   getCachedActivities,
   syncActivities,
@@ -89,26 +89,43 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
 
   // Stale-while-revalidate: show cache immediately, delta-sync in background
   useEffect(() => {
+    let mounted = true
     getValidToken().then(token => {
       if (!token) return
       syncActivities(52).then(fresh => {
-        if (fresh && fresh.length > 0) setCached(fresh)
+        if (mounted && fresh && fresh.length > 0) setCached(fresh)
       }).catch(() => {})
     }).catch(() => {})
+    return () => { mounted = false }
   }, [])
 
   // Load synced plan from GitHub (SSoT for deviation assessment)
   useEffect(() => {
+    let mounted = true
     fetchSync()
-      .then(result => { if (result) setSyncedPlan(result.data.plan ?? null) })
+      .then(result => { if (mounted && result) setSyncedPlan(result.data.plan ?? null) })
       .catch(() => { /* offline — keep null */ })
-      .finally(() => setSyncLoading(false))
+      .finally(() => { if (mounted) setSyncLoading(false) })
+    return () => { mounted = false }
   }, [])
 
   const hasStrava   = cached.length > 0
-  const runs        = parseRuns(cached)
-  const allActs     = parseAllActivities(cached)
-  const recentActs  = allActs.slice(0, 14)
+
+  // Expensive parse/aggregate — only recompute when cached activities change
+  const runs       = useMemo(() => parseRuns(cached), [cached])
+  const allActs    = useMemo(() => parseAllActivities(cached), [cached])
+  const recentActs = useMemo(() => allActs.slice(0, 14), [allActs])
+  const weeklyStats  = useMemo(() => computeWeeklyStats(runs), [runs])
+  const sportWeekly  = useMemo(() => computeWeeklyStatsBySport(cached), [cached])
+  const weekStats    = useMemo(() => thisWeekStatsBySport(cached), [cached])
+  const tsbData      = useMemo(() => hasStrava ? computeAtlCtl(cached) : null, [cached, hasStrava])
+  const trend        = useMemo(
+    () => hasStrava ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr) : null,
+    [hasStrava, runs, settings.vdot, settings.maxHr, settings.restHr],
+  )
+
+  const last8Weeks   = useMemo(() => weeklyStats.slice(-8), [weeklyStats])
+  const last12Weeks  = useMemo(() => weeklyStats.slice(-12), [weeklyStats])
 
   // Local plan: only compute when no synced plan is available (expensive ~40-week generation)
   const raceDate2   = new Date(settings.raceDate2)
@@ -129,33 +146,23 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const currentWeekNr      = syncedCurrentW?.week_nr ?? localCurrentRow?.weekNr ?? 0
   const totalWeeks         = syncedPlan?.weeks.length ?? (localPlan?.length ?? 1) - 1
 
-  const weeklyStats  = computeWeeklyStats(runs)
-  const last8Weeks   = weeklyStats.slice(-8)
-  const last12Weeks  = weeklyStats.slice(-12)
-  const sportWeekly  = computeWeeklyStatsBySport(cached)
-  const weekStats    = thisWeekStatsBySport(cached)
-
   const actualKmThisWeek = hasStrava ? weekStats.run.km : 0
   const plannedKm        = plannedKmFromSync ?? localCurrentRow?.plannedKm ?? 0
   const progressPct      = plannedKm > 0 ? Math.min(100, (actualKmThisWeek / plannedKm) * 100) : 0
   const progressColor    = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
 
   // Build planned km map per week — prefer synced plan weeks, fall back to local
-  const planWeekMap = new Map<string, number>()
-  if (syncedPlan) {
-    for (const week of syncedPlan.weeks) {
-      planWeekMap.set(week.week_start, week.planned_km)
+  const planWeekMap = useMemo(() => {
+    const map = new Map<string, number>()
+    if (syncedPlan) {
+      for (const week of syncedPlan.weeks) map.set(week.week_start, week.planned_km)
+    } else {
+      for (const row of localPlan ?? []) map.set(localISODate(row.weekStart), row.plannedKm)
     }
-  } else {
-    for (const row of localPlan ?? []) {
-      planWeekMap.set(localISODate(row.weekStart), row.plannedKm)
-    }
-  }
-
-  const trend   = hasStrava
-    ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr)
-    : null
-  const tsbData = hasStrava ? computeAtlCtl(cached) : null
+    return map
+  // localPlan reference changes when syncedPlan is null and settings change — deps cover it
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [syncedPlan, localPlan])
 
   // Max planned km for chart scaling
   const maxChartKm = Math.max(
