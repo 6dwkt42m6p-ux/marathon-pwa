@@ -2,7 +2,7 @@
 // T-024: Local generation is kept as fallback only when no synced plan exists.
 //        All active rendering uses the verbatim synced plan from Streamlit.
 import { trainingPaces, formatPace } from './vdot'
-import { mondayOf, DAY_TAGS, type ActivitySummary, type WorkoutClassification } from './strava'
+import { mondayOf, localISODate, DAY_TAGS, type ActivitySummary, type WorkoutClassification } from './strava'
 import type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession } from './githubSync'
 
 // Re-export synced plan types for convenience in components
@@ -12,7 +12,7 @@ export type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession }
 // not by the is_current flag (which is baked in at generation time and goes stale).
 // Falls back to is_current only when no week_start matches today's Monday.
 export function syncedCurrentWeek(plan: SyncedPlan): SyncedPlanWeek | null {
-  const todayMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const todayMonday = localISODate(mondayOf(new Date()))
   const byDate = plan.weeks.find(w => w.week_start === todayMonday)
   if (byDate) return byDate
   return plan.weeks.find(w => w.is_current) ?? null
@@ -21,7 +21,7 @@ export function syncedCurrentWeek(plan: SyncedPlan): SyncedPlanWeek | null {
 // Return the synced plan week whose week_start matches the Monday of the given date.
 // Returns null if the date falls outside all synced weeks (no match = no plan for that week).
 export function syncedWeekForDate(plan: SyncedPlan, date: Date): SyncedPlanWeek | null {
-  const monday = mondayOf(date).toISOString().slice(0, 10)
+  const monday = localISODate(mondayOf(date))
   return plan.weeks.find(w => w.week_start === monday) ?? null
 }
 

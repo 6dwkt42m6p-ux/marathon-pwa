@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { generatePlan } from '../lib/plan'
-import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf } from '../lib/strava'
+import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
 import { isPlanStale } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
@@ -55,7 +55,7 @@ export default function TrainingPlan({ settings }: Props) {
   const weeklyStats = computeWeeklyStats(runs)
   const actualKmMap = new Map<string, number>()
   for (const w of weeklyStats) {
-    actualKmMap.set(w.weekStart.toISOString().slice(0, 10), w.actualKm)
+    actualKmMap.set(localISODate(w.weekStart), w.actualKm)
   }
 
   // Staleness check
@@ -151,7 +151,7 @@ export default function TrainingPlan({ settings }: Props) {
           const isPast = !isCurrentWeek && i < (currentIdx < 0 ? 0 : currentIdx)
           const dateStr = row.weekStart.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
           const color = phaseColor(row.phase)
-          const weekKey = row.weekStart.toISOString().slice(0, 10)
+          const weekKey = localISODate(row.weekStart)
           const actualKm = actualKmMap.get(weekKey)
           const kmDiffPct = actualKm !== undefined && row.plannedKm > 0
             ? Math.abs(actualKm - row.plannedKm) / row.plannedKm
@@ -222,9 +222,10 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
     ? Math.abs(actualKm - week.planned_km) / week.planned_km
     : 0
   // Use date-based current-week detection — is_current flag is stale after generation day
-  const todayMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const todayMonday = localISODate(mondayOf(new Date()))
   const isCurrent = week.week_start === todayMonday
-  const isPast    = !isCurrent && new Date(week.week_start) < new Date()
+  // String comparison is DST-safe: week_start is YYYY-MM-DD (local), todayMonday is local too.
+  const isPast    = !isCurrent && week.week_start < todayMonday
   const plannedColor = actualKm !== undefined && isPast && kmDiffPct > 0.2
     ? (actualKm < week.planned_km ? '#FF9800' : '#4CAF50')
     : color

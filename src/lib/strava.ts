@@ -272,13 +272,19 @@ export function mondayOf(d: Date): Date {
   return r
 }
 
+// Local YYYY-MM-DD without UTC shift (toISOString would return the previous
+// day for local-midnight dates in timezones east of UTC).
+export function localISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
   const map     = new Map<string, WeekStats>()
   const paceMap = new Map<string, number[]>()
 
   for (const r of runs) {
     const ws  = mondayOf(r.date)
-    const key = ws.toISOString().slice(0, 10)
+    const key = localISODate(ws)
     if (!map.has(key)) {
       map.set(key, { weekStart: ws, actualKm: 0, runs: 0, avgHr: null, elevationM: 0, avgPaceSec: null })
       paceMap.set(key, [])
@@ -295,7 +301,7 @@ export function computeWeeklyStats(runs: RunSummary[]): WeekStats[] {
 
   return Array.from(map.values())
     .map(s => {
-      const paces = paceMap.get(s.weekStart.toISOString().slice(0, 10)) ?? []
+      const paces = paceMap.get(localISODate(s.weekStart)) ?? []
       const avgPaceSec = paces.length > 0
         ? Math.round(paces.reduce((a, b) => a + b, 0) / paces.length)
         : null
@@ -469,7 +475,7 @@ export function computeWeeklyStatsBySport(activities: StravaActivity[], weeksBac
     const d = new Date(a.start_date_local || a.start_date)
     if (d < cutoff) continue
     const ws  = mondayOf(d)
-    const key = ws.toISOString().slice(0, 10)
+    const key = localISODate(ws)
     if (!map.has(key)) map.set(key, { weekStart: ws, runKm: 0, rideKm: 0, hikeKm: 0, runH: 0, rideH: 0, hikeH: 0 })
     const s  = map.get(key)!
     const km = (a.distance || 0) / 1000
@@ -532,7 +538,7 @@ export function computeAtlCtl(activities: StravaActivity[]): AtlCtlResult {
   let atl = 0
 
   for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-    const key  = d.toISOString().slice(0, 10)
+    const key  = localISODate(d)
     const load = dayMap.get(key) ?? 0
     ctl = ctl * (1 - K_CTL) + load * K_CTL
     atl = atl * (1 - K_ATL) + load * K_ATL

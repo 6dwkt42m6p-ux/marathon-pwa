@@ -11,6 +11,7 @@ import {
   thisWeekStatsBySport,
   computeAtlCtl,
   mondayOf,
+  localISODate,
   DAY_TAGS,
   type StravaActivity,
   type ActivitySummary,
@@ -42,11 +43,13 @@ function fmt(s: number) {
 }
 
 function isoWeek(d: Date): string {
+  // Use Date.UTC to avoid DST distortion: all operands are treated as UTC midnight,
+  // so the 7-day divisor is always exact (no ±1h DST shift).
   const jan4   = new Date(d.getFullYear(), 0, 4)
-  const start  = new Date(jan4)
-  start.setDate(jan4.getDate() - ((jan4.getDay() + 6) % 7))
-  const diff = d.getTime() - start.getTime()
-  const week = Math.floor(diff / (7 * 24 * 3600 * 1000)) + 1
+  const startDay = jan4.getDate() - ((jan4.getDay() + 6) % 7)
+  const startUTC = Date.UTC(jan4.getFullYear(), 0, startDay)
+  const dUTC     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
+  const week     = Math.floor((dUTC - startUTC) / (7 * 24 * 3600 * 1000)) + 1
   return `KW${week}`
 }
 
@@ -114,7 +117,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const localPlan   = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
 
   // Planned km for "Diese Woche": prefer synced plan, fall back to local
-  const syncedCurrentMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const syncedCurrentMonday = localISODate(mondayOf(new Date()))
   const syncedCurrentW = syncedPlan?.weeks.find(w => w.week_start === syncedCurrentMonday)
     ?? syncedPlan?.weeks.find(w => w.is_current)
     ?? null
@@ -143,7 +146,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
     }
   } else {
     for (const row of localPlan) {
-      planWeekMap.set(row.weekStart.toISOString().slice(0, 10), row.plannedKm)
+      planWeekMap.set(localISODate(row.weekStart), row.plannedKm)
     }
   }
 
@@ -155,14 +158,14 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   // Max planned km for chart scaling
   const maxChartKm = Math.max(
     ...last8Weeks.map(w => {
-      const key = w.weekStart.toISOString().slice(0, 10)
+      const key = localISODate(w.weekStart)
       return Math.max(w.actualKm, planWeekMap.get(key) ?? 0)
     }),
     1,
   )
   const maxChart12Km = Math.max(
     ...last12Weeks.map(w => {
-      const key = w.weekStart.toISOString().slice(0, 10)
+      const key = localISODate(w.weekStart)
       return Math.max(w.actualKm, planWeekMap.get(key) ?? 0)
     }),
     1,
@@ -561,7 +564,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             </div>
             <div className="weekly-chart">
               {last8Weeks.map(week => {
-                const key        = week.weekStart.toISOString().slice(0, 10)
+                const key        = localISODate(week.weekStart)
                 const plannedW   = planWeekMap.get(key) ?? 0
                 const actualW    = week.actualKm
                 const planBarPct  = Math.min(100, (plannedW / maxChartKm) * 100)
@@ -621,7 +624,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
               {/* Extended 12-week chart */}
               <div className="weekly-chart">
                 {last12Weeks.map(week => {
-                  const key       = week.weekStart.toISOString().slice(0, 10)
+                  const key       = localISODate(week.weekStart)
                   const plannedW  = planWeekMap.get(key) ?? 0
                   const planPct   = Math.min(100, (plannedW / maxChart12Km) * 100)
                   const actPct    = Math.min(100, (week.actualKm / maxChart12Km) * 100)
@@ -706,7 +709,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                 </thead>
                 <tbody>
                   {trendRows.map(w => {
-                    const key = w.weekStart.toISOString().slice(0, 10)
+                    const key = localISODate(w.weekStart)
                     const isCurrent = planWeekMap.has(key)
                     return (
                       <tr key={key} style={{ borderTop: '1px solid var(--border)' }}>
