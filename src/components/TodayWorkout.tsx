@@ -7,7 +7,7 @@ import {
 import { buildPaceTable } from '../lib/vdot'
 import {
   getCachedActivities, thisWeekKm, DAY_TAGS, parseAllActivities,
-  computeAtlCtl, mondayOf,
+  computeAtlCtl, mondayOf, localISODate,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 import {
@@ -22,8 +22,8 @@ const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 interface DayAssignment { originalDay: string; currentDay: string }
 
 function weekKey(weekStart: string | Date): string {
-  const d = typeof weekStart === 'string' ? weekStart : weekStart.toISOString()
-  return d.slice(0, 10)
+  if (typeof weekStart === 'string') return weekStart.slice(0, 10)
+  return localISODate(weekStart)
 }
 
 function loadOverrides(key: string): DayAssignment[] | null {
