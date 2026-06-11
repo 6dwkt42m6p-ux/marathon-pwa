@@ -16,9 +16,19 @@ import {
   type ActivitySummary,
 } from '../lib/strava'
 import { analyzeRun, analyzeRide } from '../lib/vdot'
-import { generatePlan, allWeekSessions, assessDeviation, assessDeviationForRestDay, hasPlanRowForDate, type PlanRow, type WorkoutSession, type PlanDeviation } from '../lib/plan'
+import {
+  generatePlan,
+  assessDeviation,
+  assessDeviationForRestDay,
+  syncedWeekForDate,
+  syncedSessionForTag,
+  type PlanRow,
+  type WorkoutSession,
+  type PlanDeviation,
+} from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 import { loadNote } from '../lib/storage'
+import { fetchSync, type SyncedPlan, type SyncedPlanSession } from '../lib/githubSync'
 import RunDetail from './RunDetail'
 
 interface Props {
@@ -40,14 +50,6 @@ function isoWeek(d: Date): string {
   return `KW${week}`
 }
 
-function getPlannedSession(plan: PlanRow[], date: Date, settings: AppSettings): WorkoutSession | null {
-  const row = [...plan].reverse().find(r => r.weekStart <= date)
-  if (!row) return null
-  const sessions = allWeekSessions(row.phase, row.plannedKm, settings.vdot, settings.runsPerWeek, settings.raceType2)
-  const tag = DAY_TAGS[date.getDay()]
-  return sessions.find(s => s.wochentag === tag) ?? null
-}
-
 function getPhaseForDate(plan: PlanRow[], date: Date): string {
   const monday = mondayOf(date)
   const row = plan.find(r => {
@@ -58,11 +60,27 @@ function getPhaseForDate(plan: PlanRow[], date: Date): string {
   return row?.phase ?? 'Aufbau'
 }
 
+// Convert SyncedPlanSession to the WorkoutSession shape expected by assessDeviation
+function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
+  return {
+    session:   s.typ,
+    typ:       s.typ,
+    distanzKm: s.km ?? 0,
+    vorgabe:   s.vorgabe,
+    struktur:  s.struktur,
+    dauerMin:  s.dauer,
+    hinweis:   s.hinweis,
+    wochentag: s.tag,
+  }
+}
+
 
 export default function Analysis({ settings, onGoToSettings }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
+  const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
+  const [syncLoading, setSyncLoading] = useState(true)
 
   function onNoteSaved() { setNoteVersion(v => v + 1) }
 
@@ -75,16 +93,36 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
       }).catch(() => {})
     }).catch(() => {})
   }, [])
+
+  // Load synced plan from GitHub (SSoT for deviation assessment)
+  useEffect(() => {
+    fetchSync()
+      .then(result => { if (result) setSyncedPlan(result.data.plan ?? null) })
+      .catch(() => { /* offline — keep null */ })
+      .finally(() => setSyncLoading(false))
+  }, [])
+
   const hasStrava   = cached.length > 0
   const runs        = parseRuns(cached)
   const allActs     = parseAllActivities(cached)
   const recentActs  = allActs.slice(0, 14)
 
+  // Local plan is kept only for phase display and chart bars (fallback when no synced plan)
   const raceDate2   = new Date(settings.raceDate2)
   const raceDate1   = new Date(settings.raceDate1)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
-  const plan        = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-  const currentRow  = plan.find(r => r.isCurrent)
+  const localPlan   = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
+
+  // Planned km for "Diese Woche": prefer synced plan, fall back to local
+  const syncedCurrentMonday = mondayOf(new Date()).toISOString().slice(0, 10)
+  const syncedCurrentW = syncedPlan?.weeks.find(w => w.week_start === syncedCurrentMonday)
+    ?? syncedPlan?.weeks.find(w => w.is_current)
+    ?? null
+  const plannedKmFromSync  = syncedCurrentW?.planned_km ?? null
+  const localCurrentRow    = localPlan.find(r => r.isCurrent)
+  const currentPhase       = syncedCurrentW?.phase ?? localCurrentRow?.phase ?? ''
+  const currentWeekNr      = syncedCurrentW?.week_nr ?? localCurrentRow?.weekNr ?? 0
+  const totalWeeks         = syncedPlan?.weeks.length ?? localPlan.length - 1
 
   const weeklyStats  = computeWeeklyStats(runs)
   const last8Weeks   = weeklyStats.slice(-8)
@@ -93,15 +131,20 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const weekStats    = thisWeekStatsBySport(cached)
 
   const actualKmThisWeek = hasStrava ? weekStats.run.km : 0
-  const plannedKm        = currentRow?.plannedKm ?? 0
+  const plannedKm        = plannedKmFromSync ?? localCurrentRow?.plannedKm ?? 0
   const progressPct      = plannedKm > 0 ? Math.min(100, (actualKmThisWeek / plannedKm) * 100) : 0
   const progressColor    = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
 
-  // Build planned km map per week
+  // Build planned km map per week — prefer synced plan weeks, fall back to local
   const planWeekMap = new Map<string, number>()
-  for (const row of plan) {
-    const key = row.weekStart.toISOString().slice(0, 10)
-    planWeekMap.set(key, row.plannedKm)
+  if (syncedPlan) {
+    for (const week of syncedPlan.weeks) {
+      planWeekMap.set(week.week_start, week.planned_km)
+    }
+  } else {
+    for (const row of localPlan) {
+      planWeekMap.set(row.weekStart.toISOString().slice(0, 10), row.plannedKm)
+    }
   }
 
   const trend   = hasStrava
@@ -190,9 +233,9 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             )}
           </div>
         )}
-        {currentRow && (
+        {(syncedCurrentW || localCurrentRow) && (
           <div style={{ fontSize: '12px', color: 'var(--text2)', marginTop: '6px' }}>
-            {currentRow.phase} · Woche {currentRow.weekNr}/{plan.length - 1}
+            {currentPhase} · Woche {currentWeekNr}/{totalWeeks}
           </div>
         )}
       </div>
@@ -327,6 +370,11 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
 
       {/* C: Coach-Auswertung */}
       <div className="section-title">Coach-Auswertung (letzte 14)</div>
+      {!syncLoading && !syncedPlan && (
+        <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text2)', marginBottom: '6px' }}>
+          Plan wird am Desktop berechnet — einmal Desktop-App öffnen um Plan-Abweichungen zu sehen.
+        </div>
+      )}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
         {recentActs.length === 0 && (
           <div style={{ fontSize: '13px', color: 'var(--text2)', padding: '12px 0' }}>
@@ -335,8 +383,18 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )}
         {recentActs.map((act, actIdx) => {
           const isExpanded = expandedId === act.id
-          const phase          = getPhaseForDate(plan, act.date)
-          const plannedSession = getPlannedSession(plan, act.date, settings)
+          const phase          = getPhaseForDate(localPlan, act.date)
+
+          // Planned session: prefer synced plan (SSoT), no fallback to local generator
+          const actTag = DAY_TAGS[act.date.getDay()]
+          const syncedWeek = syncedPlan ? syncedWeekForDate(syncedPlan, act.date) : null
+          const syncedSession: SyncedPlanSession | null = syncedWeek
+            ? syncedSessionForTag(syncedWeek, actTag)
+            : null
+          // plannedSession shape for RunDetail (display only — uses WorkoutSession interface)
+          const plannedSession: WorkoutSession | null = syncedSession
+            ? syncedSessionToWorkout(syncedSession)
+            : null
 
           let analysis: ReturnType<typeof analyzeRun> | ReturnType<typeof analyzeRide> | null = null
           let zoneBadgeColor = '#42A5F5'
@@ -379,15 +437,16 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
           const dateStr = act.date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
           const actIcon = act.isTrail ? '🏔️' : act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
 
-          // Deviation badge for last 7 activities when plan data is available
+          // Deviation badge for last 7 activities — only from synced plan (SSoT)
           let deviation: PlanDeviation | null = null
-          if (actIdx < 7 && hasPlanRowForDate(plan, act.date)) {
+          if (actIdx < 7 && syncedPlan && syncedWeek) {
             const tsb = tsbData?.tsb ?? 0
-            if (!plannedSession) {
+            if (!syncedSession) {
+              // Day not in synced plan = rest day
               deviation = assessDeviationForRestDay(act, tsb)
             } else {
               // null classification is fine — assessDeviation handles it
-              deviation = assessDeviation(plannedSession, act, null, tsb)
+              deviation = assessDeviation(syncedSessionToWorkout(syncedSession), act, null, tsb)
             }
           }
 
