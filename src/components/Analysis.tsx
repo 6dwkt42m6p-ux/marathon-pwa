@@ -110,11 +110,13 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const allActs     = parseAllActivities(cached)
   const recentActs  = allActs.slice(0, 14)
 
-  // Local plan is kept only for phase display and chart bars (fallback when no synced plan)
+  // Local plan: only compute when no synced plan is available (expensive ~40-week generation)
   const raceDate2   = new Date(settings.raceDate2)
   const raceDate1   = new Date(settings.raceDate1)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
-  const localPlan   = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
+  const localPlan   = syncedPlan
+    ? null
+    : generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
 
   // Planned km for "Diese Woche": prefer synced plan, fall back to local
   const syncedCurrentMonday = localISODate(mondayOf(new Date()))
@@ -122,10 +124,10 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
     ?? syncedPlan?.weeks.find(w => w.is_current)
     ?? null
   const plannedKmFromSync  = syncedCurrentW?.planned_km ?? null
-  const localCurrentRow    = localPlan.find(r => r.isCurrent)
+  const localCurrentRow    = localPlan?.find(r => r.isCurrent) ?? null
   const currentPhase       = syncedCurrentW?.phase ?? localCurrentRow?.phase ?? ''
   const currentWeekNr      = syncedCurrentW?.week_nr ?? localCurrentRow?.weekNr ?? 0
-  const totalWeeks         = syncedPlan?.weeks.length ?? localPlan.length - 1
+  const totalWeeks         = syncedPlan?.weeks.length ?? (localPlan?.length ?? 1) - 1
 
   const weeklyStats  = computeWeeklyStats(runs)
   const last8Weeks   = weeklyStats.slice(-8)
@@ -145,7 +147,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
       planWeekMap.set(week.week_start, week.planned_km)
     }
   } else {
-    for (const row of localPlan) {
+    for (const row of localPlan ?? []) {
       planWeekMap.set(localISODate(row.weekStart), row.plannedKm)
     }
   }
@@ -386,11 +388,12 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )}
         {recentActs.map((act, actIdx) => {
           const isExpanded = expandedId === act.id
-          const phase          = getPhaseForDate(localPlan, act.date)
 
           // Planned session: prefer synced plan (SSoT), no fallback to local generator
           const actTag = DAY_TAGS[act.date.getDay()]
           const syncedWeek = syncedPlan ? syncedWeekForDate(syncedPlan, act.date) : null
+          // Phase from synced week when available; local plan only as fallback
+          const phase          = syncedWeek?.phase ?? getPhaseForDate(localPlan ?? [], act.date)
           const syncedSession: SyncedPlanSession | null = syncedWeek
             ? syncedSessionForTag(syncedWeek, actTag)
             : null
