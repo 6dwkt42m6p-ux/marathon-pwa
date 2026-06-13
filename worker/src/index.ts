@@ -16,6 +16,7 @@ interface Env {
   STRAVA_CLIENT_ID: string     // also available as [vars] in wrangler.toml
   ALLOWED_ORIGIN?: string      // GitHub Pages origin, e.g. https://foo.github.io
   ANTHROPIC_API_KEY?: string   // set via: wrangler secret put ANTHROPIC_API_KEY
+  HUB_DATA_TOKEN?: string      // set via: wrangler secret put HUB_DATA_TOKEN
 }
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
@@ -33,7 +34,7 @@ function corsHeaders(origin: string, allowedOrigin: string): Record<string, stri
   const allowOrigin = origin === allowedOrigin ? origin : allowedOrigin
   return {
     'Access-Control-Allow-Origin': allowOrigin,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
   }
@@ -169,6 +170,36 @@ async function handleClaude(req: Request, env: Env, cors: Record<string, string>
   return json(data, upstream.status, cors)
 }
 
+// --- Hub snapshot proxy handler ---------------------------------------------
+
+const GITHUB_HUB_SNAPSHOT_URL =
+  'https://api.github.com/repos/6dwkt42m6p-ux/hub-data/contents/hub_snapshot.json'
+
+async function handleHubSnapshot(_req: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  if (!env.HUB_DATA_TOKEN) {
+    return json({ error: 'hub_data_not_configured' }, 503, cors)
+  }
+
+  const upstream = await fetch(GITHUB_HUB_SNAPSHOT_URL, {
+    headers: {
+      Authorization: `Bearer ${env.HUB_DATA_TOKEN}`,
+      Accept: 'application/vnd.github.raw+json',
+      'User-Agent': 'hub-snapshot-proxy',
+    },
+  })
+
+  if (!upstream.ok) {
+    // WHY: never leak the token or upstream response body in error replies
+    return json({ error: 'upstream_error', status: upstream.status }, upstream.status, cors)
+  }
+
+  const rawJson = await upstream.text()
+  return new Response(rawJson, {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', ...cors },
+  })
+}
+
 // --- Route map --------------------------------------------------------------
 // Add new endpoints here without touching existing handlers.
 
@@ -179,6 +210,7 @@ const ROUTES: Record<string, RouteHandler> = {
   'POST /strava/refresh': handleStravaRefresh,
   // /claude intentionally omitted when CLAUDE_ENDPOINT_ENABLED = false (Strava-AI-Policy 1.6.2026)
   ...(CLAUDE_ENDPOINT_ENABLED ? { 'POST /claude': handleClaude } : {}),
+  'GET /hub-snapshot':    handleHubSnapshot,
 }
 
 // --- Main entry point -------------------------------------------------------
