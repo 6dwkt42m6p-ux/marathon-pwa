@@ -158,6 +158,16 @@ async function fetchActivitiesAfter(token: string, afterTs: number): Promise<Str
   return all
 }
 
+// Overlap lookback to catch backdated / manually-added / late-uploaded activities.
+// Using strictly latestTs as the "after" anchor means any activity whose start_date
+// is not strictly newer than the newest cached activity is silently skipped forever.
+// A 45-day window covers realistic backdating and is small enough to stay fast (T-109).
+export const OVERLAP_DAYS = 45
+
+export function syncAnchorTs(latestTs: number, cutoffTs: number): number {
+  return Math.max(cutoffTs, latestTs - OVERLAP_DAYS * 86400)
+}
+
 export async function syncActivities(weeksBack = 52): Promise<StravaActivity[]> {
   const token = await getValidToken()
   if (!token) throw new Error('Not authenticated')
@@ -168,7 +178,10 @@ export async function syncActivities(weeksBack = 52): Promise<StravaActivity[]> 
   let newActs: StravaActivity[]
   if (cached.length) {
     const latestTs = Math.max(...cached.map(activityTs), cutoffTs)
-    newActs = await fetchActivitiesAfter(token, latestTs)
+    // Overlap window: go back up to OVERLAP_DAYS so backdated activities are fetched.
+    // Merge-by-id (below) deduplicates, so no double-counting in weekly km / ATL-CTL.
+    // Residual: activities backdated > 45 days remain unfetched — accepted, see T-109.
+    newActs = await fetchActivitiesAfter(token, syncAnchorTs(latestTs, cutoffTs))
   } else {
     newActs = await fetchActivitiesAfter(token, cutoffTs)
   }

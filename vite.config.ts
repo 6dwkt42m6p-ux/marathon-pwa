@@ -1,4 +1,4 @@
-import { defineConfig } from 'vite'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -7,6 +7,10 @@ const base = process.env.GITHUB_ACTIONS ? '/marathon-pwa/' : '/'
 
 export default defineConfig({
   base,
+  test: {
+    environment: 'jsdom',
+    include: ['src/**/*.test.ts'],
+  },
   plugins: [
     react(),
     VitePWA({
