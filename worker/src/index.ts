@@ -17,6 +17,7 @@ interface Env {
   ALLOWED_ORIGIN?: string      // GitHub Pages origin, e.g. https://foo.github.io
   ANTHROPIC_API_KEY?: string   // set via: wrangler secret put ANTHROPIC_API_KEY
   HUB_DATA_TOKEN?: string      // set via: wrangler secret put HUB_DATA_TOKEN
+  HUB_ACCESS_KEY?: string      // set via: wrangler secret put HUB_ACCESS_KEY
 }
 
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token'
@@ -35,7 +36,8 @@ function corsHeaders(origin: string, allowedOrigin: string): Record<string, stri
   return {
     'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
+    // X-Hub-Key is needed for the /hub-snapshot shared-secret gate (T-115)
+    'Access-Control-Allow-Headers': 'Content-Type, X-Hub-Key',
     'Access-Control-Max-Age': '86400',
   }
 }
@@ -170,12 +172,35 @@ async function handleClaude(req: Request, env: Env, cors: Record<string, string>
   return json(data, upstream.status, cors)
 }
 
+// --- Timing-safe string comparison -----------------------------------------
+// WHY: === short-circuits on first mismatch → timing oracle for key length/prefix.
+// We always iterate the full length of the expected value to avoid leaking info.
+function timingSafeEqual(a: string, b: string): boolean {
+  // Different lengths: iterate `a` length anyway so timing is uniform w.r.t. secret length.
+  let diff = a.length ^ b.length  // non-zero if lengths differ
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i % b.length)
+  }
+  return diff === 0
+}
+
 // --- Hub snapshot proxy handler ---------------------------------------------
 
 const GITHUB_HUB_SNAPSHOT_URL =
   'https://api.github.com/repos/6dwkt42m6p-ux/hub-data/contents/hub_snapshot.json'
 
-async function handleHubSnapshot(_req: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+async function handleHubSnapshot(req: Request, env: Env, cors: Record<string, string>): Promise<Response> {
+  // Shared-key gate (T-115): only active when HUB_ACCESS_KEY secret is set.
+  // Soft-rollout: if secret is NOT set, pass through as before (origin-only).
+  // WHY: prevents the secret from breaking prod before the User sets the wrangler secret.
+  if (env.HUB_ACCESS_KEY) {
+    const provided = req.headers.get('X-Hub-Key') ?? ''
+    if (!timingSafeEqual(env.HUB_ACCESS_KEY, provided)) {
+      // Return 403 with no hint whether the key exists or not
+      return json({ error: 'forbidden' }, 403, cors)
+    }
+  }
+
   if (!env.HUB_DATA_TOKEN) {
     return json({ error: 'hub_data_not_configured' }, 503, cors)
   }

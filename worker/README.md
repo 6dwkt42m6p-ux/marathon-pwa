@@ -17,6 +17,7 @@ cd worker/
 wrangler secret put STRAVA_CLIENT_SECRET   # paste secret when prompted
 wrangler secret put ALLOWED_ORIGIN         # e.g. https://philippknoedler.github.io
 wrangler secret put HUB_DATA_TOKEN         # read-only fine-grained PAT for 6dwkt42m6p-ux/hub-data
+wrangler secret put HUB_ACCESS_KEY         # shared secret for /hub-snapshot gate (openssl rand -hex 24)
 ```
 
 ### 3. Deploy
@@ -58,26 +59,36 @@ server-side read-only fine-grained PAT (`HUB_DATA_TOKEN`). The token is never se
 Returns the raw JSON content with `Content-Type: application/json`. CORS is enforced against
 `ALLOWED_ORIGIN` (same as other routes).
 
-> **⚠️ Security model (v1):** This route is protected ONLY by the Origin check, which is a
-> *browser* same-origin guard — it is trivially spoofable by a direct HTTP client
-> (`curl -H "Origin: https://6dwkt42m6p-ux.github.io" …`). So the ticket data IS reachable by
-> anyone who knows the worker URL and sends the right Origin header. What IS protected: the
-> `hub-data` repo stays private and `HUB_DATA_TOKEN` never leaves the server. For real endpoint
-> access control (interactive auth), put **Cloudflare Access** in front of the worker/PWA — tracked
-> as the follow-up ticket T-115. Do NOT add a PWA-held static secret: the Pages bundle is public,
-> so any embedded key is extractable.
+**Security model (T-115 — Shared-Key Gate):** This route is gated via a `X-Hub-Key` shared-secret
+header compared against the `HUB_ACCESS_KEY` wrangler secret using a **timing-safe** comparison
+(XOR-accumulation, no early exit). Without the correct key the Worker returns `403 { "error": "forbidden" }` —
+with no indication of whether the key exists. Origin-check remains as defense-in-depth.
+
+Soft-rollout: if `HUB_ACCESS_KEY` is NOT yet set in the Worker, the gate is skipped and the route
+falls through to origin-check only (same as before T-115). Set the secret to activate the gate.
+
+Generate a key: `openssl rand -hex 24`
 
 Error responses:
+- `403 { "error": "forbidden" }` — `X-Hub-Key` header missing or wrong
 - `503 { "error": "hub_data_not_configured" }` — `HUB_DATA_TOKEN` secret not set
 - `upstream.status { "error": "upstream_error", "status": N }` — GitHub API returned non-2xx
 
 ```bash
-# Smoke test (with correct Origin header):
+# Smoke tests:
+# 403 — no key:
 curl -H "Origin: https://6dwkt42m6p-ux.github.io" \
   https://marathon-coach-proxy.pk-run.workers.dev/hub-snapshot
 
-# Should be blocked (no/wrong Origin):
-curl https://marathon-coach-proxy.pk-run.workers.dev/hub-snapshot
+# 403 — wrong key:
+curl -H "Origin: https://6dwkt42m6p-ux.github.io" \
+     -H "X-Hub-Key: wrongkey" \
+  https://marathon-coach-proxy.pk-run.workers.dev/hub-snapshot
+
+# 200 — correct key:
+curl -H "Origin: https://6dwkt42m6p-ux.github.io" \
+     -H "X-Hub-Key: <your-HUB_ACCESS_KEY>" \
+  https://marathon-coach-proxy.pk-run.workers.dev/hub-snapshot
 ```
 
 ## Extending (T-004 Claude endpoint)
