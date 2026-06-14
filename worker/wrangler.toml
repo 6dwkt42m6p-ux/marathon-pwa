@@ -9,6 +9,7 @@ ALLOWED_ORIGIN = "https://6dwkt42m6p-ux.github.io"   # GitHub-Pages-Origin der P
 # STRAVA_CLIENT_SECRET must be set via: wrangler secret put STRAVA_CLIENT_SECRET
 # ANTHROPIC_API_KEY must be set via:    wrangler secret put ANTHROPIC_API_KEY
 # HUB_DATA_TOKEN must be set via:       wrangler secret put HUB_DATA_TOKEN
+# HUB_ACCESS_KEY must be set via:       wrangler secret put HUB_ACCESS_KEY  (or Cloudflare Dashboard)
 # Default fallback defined in worker code for local dev.
 
 # For local dev with wrangler dev, create worker/.dev.vars (gitignored):
