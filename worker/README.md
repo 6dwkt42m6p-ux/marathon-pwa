@@ -49,6 +49,7 @@ Then run `wrangler dev` from `worker/`.
 | POST | `/strava/token` | `STRAVA_CLIENT_SECRET` | Exchange authorization code for tokens |
 | POST | `/strava/refresh` | `STRAVA_CLIENT_SECRET` | Exchange refresh token for fresh tokens |
 | GET | `/hub-snapshot` | `HUB_DATA_TOKEN` | Fetch `hub_snapshot.json` from private repo `6dwkt42m6p-ux/hub-data` |
+| POST | `/hub-mutation` | `HUB_DATA_TOKEN` + `HUB_ACCESS_KEY` | Write status change into `pending_mutations.json` (T-114) |
 | POST | `/claude` | `ANTHROPIC_API_KEY` | Claude proxy (dormant — `CLAUDE_ENDPOINT_ENABLED=false`, Strava-AI-Policy) |
 
 ### `/hub-snapshot` — private Hub data
