@@ -8,7 +8,7 @@ STRAVA_CLIENT_ID = "246396"
 ALLOWED_ORIGIN = "https://6dwkt42m6p-ux.github.io"   # GitHub-Pages-Origin der PWA (CORS prüft nur Scheme+Host)
 # STRAVA_CLIENT_SECRET must be set via: wrangler secret put STRAVA_CLIENT_SECRET
 # ANTHROPIC_API_KEY must be set via:    wrangler secret put ANTHROPIC_API_KEY
-# HUB_DATA_TOKEN must be set via:       wrangler secret put HUB_DATA_TOKEN
+# HUB_DATA_TOKEN must be set via:       wrangler secret put HUB_DATA_TOKEN  (read+write PAT — T-114 /hub-mutation writes pending_mutations.json)
 # HUB_ACCESS_KEY must be set via:       wrangler secret put HUB_ACCESS_KEY  (or Cloudflare Dashboard)
 # Default fallback defined in worker code for local dev.
 
