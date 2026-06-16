@@ -380,7 +380,9 @@ export function vdotTrendFromActivities(
   // easy effort — HR going down at the same pace is the real fitness signal.
   const easyInWindow = runs.filter(r =>
     r.date >= eightWeeksAgo && !!r.avgHr && r.distanceKm >= 3 && hrr > 0 &&
-    (r.avgHr - restHr) / hrr * 100 < 70  // Z1–Z2
+    // T-086/T-120: unified boundary at <65% HRR (same as coach.py:282).
+    // Previously <70% caused 65–70% runs to appear in BOTH easy_hr_trend and effort signal.
+    (r.avgHr - restHr) / hrr * 100 < 65
   )
   const earlyEasy  = easyInWindow.filter(r => r.date < fourWeeksAgo)
   const recentEasy = easyInWindow.filter(r => r.date >= fourWeeksAgo)
@@ -421,18 +423,17 @@ export function vdotTrendFromActivities(
     }
   }
 
-  const MIN_VDOT_PCT = 0.82
-  const threshold = currentVdot * MIN_VDOT_PCT
-
-  function bestVdot(list: typeof withVdot): number {
-    const hard = list.filter(r => r.computedVdot >= threshold)
-    const src  = hard.length >= 2 ? hard : list.slice().sort((a, b) => b.computedVdot - a.computedVdot).slice(0, 3)
-    const vals = src.map(r => r.computedVdot)
-    return vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+  // T-120: Use mean of ALL effort VDOTs per half — mirrors coach.py:365-366 (.mean()).
+  // Previous bestVdot() used threshold-filtered top-3, giving different early/recent/delta
+  // for the same activities. SSoT is coach.py → PWA must match.
+  const threshold = currentVdot * 0.82
+  const meanVdot = (list: typeof withVdot): number => {
+    if (!list.length) return 0
+    return list.reduce((s, r) => s + r.computedVdot, 0) / list.length
   }
 
-  const recent = Math.round(bestVdot(recentEffort) * 10) / 10
-  const early  = earlyEffort.length >= 1 ? Math.round(bestVdot(earlyEffort) * 10) / 10 : recent
+  const recent = Math.round(meanVdot(recentEffort) * 10) / 10
+  const early  = earlyEffort.length >= 1 ? Math.round(meanVdot(earlyEffort) * 10) / 10 : recent
   const delta  = Math.round((recent - early) * 10) / 10
 
   const fromTraining           = earlyEffort.filter(r => r.computedVdot >= threshold).length < 2 ||
@@ -445,6 +446,151 @@ export function vdotTrendFromActivities(
   else                    { direction = '→'; label = 'Stabiler VDOT-Trend'; color = '#FFC107' }
 
   return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, easyHrTrend }
+}
+
+// ── Efficiency Factor trend (Friel EF) — faithful port of coach.py:392 ───────
+
+export interface EfWeeklyPoint {
+  weekStart: Date
+  efMedian:  number
+  efSmooth:  number
+  runCount:  number
+}
+
+export interface EfficiencyFactorTrendResult {
+  weekly:    EfWeeklyPoint[]
+  earlyEf:   number | null
+  recentEf:  number | null
+  deltaEf:   number | null
+  deltaPct:  number
+  direction: '↑' | '↓' | '→'
+  label:     string
+  color:     string
+  noHrData:  boolean
+}
+
+/**
+ * Friel Efficiency Factor (EF) trend for aerobic / Easy runs.
+ * EF = (avg_speed_m_s × 60) / avg_hr  (metres per heartbeat).
+ * A rising EF means the athlete runs faster at the same cardiac cost.
+ *
+ * Filters: HR 50–80% HRR, distance ≥3 km, speed 1.1–4.2 m/s.
+ * Weekly aggregation = MEDIAN EF (outlier-robust).
+ * Trend line = 3-week rolling median (center).
+ * early/recent = mean of weekly medians in first/second 4-week half.
+ * Thresholds: ≥+2% → ↑, ≤−2% → ↓, else →.
+ * Returns null if <4 qualifying runs or <2 qualifying weeks.
+ */
+export function efficiencyFactorTrend(
+  runs: RunSummary[],
+  maxHr  = 190,
+  restHr = 50,
+  weeks  = 8,
+): EfficiencyFactorTrendResult | null {
+  const hrr = maxHr - restHr
+  if (hrr <= 0) return null
+
+  // no_hr_data: all runs have no avgHr
+  const hasAnyHr = runs.some(r => r.avgHr != null && r.avgHr > 0)
+  if (!hasAnyHr) {
+    return {
+      weekly: [], earlyEf: null, recentEf: null, deltaEf: null, deltaPct: 0,
+      direction: '→',
+      label: 'Kein HF-Sensor — EF nicht berechenbar',
+      color: '#888888',
+      noHrData: true,
+    }
+  }
+
+  const cutoff = new Date(Date.now() - weeks * 7 * 24 * 3600 * 1000)
+
+  // ── 1. Filter qualifying runs ───────────────────────────────────────────────
+  const qualifying = runs.filter(r => {
+    if (!r.avgHr || r.avgHr <= 0) return false
+    if (r.distanceKm < 3) return false
+    if (r.durationSec <= 0) return false
+    if (r.date < cutoff) return false
+    const hrPct = (r.avgHr - restHr) / hrr * 100
+    if (hrPct < 50 || hrPct >= 80) return false
+    // speed in m/s derived from distanceKm + durationSec (no avg_speed field on RunSummary)
+    const speedMs = (r.distanceKm * 1000) / r.durationSec
+    if (speedMs < 1.1 || speedMs > 4.2) return false
+    return true
+  })
+
+  if (qualifying.length < 4) return null
+
+  // ── 2. Per-run EF ──────────────────────────────────────────────────────────
+  const withEf = qualifying.map(r => {
+    const speedMs = (r.distanceKm * 1000) / r.durationSec
+    const ef      = (speedMs * 60) / r.avgHr!
+    return { date: r.date, ef }
+  })
+
+  // ── 3. Week-level aggregation (Monday anchor, median EF) ───────────────────
+  const weekMap = new Map<string, number[]>()
+  const weekDateMap = new Map<string, Date>()
+  for (const { date, ef } of withEf) {
+    const mon = mondayOf(date)
+    const key = localISODate(mon)
+    if (!weekMap.has(key)) { weekMap.set(key, []); weekDateMap.set(key, mon) }
+    weekMap.get(key)!.push(ef)
+  }
+
+  const sortedKeys = Array.from(weekMap.keys()).sort()
+  if (sortedKeys.length < 2) return null
+
+  function medianOf(arr: number[]): number {
+    const s = [...arr].sort((a, b) => a - b)
+    const m = Math.floor(s.length / 2)
+    return s.length % 2 !== 0 ? s[m] : (s[m - 1] + s[m]) / 2
+  }
+
+  // Weekly medians array (sorted chronologically)
+  const weeklyMedians = sortedKeys.map(k => ({
+    weekStart: weekDateMap.get(k)!,
+    efMedian:  Math.round(medianOf(weekMap.get(k)!) * 10000) / 10000,
+    runCount:  weekMap.get(k)!.length,
+  }))
+
+  // ── 4. 3-week rolling median (center) ─────────────────────────────────────
+  const weekly: EfWeeklyPoint[] = weeklyMedians.map((w, i) => {
+    const window = weeklyMedians.slice(Math.max(0, i - 1), i + 2).map(x => x.efMedian)
+    return {
+      ...w,
+      efSmooth: Math.round(medianOf(window) * 10000) / 10000,
+    }
+  })
+
+  // ── 5. Early / recent halves (midcut = 4 weeks ago) ───────────────────────
+  const midcut = new Date(Date.now() - (weeks / 2) * 7 * 24 * 3600 * 1000)
+  const earlyWeeks  = weekly.filter(w => w.weekStart < midcut)
+  const recentWeeks = weekly.filter(w => w.weekStart >= midcut)
+
+  if (earlyWeeks.length === 0 || recentWeeks.length === 0) return null
+
+  const meanEf = (arr: EfWeeklyPoint[]) =>
+    arr.reduce((s, w) => s + w.efMedian, 0) / arr.length
+
+  const earlyEf  = Math.round(meanEf(earlyWeeks)  * 10000) / 10000
+  const recentEf = Math.round(meanEf(recentWeeks) * 10000) / 10000
+  if (earlyEf <= 0) return null
+
+  const deltaEf  = Math.round((recentEf - earlyEf) * 10000) / 10000
+  const deltaPct = Math.round((deltaEf / earlyEf) * 100 * 10) / 10
+
+  let direction: '↑' | '↓' | '→'
+  let label: string
+  let color: string
+  if (deltaPct >= 2.0) {
+    direction = '↑'; label = `EF +${deltaPct.toFixed(1)}% — aerobe Effizienz steigt`; color = '#28a745'
+  } else if (deltaPct <= -2.0) {
+    direction = '↓'; label = `EF ${deltaPct.toFixed(1)}% — aerobe Effizienz sinkt`;   color = '#dc3545'
+  } else {
+    direction = '→'; label = 'EF stabil — aerobe Effizienz konstant';                  color = '#e6a817'
+  }
+
+  return { weekly, earlyEf, recentEf, deltaEf, deltaPct, direction, label, color, noHrData: false }
 }
 
 export interface SportWeekStats {

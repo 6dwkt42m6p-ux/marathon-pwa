@@ -8,6 +8,7 @@ import {
   computeWeeklyStats,
   computeWeeklyStatsBySport,
   vdotTrendFromActivities,
+  efficiencyFactorTrend,
   thisWeekStatsBySport,
   computeAtlCtl,
   mondayOf,
@@ -122,6 +123,10 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const trend        = useMemo(
     () => hasStrava ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr) : null,
     [hasStrava, runs, settings.vdot, settings.maxHr, settings.restHr],
+  )
+  const efTrend      = useMemo(
+    () => hasStrava ? efficiencyFactorTrend(runs, settings.maxHr, settings.restHr) : null,
+    [hasStrava, runs, settings.maxHr, settings.restHr],
   )
 
   const last8Weeks   = useMemo(() => weeklyStats.slice(-8), [weeklyStats])
@@ -322,13 +327,15 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
         )
       })()}
 
-      {/* D: Fitnesstrend */}
-      {trend && (
+      {/* D: Fitnesstrend — shown if EITHER VDOT trend OR EF trend exists (T-120:
+          EF is the primary aerobic signal and must render independently of the
+          VDOT trend, matching the Desktop where EF is its own section). */}
+      {(trend || efTrend) && (
         <>
           <div className="section-title">Fitnesstrend</div>
 
           {/* VDOT trend — only shown when effort runs are available */}
-          {!trend.insufficientEffortRuns ? (
+          {trend && (!trend.insufficientEffortRuns ? (
             <div className="activity-card" style={{ padding: '12px' }}>
               <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT AUS TEMPOLÄUFEN</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -352,14 +359,41 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
             <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-2)' }}>
               VDOT-Trend folgt ab der Aufbauphase — wird aus Tempo- und Intervallläufen berechnet, nicht aus Easy-Läufen.
             </div>
+          ))}
+
+          {/* Efficiency Factor — PRIMARY aerobic efficiency signal (T-120, analog Desktop Tab 4) */}
+          {efTrend && (
+            <div className="activity-card" style={{ padding: '12px', marginTop: '6px' }}>
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>AEROBE EFFIZIENZ (EF)</div>
+              {efTrend.noHrData ? (
+                <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>{efTrend.label}</div>
+              ) : (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="trend-badge" style={{ background: `${efTrend.color}22`, color: efTrend.color }}>
+                      <span>{efTrend.direction}</span>
+                      <span>{efTrend.label}</span>
+                    </div>
+                  </div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
+                    <span>Früher: EF {efTrend.earlyEf?.toFixed(3)}</span>
+                    <span>Aktuell: EF {efTrend.recentEf?.toFixed(3)}</span>
+                    <span style={{ color: efTrend.color }}>Δ {(efTrend.deltaPct ?? 0) > 0 ? '+' : ''}{efTrend.deltaPct?.toFixed(1)}%</span>
+                  </div>
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
+                    EF = Geschwindigkeit / Puls — steigend = aerobe Adaptation (Friel)
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
-          {/* Easy-run HR trend — aerobic efficiency (Basis phase signal) */}
-          {trend.easyHrTrend && (() => {
-            const hr = trend.easyHrTrend!
+          {/* Easy-run HR trend — SECONDARY aerobic efficiency signal (Basis phase) */}
+          {trend?.easyHrTrend && (() => {
+            const hr = trend!.easyHrTrend!
             return (
               <div className="activity-card" style={{ padding: '12px', marginTop: '6px' }}>
-                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>AEROBE EFFIZIENZ (EASY-LÄUFE)</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>EASY-HF-TREND (SEKUNDÄR)</div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <div className="trend-badge" style={{ background: `${hr.color}22`, color: hr.color }}>
                     <span>{hr.direction}</span>
@@ -372,7 +406,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                   <span style={{ color: hr.color }}>Δ {hr.deltaBpm > 0 ? '+' : ''}{hr.deltaBpm} bpm</span>
                 </div>
                 <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
-                  Niedrigerer Puls bei gleicher Easy-Pace = aerobe Adaptation ✓
+                  Niedrigerer Puls bei gleicher Easy-Pace = aerobe Adaptation
                 </div>
               </div>
             )
