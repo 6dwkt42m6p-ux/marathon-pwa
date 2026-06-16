@@ -15,7 +15,11 @@ import {
   type SyncedPlan, type SyncedPlanSession,
 } from '../lib/githubSync'
 
-interface Props { settings: AppSettings }
+interface Props {
+  settings: AppSettings
+  // Incremented by App after every successful syncActivities — triggers cache re-read
+  activitiesVersion?: number
+}
 
 const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
 
@@ -42,7 +46,7 @@ function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
 }
 
-export default function TodayWorkout({ settings }: Props) {
+export default function TodayWorkout({ settings, activitiesVersion = 0 }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
 
@@ -106,9 +110,10 @@ export default function TodayWorkout({ settings }: Props) {
 
   // ── Common data ─────────────────────────────────────────────────────────────
   const paces = useMemo(() => buildPaceTable(settings.vdot), [settings.vdot])
-  // getCachedActivities reads localStorage; recompute when syncedPlan changes (post-sync re-render)
-  // or when settings change. [] dep would freeze on mount — syncedPlan captures post-sync timing.
-  const cached = useMemo(() => getCachedActivities(), [syncedPlan, settings.vdot])  // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-read cache when App signals a fresh Strava sync (activitiesVersion bump)
+  // or when settings.vdot changes (affects pace table downstream).
+  // activitiesVersion replaces the old syncedPlan dep — no longer tied to Mac-push timing.
+  const cached = useMemo(() => getCachedActivities(), [activitiesVersion, settings.vdot])  // eslint-disable-line react-hooks/exhaustive-deps
   const allActs      = useMemo(() => parseAllActivities(cached), [cached])
   const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached) : null, [cached])
   const tsb           = tsbData?.tsb ?? 0

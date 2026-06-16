@@ -77,6 +77,18 @@ export function loadLastSyncTimestamp(): Date | null {
   } catch { return null }
 }
 
+// Minimum seconds between auto-syncs to avoid hammering the Strava API on
+// rapid focus/visibility flicker (e.g., notification bar swipe on iOS).
+export const SYNC_MIN_INTERVAL_SEC = 60
+
+// Returns seconds since the last successful syncActivities call,
+// or Infinity when no sync has been recorded (first launch / cleared storage).
+export function secsSinceLastSync(): number {
+  const last = loadLastSyncTimestamp()
+  if (!last) return Infinity
+  return (Date.now() - last.getTime()) / 1000
+}
+
 export function isAuthenticated(): boolean {
   return loadTokens() !== null
 }

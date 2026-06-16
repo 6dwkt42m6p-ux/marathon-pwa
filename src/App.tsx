@@ -10,6 +10,7 @@ import Settings from './components/Settings'
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
 import CoachChat from './components/CoachChat'
 import { hasToken, fetchSync } from './lib/githubSync'
+import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC } from './lib/strava'
 import './App.css'
 
 // WHY false: Coach-Tab deaktiviert wegen separater Anthropic-API-Kosten (unabhaengig von Claude Pro).
@@ -35,6 +36,8 @@ export default function App() {
   const [tab, setTab]           = useState<Tab>(hasOAuthCode ? 'settings' : 'today')
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
   const [online, setOnline] = useState(navigator.onLine)
+  // Incremented after every successful syncActivities — signals Today/Plan to re-read the cache.
+  const [activitiesVersion, setActivitiesVersion] = useState(0)
 
   useEffect(() => {
     const handleOnline  = () => setOnline(true)
@@ -46,6 +49,38 @@ export default function App() {
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  // App-level Strava activity sync: runs on mount and on visibility regain
+  // (e.g. user switches back to app after completing a run).
+  // Uses a 60s TTL so rapid focus flicker doesn't spam the Strava API.
+  useEffect(() => {
+    let mounted = true
+
+    function trySync() {
+      if (!online) return
+      if (secsSinceLastSync() < SYNC_MIN_INTERVAL_SEC) return
+      getValidToken().then(token => {
+        if (!token || !mounted) return
+        syncActivities(52)
+          .then(fresh => {
+            if (mounted && fresh && fresh.length > 0) setActivitiesVersion(v => v + 1)
+          })
+          .catch(() => { /* offline or 429 — keep existing cache, no crash */ })
+      }).catch(() => {})
+    }
+
+    trySync()  // on mount
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') trySync()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      mounted = false
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
+  }, [online])  // re-register when online state changes so trySync sees current value
 
   // On startup: pull sync data from GitHub and apply
   useEffect(() => {
@@ -105,9 +140,9 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'today'    && <TodayWorkout settings={settings} />}
+        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} />}
-        {tab === 'plan'     && <TrainingPlan settings={settings} />}
+        {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
