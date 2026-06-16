@@ -5,7 +5,11 @@ import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSy
 import { isPlanStale } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
-interface Props { settings: AppSettings }
+interface Props {
+  settings: AppSettings
+  // Incremented by App after every successful syncActivities — triggers cache re-read
+  activitiesVersion?: number
+}
 
 const PHASE_COLORS: Record<string, string> = {
   'Basis':            '#42A5F5',
@@ -24,7 +28,7 @@ function phaseColor(phase: string): string {
   return PHASE_COLORS[base] || '#9E9E9E'
 }
 
-export default function TrainingPlan({ settings }: Props) {
+export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props) {
   const raceDate1 = new Date(settings.raceDate1)
   const raceDate2 = new Date(settings.raceDate2)
   const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
@@ -51,8 +55,9 @@ export default function TrainingPlan({ settings }: Props) {
     return () => { mounted = false }
   }, [])
 
-  // Build actual km per week from Strava cache — recompute when syncedPlan changes (post-sync timing)
-  const cached = useMemo(() => getCachedActivities(), [syncedPlan])  // eslint-disable-line react-hooks/exhaustive-deps
+  // Re-read cache when App signals a fresh Strava sync (activitiesVersion bump).
+  // No longer tied to syncedPlan (Mac-push timing).
+  const cached = useMemo(() => getCachedActivities(), [activitiesVersion])  // eslint-disable-line react-hooks/exhaustive-deps
   const runs   = useMemo(() => parseRuns(cached), [cached])
   const weeklyStats = useMemo(() => computeWeeklyStats(runs), [runs])
   const actualKmMap = useMemo(() => {
