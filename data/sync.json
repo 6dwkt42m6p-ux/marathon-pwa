@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-06-15T04:21:44.990644+00:00",
+  "lastModified": "2026-06-16T05:22:39.145793+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-15T04:21:44Z",
+    "generatedAt": "2026-06-16T05:22:38Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "7e3b6c83324eb8d5b7af7c185f495d9f29509dbf389c06cabc2fe5c6c757c531",
+    "inputHash": "221172d8f5ce5ad5f4d711d0914937dc938a945871736eb39d6f3439d89d7969",
     "weeks": [
       {
         "week_nr": 1,
@@ -51,8 +51,8 @@
             "typ": "Regeneration",
             "km": 9.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "48\u201356 min",
+            "struktur": "9 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "54\u201363 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -60,8 +60,8 @@
             "typ": "Speed",
             "km": 9.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "8 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "44\u201348 min",
+            "struktur": "9 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "50\u201354 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
@@ -114,8 +114,8 @@
             "typ": "Regeneration",
             "km": 10.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "48\u201356 min",
+            "struktur": "10 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "60\u201370 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -123,8 +123,8 @@
             "typ": "Speed",
             "km": 10.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "8 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "44\u201348 min",
+            "struktur": "10 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "55\u201360 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
@@ -177,8 +177,8 @@
             "typ": "Regeneration",
             "km": 11.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "48\u201356 min",
+            "struktur": "11 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "66\u201377 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -186,8 +186,8 @@
             "typ": "Speed",
             "km": 10.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "8 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "44\u201348 min",
+            "struktur": "10 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "55\u201360 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
@@ -303,8 +303,8 @@
             "typ": "Regeneration",
             "km": 12.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "9 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "54\u201363 min",
+            "struktur": "12 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "72\u201384 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -312,8 +312,8 @@
             "typ": "Speed",
             "km": 11.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "9 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "50\u201354 min",
+            "struktur": "11 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "61\u201366 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
@@ -366,8 +366,8 @@
             "typ": "Regeneration",
             "km": 12.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "9 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "54\u201363 min",
+            "struktur": "12 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "72\u201384 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -375,8 +375,8 @@
             "typ": "Speed",
             "km": 12.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "9 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "50\u201354 min",
+            "struktur": "12 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "67\u201372 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
@@ -429,8 +429,8 @@
             "typ": "Speed",
             "km": 13.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "12 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "72\u201378 min",
+            "struktur": "13 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -492,8 +492,8 @@
             "typ": "Speed",
             "km": 11.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "10 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "60\u201365 min",
+            "struktur": "11 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "66\u201372 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -555,8 +555,8 @@
             "typ": "Speed",
             "km": 17.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "13 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "78\u201384 min",
+            "struktur": "17 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "102\u2013110 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -618,8 +618,8 @@
             "typ": "Speed",
             "km": 18.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "13 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "78\u201384 min",
+            "struktur": "18 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "108\u2013116 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -681,8 +681,8 @@
             "typ": "Speed",
             "km": 21.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "14 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "84\u201391 min",
+            "struktur": "21 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "126\u2013136 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -807,8 +807,8 @@
             "typ": "Speed",
             "km": 26.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "14 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "84\u201391 min",
+            "struktur": "26 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "156\u2013169 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -870,8 +870,8 @@
             "typ": "Regeneration",
             "km": 20.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km (Z1\u2013Z2).",
-            "dauer": "48\u201356 min",
+            "struktur": "20 km sehr locker @ 5:04+ /km (Z1\u2013Z2).",
+            "dauer": "120\u2013140 min",
             "hinweis": "Locker. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -897,8 +897,8 @@
             "typ": "Regeneration",
             "km": 19.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "48\u201356 min",
+            "struktur": "19 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "114\u2013133 min",
             "hinweis": "Ersetzt verdr\u00e4ngte Q-Einheit \u2014 Recovery im Peak sch\u00fctzt vor \u00dcbertraining."
           },
           {
@@ -933,8 +933,8 @@
             "typ": "Regeneration",
             "km": 19.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km (Z1\u2013Z2).",
-            "dauer": "48\u201356 min",
+            "struktur": "19 km sehr locker @ 5:04+ /km (Z1\u2013Z2).",
+            "dauer": "114\u2013133 min",
             "hinweis": "Locker. Wenn Beine schwer: Rad stattdessen."
           },
           {
@@ -960,8 +960,8 @@
             "typ": "Regeneration",
             "km": 19.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "48\u201356 min",
+            "struktur": "19 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "114\u2013133 min",
             "hinweis": "Ersetzt verdr\u00e4ngte Q-Einheit \u2014 Recovery im Peak sch\u00fctzt vor \u00dcbertraining."
           },
           {
