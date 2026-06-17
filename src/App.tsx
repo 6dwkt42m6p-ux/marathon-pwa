@@ -11,6 +11,7 @@ import Settings from './components/Settings'
 import CoachChat from './components/CoachChat'
 import { hasToken, fetchSync } from './lib/githubSync'
 import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC } from './lib/strava'
+import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
 
 // WHY false: Coach-Tab deaktiviert wegen separater Anthropic-API-Kosten (unabhaengig von Claude Pro).
@@ -38,6 +39,9 @@ export default function App() {
   const [online, setOnline] = useState(navigator.onLine)
   // Incremented after every successful syncActivities — signals Today/Plan to re-read the cache.
   const [activitiesVersion, setActivitiesVersion] = useState(0)
+  // T-123: VDOT from desktop sync.json plan (authoritative when present).
+  // null = no sync yet; falls back to settings.vdot in effectiveVdot.
+  const [syncedVdot, setSyncedVdot] = useState<number | null>(null)
 
   useEffect(() => {
     const handleOnline  = () => setOnline(true)
@@ -89,6 +93,8 @@ export default function App() {
     fetchSync().then(result => {
       if (!mounted || !result) return
       const { data } = result
+      // T-123: capture desktop-derived VDOT as canonical source
+      if (data.plan?.vdot) setSyncedVdot(data.plan.vdot)
       // Apply remote settings if they exist (remote wins on first load)
       if (data.settings) {
         const merged = { ...loadSettings(), ...data.settings } as AppSettings
@@ -122,6 +128,13 @@ export default function App() {
     setSettings(s)
   }
 
+  // T-123: single canonical VDOT — desktop sync wins, settings.vdot is offline fallback.
+  const effectiveVdot = selectEffectiveVdot(syncedVdot, settings.vdot)
+  // Show "(lokal)" tag in header when falling back to local settings value
+  const vdotLabel = syncedVdot
+    ? `VDOT ${effectiveVdot.toFixed(1)}`
+    : `VDOT ${effectiveVdot.toFixed(1)} (lokal)`
+
   return (
     <div className="app">
       <header className="app-header">
@@ -129,7 +142,7 @@ export default function App() {
           <span className="header-icon">🏆</span>
           <span>Marathon Coach</span>
         </div>
-        <div className="header-vdot">VDOT {settings.vdot.toFixed(1)}</div>
+        <div className="header-vdot">{vdotLabel}</div>
       </header>
 
       {!online && (
@@ -140,10 +153,10 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} />}
-        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} />}
+        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} />}
+        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
-        {tab === 'paces'    && <VdotPaces    settings={settings} />}
+        {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
       </main>

@@ -1,10 +1,14 @@
 import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones } from '../lib/vdot'
 import type { AppSettings } from '../lib/storage'
 
-interface Props { settings: AppSettings }
+interface Props {
+  settings: AppSettings
+  // T-123: canonical VDOT from App — desktop sync wins, settings.vdot is offline fallback
+  effectiveVdot: number
+}
 
-export default function VdotPaces({ settings }: Props) {
-  const { vdot } = settings
+export default function VdotPaces({ settings, effectiveVdot }: Props) {
+  const vdot = effectiveVdot
   const paces = buildPaceTable(vdot)
 
   // Target VDOTs
