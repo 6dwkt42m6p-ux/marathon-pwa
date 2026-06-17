@@ -19,6 +19,8 @@ interface Props {
   settings: AppSettings
   // Incremented by App after every successful syncActivities — triggers cache re-read
   activitiesVersion?: number
+  // T-123: canonical VDOT from App — desktop sync wins, settings.vdot is offline fallback
+  effectiveVdot?: number
 }
 
 const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -46,7 +48,7 @@ function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
 }
 
-export default function TodayWorkout({ settings, activitiesVersion = 0 }: Props) {
+export default function TodayWorkout({ settings, activitiesVersion = 0, effectiveVdot = settings.vdot }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
 
@@ -109,11 +111,11 @@ export default function TodayWorkout({ settings, activitiesVersion = 0 }: Props)
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Common data ─────────────────────────────────────────────────────────────
-  const paces = useMemo(() => buildPaceTable(settings.vdot), [settings.vdot])
+  const paces = useMemo(() => buildPaceTable(effectiveVdot), [effectiveVdot])
   // Re-read cache when App signals a fresh Strava sync (activitiesVersion bump)
-  // or when settings.vdot changes (affects pace table downstream).
+  // or when effectiveVdot changes (pace table downstream depends on it).
   // activitiesVersion replaces the old syncedPlan dep — no longer tied to Mac-push timing.
-  const cached = useMemo(() => getCachedActivities(), [activitiesVersion, settings.vdot])  // eslint-disable-line react-hooks/exhaustive-deps
+  const cached = useMemo(() => getCachedActivities(), [activitiesVersion, effectiveVdot])  // eslint-disable-line react-hooks/exhaustive-deps
   const allActs      = useMemo(() => parseAllActivities(cached), [cached])
   const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached) : null, [cached])
   const tsb           = tsbData?.tsb ?? 0
@@ -233,6 +235,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0 }: Props)
         settings={settings}
         cached={cached}
         paces={paces}
+        effectiveVdot={effectiveVdot}
       />
     )
   }
@@ -446,10 +449,10 @@ export default function TodayWorkout({ settings, activitiesVersion = 0 }: Props)
         })}
       </div>
 
-      {/* Quick pace reference — verbatim from synced plan paces */}
+      {/* Quick pace reference — verbatim from synced plan paces, label uses effectiveVdot */}
       {syncedPlan && (
         <>
-          <div className="section-title">Pace-Referenz (VDOT {syncedPlan.vdot})</div>
+          <div className="section-title">Pace-Referenz (VDOT {effectiveVdot.toFixed(1)})</div>
           <div className="pace-grid">
             <PaceRow label="Easy" range={`${syncedPlan.paces.E_high} – ${syncedPlan.paces.E_low}`} color="#4CAF50" />
             <PaceRow label="Marathon-Pace" range={syncedPlan.paces.M} color="#FFC107" />
@@ -488,12 +491,13 @@ const PHASE_COLORS: Record<string, string> = {
 // No local generator sessions or assessDeviation — SSoT via sync.json only.
 
 interface FallbackProps {
-  settings:     AppSettings
-  cached:       ReturnType<typeof getCachedActivities>
-  paces:        ReturnType<typeof buildPaceTable>
+  settings:      AppSettings
+  cached:        ReturnType<typeof getCachedActivities>
+  paces:         ReturnType<typeof buildPaceTable>
+  effectiveVdot: number
 }
 
-function FallbackTodayWorkout({ settings, cached, paces }: FallbackProps) {
+function FallbackTodayWorkout({ settings, cached, paces, effectiveVdot }: FallbackProps) {
   const raceDate2     = new Date(settings.raceDate2)
   const raceDate1     = new Date(settings.raceDate1)
 
@@ -530,7 +534,7 @@ function FallbackTodayWorkout({ settings, cached, paces }: FallbackProps) {
         </div>
       )}
 
-      <div className="section-title">Pace-Referenz (VDOT {settings.vdot})</div>
+      <div className="section-title">Pace-Referenz (VDOT {effectiveVdot.toFixed(1)})</div>
       <div className="pace-grid">
         <PaceRow label="Easy" range={`${paces.E_high} – ${paces.E_low}`} color="#4CAF50" />
         <PaceRow label="Marathon-Pace" range={paces.M} color="#FFC107" />

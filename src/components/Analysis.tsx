@@ -36,6 +36,8 @@ import RunDetail from './RunDetail'
 interface Props {
   settings: AppSettings
   onGoToSettings: () => void
+  // T-123: canonical VDOT from App — desktop sync wins, settings.vdot is offline fallback
+  effectiveVdot: number
 }
 
 function fmt(s: number) {
@@ -79,7 +81,7 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
 }
 
 
-export default function Analysis({ settings, onGoToSettings }: Props) {
+export default function Analysis({ settings, onGoToSettings, effectiveVdot }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
@@ -121,8 +123,8 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
   const weekStats    = useMemo(() => thisWeekStatsBySport(cached), [cached])
   const tsbData      = useMemo(() => hasStrava ? computeAtlCtl(cached) : null, [cached, hasStrava])
   const trend        = useMemo(
-    () => hasStrava ? vdotTrendFromActivities(runs, settings.vdot, settings.maxHr, settings.restHr) : null,
-    [hasStrava, runs, settings.vdot, settings.maxHr, settings.restHr],
+    () => hasStrava ? vdotTrendFromActivities(runs, effectiveVdot, settings.maxHr, settings.restHr) : null,
+    [hasStrava, runs, effectiveVdot, settings.maxHr, settings.restHr],
   )
   const efTrend      = useMemo(
     () => hasStrava ? efficiencyFactorTrend(runs, settings.maxHr, settings.restHr) : null,
@@ -454,7 +456,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
               act.distanceKm,
               act.avgHr,
               act.maxHr,
-              settings.vdot,
+              effectiveVdot,
               settings.maxHr,
               settings.restHr,
               phase,
@@ -573,7 +575,7 @@ export default function Analysis({ settings, onGoToSettings }: Props) {
                       phase={phase}
                       plannedSession={plannedSession}
                       deviation={deviation}
-                      vdot={settings.vdot}
+                      vdot={effectiveVdot}
                       onNoteSaved={onNoteSaved}
                     />
                   ) : act.actType === 'ride' ? (

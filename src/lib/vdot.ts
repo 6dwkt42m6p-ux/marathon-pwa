@@ -498,6 +498,18 @@ export function analyzeWorkoutLaps(
   return { laps: parsed, intervals, nIntervals: intervals.length, iPaceTarget: formatPace(iSec), wuNote, cdNote, rvNote, isAutoSplit: stdDev < 0.15 }
 }
 
+// T-123: Single canonical VDOT source.
+// Desktop-derived syncedVdot (from sync.json plan.vdot) is authoritative when present;
+// settingsVdot is the offline / no-sync fallback.
+// vdot=0 is treated as absent (not a valid fitness value).
+export function selectEffectiveVdot(
+  syncedVdot: number | null | undefined,
+  settingsVdot: number,
+): number {
+  if (syncedVdot) return syncedVdot
+  return settingsVdot
+}
+
 export const RACE_TARGETS: Record<string, { label: string; distM: number; targetSec: number }[]> = {
   hm: [
     { label: 'Sub 1:30', distM: 21097, targetSec: 89 * 60 + 59 },
