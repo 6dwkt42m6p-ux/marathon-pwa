@@ -684,15 +684,53 @@ export interface AtlCtlResult {
   tsb: number
 }
 
-function activityLoad(a: StravaActivity): number {
+// Factor maps mirroring coach.py _WORKOUT_TYPE_FACTOR and _SPORT_TYPE_FACTOR (T-122).
+// Run codes: 0=default/easy, 1=race, 2=long, 3=workout/interval.
+// Ride codes: 10=ride-race, 11=ride-workout, 12=ride-long.
+const _WORKOUT_TYPE_FACTOR: Record<number, number> = {
+  0:  1.0,
+  1:  1.4,
+  2:  0.9,
+  3:  1.3,
+  10: 1.4,
+  11: 1.3,
+  12: 0.9,
+}
+
+// Conservative factor for sports without suffer_score (Swim, Hike, Walk).
+// VirtualRide gets 1.0 — Desktop currently excludes VirtualRide from ride_df entirely,
+// so including it here with factor 1.0 is a minor residual divergence (documented).
+const _SPORT_TYPE_FACTOR: Record<string, number> = {
+  Swim:        0.8,
+  Hike:        0.8,
+  Walk:        0.8,
+  VirtualRide: 1.0,
+  EBikeRide:   0.6,
+}
+
+export function activityLoad(a: StravaActivity): number {
+  // Priority 1: suffer_score when present and > 0 (Strava HR-based load).
   if (a.suffer_score != null && a.suffer_score > 0) return a.suffer_score
+
+  // Priority 2: duration × factor (no HR data / suffer_score absent).
   const durationMin = (a.moving_time || 0) / 60
-  // workout_type: 0/1 = easy/default, 2 = run, 3 = long, 10 = race, 11 = interval, 12 = tempo
-  let intensityFactor = 1.0
   const wt = a.workout_type ?? 0
-  if (wt === 11) intensityFactor = 2.0        // interval
-  else if (wt === 12 || wt === 10) intensityFactor = 1.5  // tempo / race
-  return Math.round(durationMin * intensityFactor)
+  const sportType = a.sport_type || a.type || ''
+
+  // Auswahllogik identical to coach.py _daily_load:
+  //   if wt not in _WORKOUT_TYPE_FACTOR AND sport_type in _SPORT_TYPE_FACTOR → sport factor
+  //   elif wt === 0 AND sport_type in _SPORT_TYPE_FACTOR                      → sport factor
+  //   else                                                                    → workout_type factor (default 1.0)
+  let factor: number
+  if (!(wt in _WORKOUT_TYPE_FACTOR) && sportType in _SPORT_TYPE_FACTOR) {
+    factor = _SPORT_TYPE_FACTOR[sportType]
+  } else if (wt === 0 && sportType in _SPORT_TYPE_FACTOR) {
+    factor = _SPORT_TYPE_FACTOR[sportType]
+  } else {
+    factor = _WORKOUT_TYPE_FACTOR[wt] ?? 1.0
+  }
+
+  return Math.round(durationMin * factor)
 }
 
 export function computeAtlCtl(activities: StravaActivity[]): AtlCtlResult {

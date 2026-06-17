@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend } from './strava'
-import type { RunSummary } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad } from './strava'
+import type { RunSummary, StravaActivity } from './strava'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
 // Root cause: using latestTs directly as "after" permanently skips any activity
@@ -300,5 +300,120 @@ describe('efficiencyFactorTrend (T-120)', () => {
     expect(result).not.toBeNull()
     expect(result!.earlyEf!).toBeCloseTo(earlyEf, 2)
     expect(result!.recentEf!).toBeCloseTo(earlyEf, 2)
+  })
+})
+
+// ── T-122: activityLoad — factor-map parity with coach.py _daily_load ────────
+// Expected values derived from the DESKTOP factor maps (NOT from the PWA function),
+// ensuring tests catch regressions, not just mirror the implementation.
+//
+// _WORKOUT_TYPE_FACTOR (coach.py):
+//   run:  0→1.0, 1→1.4 (race), 2→0.9 (long), 3→1.3 (workout)
+//   ride: 10→1.4, 11→1.3, 12→0.9
+//
+// _SPORT_TYPE_FACTOR (coach.py):
+//   Swim→0.8, Hike→0.8, Walk→0.8, VirtualRide→1.0, EBikeRide→0.6
+//
+// Auswahllogik:
+//   if (wt not in _WORKOUT_TYPE_FACTOR) and (sport_type in _SPORT_TYPE_FACTOR) → sport factor
+//   elif (wt == 0) and (sport_type in _SPORT_TYPE_FACTOR)                      → sport factor
+//   else                                                                        → workout_type factor (default 1.0)
+
+function makeActivity(overrides: Partial<StravaActivity>): StravaActivity {
+  return {
+    id: 1,
+    name: 'Test',
+    type: 'Run',
+    sport_type: 'Run',
+    start_date: '2026-06-17T08:00:00Z',
+    start_date_local: '2026-06-17T10:00:00+0200',
+    distance: 10000,
+    moving_time: 3600,   // 60 min default
+    total_elevation_gain: 0,
+    average_speed: 2.78,
+    ...overrides,
+  }
+}
+
+describe('activityLoad (T-122) — Run workout_type factors', () => {
+  // All tests: 60 min (moving_time=3600), no suffer_score → duration×factor path
+
+  it('wt=0 (default/easy): 60 min × 1.0 = 60', () => {
+    const a = makeActivity({ workout_type: 0 })
+    expect(activityLoad(a)).toBe(60)
+  })
+
+  it('wt=1 (race): 60 min × 1.4 = 84', () => {
+    const a = makeActivity({ workout_type: 1 })
+    expect(activityLoad(a)).toBe(84)
+  })
+
+  it('wt=2 (long run): 60 min × 0.9 = 54', () => {
+    const a = makeActivity({ workout_type: 2 })
+    expect(activityLoad(a)).toBe(54)
+  })
+
+  it('wt=3 (workout/interval): 60 min × 1.3 = 78', () => {
+    const a = makeActivity({ workout_type: 3 })
+    expect(activityLoad(a)).toBe(78)
+  })
+})
+
+describe('activityLoad (T-122) — Ride workout_type factors', () => {
+  it('wt=10 (ride race): 60 min × 1.4 = 84', () => {
+    const a = makeActivity({ type: 'Ride', sport_type: 'Ride', workout_type: 10 })
+    expect(activityLoad(a)).toBe(84)
+  })
+
+  it('wt=11 (ride workout): 60 min × 1.3 = 78', () => {
+    const a = makeActivity({ type: 'Ride', sport_type: 'Ride', workout_type: 11 })
+    expect(activityLoad(a)).toBe(78)
+  })
+
+  it('wt=12 (ride long): 60 min × 0.9 = 54', () => {
+    const a = makeActivity({ type: 'Ride', sport_type: 'Ride', workout_type: 12 })
+    expect(activityLoad(a)).toBe(54)
+  })
+})
+
+describe('activityLoad (T-122) — Sport-type factors (Swim/Hike)', () => {
+  // sport_type in _SPORT_TYPE_FACTOR + wt=0 → sport factor
+  it('Swim wt=0: 60 min × 0.8 = 48', () => {
+    const a = makeActivity({ type: 'Swim', sport_type: 'Swim', workout_type: 0 })
+    expect(activityLoad(a)).toBe(48)
+  })
+
+  it('Hike wt=0: 60 min × 0.8 = 48', () => {
+    const a = makeActivity({ type: 'Hike', sport_type: 'Hike', workout_type: 0 })
+    expect(activityLoad(a)).toBe(48)
+  })
+
+  it('Walk wt=0: 60 min × 0.8 = 48', () => {
+    const a = makeActivity({ type: 'Walk', sport_type: 'Walk', workout_type: 0 })
+    expect(activityLoad(a)).toBe(48)
+  })
+
+  it('VirtualRide wt=0: 60 min × 1.0 = 60', () => {
+    // VirtualRide has wt=0 and sport_type "VirtualRide" → sport factor 1.0
+    const a = makeActivity({ type: 'VirtualRide', sport_type: 'VirtualRide', workout_type: 0 })
+    expect(activityLoad(a)).toBe(60)
+  })
+})
+
+describe('activityLoad (T-122) — suffer_score priority', () => {
+  it('suffer_score > 0 takes priority over factor calculation', () => {
+    // Run wt=1 (race factor 1.4 × 60 = 84) but suffer_score=100 → returns 100
+    const a = makeActivity({ workout_type: 1, suffer_score: 100 })
+    expect(activityLoad(a)).toBe(100)
+  })
+
+  it('suffer_score = 0 falls through to factor calculation (Run wt=3: 78)', () => {
+    const a = makeActivity({ workout_type: 3, suffer_score: 0 })
+    expect(activityLoad(a)).toBe(78)
+  })
+
+  it('suffer_score = null falls through to factor calculation (Swim 48)', () => {
+    const a = makeActivity({ type: 'Swim', sport_type: 'Swim', workout_type: 0, suffer_score: undefined })
+    expect(activityLoad(a)).toBe(48)
   })
 })
