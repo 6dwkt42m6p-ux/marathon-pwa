@@ -40,6 +40,7 @@ export interface SyncedPlan {
   paces:         SyncedPlanPaces
   inputHash:     string
   weeks:         SyncedPlanWeek[]
+  ftp?:          number | null   // T-125: FTP from Desktop coach_profile; null when not set
 }
 
 export interface SyncData {
