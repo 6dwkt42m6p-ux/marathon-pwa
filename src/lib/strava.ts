@@ -35,6 +35,10 @@ export interface StravaActivity {
   suffer_score?:     number
   workout_type?:     number
   average_temp?:     number   // °C, only present if device recorded temperature
+  // Power fields (T-125) — present on Rides with a power meter
+  weighted_average_watts?: number   // Normalized Power (NP) from Strava
+  average_watts?:          number   // Average Power (fallback when NP not available)
+  device_watts?:           boolean  // true = power from hardware meter, not estimated
 }
 
 export function getAuthUrl(): string {
@@ -697,6 +701,15 @@ const _WORKOUT_TYPE_FACTOR: Record<number, number> = {
   12: 0.9,
 }
 
+// T-125: Power-based Training Stress Score — faithful port of coach.py bike_tss.
+// TSS = duration_sec * (NP/FTP)^2 / 3600 * 100
+// ftp <= 0 → 0 (ZeroDivision guard, matches Python guard).
+export function bikeTss(npWatts: number, durationSec: number, ftp: number): number {
+  if (ftp <= 0) return 0
+  const if_ = npWatts / ftp
+  return (durationSec * if_ * if_ / 3600) * 100
+}
+
 // Conservative factor for sports without suffer_score (Swim, Hike, Walk).
 // VirtualRide gets 1.0 — Desktop currently excludes VirtualRide from ride_df entirely,
 // so including it here with factor 1.0 is a minor residual divergence (documented).
@@ -708,14 +721,30 @@ const _SPORT_TYPE_FACTOR: Record<string, number> = {
   EBikeRide:   0.6,
 }
 
-export function activityLoad(a: StravaActivity): number {
-  // Priority 1: suffer_score when present and > 0 (Strava HR-based load).
+export function activityLoad(a: StravaActivity, ftp?: number): number {
+  // Priority 1: Power-TSS for Rides with device-measured NP and known FTP.
+  // Mirrors coach.py _daily_load priority: power path runs FIRST, before suffer_score.
+  // weighted_average_watts is Strava's NP field; fallback to average_watts not used here
+  // (coach.py also requires device_watts=True before accepting np_watts).
+  const sportType = a.sport_type || a.type || ''
+  if (
+    ftp != null && ftp > 0 &&
+    (sportType === 'Ride' || sportType === 'VirtualRide') &&
+    a.device_watts === true &&
+    a.weighted_average_watts != null && a.weighted_average_watts > 0
+  ) {
+    const durationSec = a.moving_time || 0
+    if (durationSec > 0) {
+      return bikeTss(a.weighted_average_watts, durationSec, ftp)
+    }
+  }
+
+  // Priority 2: suffer_score when present and > 0 (Strava HR-based load).
   if (a.suffer_score != null && a.suffer_score > 0) return a.suffer_score
 
-  // Priority 2: duration × factor (no HR data / suffer_score absent).
+  // Priority 3: duration × factor (no HR data / suffer_score absent / no power path).
   const durationMin = (a.moving_time || 0) / 60
   const wt = a.workout_type ?? 0
-  const sportType = a.sport_type || a.type || ''
 
   // Auswahllogik identical to coach.py _daily_load:
   //   if wt not in _WORKOUT_TYPE_FACTOR AND sport_type in _SPORT_TYPE_FACTOR → sport factor
@@ -733,14 +762,15 @@ export function activityLoad(a: StravaActivity): number {
   return Math.round(durationMin * factor)
 }
 
-export function computeAtlCtl(activities: StravaActivity[]): AtlCtlResult {
+export function computeAtlCtl(activities: StravaActivity[], ftp?: number): AtlCtlResult {
   if (!activities.length) return { atl: 0, ctl: 0, tsb: 0 }
 
-  // Build a map of load per calendar day (ISO date string → total load)
+  // Build a map of load per calendar day (ISO date string → total load).
+  // T-125: ftp propagated to activityLoad for power-TSS on Rides with device_watts.
   const dayMap = new Map<string, number>()
   for (const a of activities) {
     const day = (a.start_date_local || a.start_date).slice(0, 10)
-    dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a))
+    dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp))
   }
 
   // Determine date range: oldest activity → today

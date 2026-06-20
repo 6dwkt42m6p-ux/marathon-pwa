@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl } from './strava'
 import type { RunSummary, StravaActivity } from './strava'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
@@ -415,5 +415,142 @@ describe('activityLoad (T-122) — suffer_score priority', () => {
   it('suffer_score = null falls through to factor calculation (Swim 48)', () => {
     const a = makeActivity({ type: 'Swim', sport_type: 'Swim', workout_type: 0, suffer_score: undefined })
     expect(activityLoad(a)).toBe(48)
+  })
+})
+
+// ── T-125: bikeTss formula ────────────────────────────────────────────────────
+// Reference: coach.py bike_tss: TSS = duration_sec * IF^2 / 3600 * 100
+// where IF = np_watts / ftp.
+// Expected values computed from the formula directly, NOT from the function
+// (anti-tautology: a coding error would produce wrong result, not a passing test).
+
+describe('bikeTss (T-125)', () => {
+  it('1h @ NP=FTP → IF=1 → TSS=100 (canonical test)', () => {
+    // IF = 250/250 = 1.0; TSS = 3600 * 1^2 / 3600 * 100 = 100
+    expect(bikeTss(250, 3600, 250)).toBeCloseTo(100, 2)
+  })
+
+  it('1h @ NP=0.75×FTP → IF=0.75 → TSS=56.25', () => {
+    // IF = 0.75; TSS = 3600 * 0.75^2 / 3600 * 100 = 56.25
+    expect(bikeTss(187.5, 3600, 250)).toBeCloseTo(56.25, 2)
+  })
+
+  it('2h @ NP=0.8×FTP → TSS=128', () => {
+    // IF = 0.8; TSS = 7200 * 0.64 / 3600 * 100 = 128
+    expect(bikeTss(200, 7200, 250)).toBeCloseTo(128, 2)
+  })
+
+  it('ftp <= 0 returns 0 (ZeroDivision guard)', () => {
+    expect(bikeTss(250, 3600, 0)).toBe(0)
+    expect(bikeTss(250, 3600, -10)).toBe(0)
+  })
+
+  it('np_watts = 0 returns 0', () => {
+    expect(bikeTss(0, 3600, 250)).toBe(0)
+  })
+})
+
+// ── T-125: activityLoad with FTP — conditional bike_tss path ─────────────────
+
+describe('activityLoad (T-125) — bike_tss path with FTP', () => {
+  // Ride with device_watts=true, weighted_average_watts as NP proxy, no suffer_score.
+  // FTP=250, NP=200 (0.8×FTP), moving_time=3600s → TSS=64
+  // IF = 200/250 = 0.8; TSS = 3600 * 0.64 / 3600 * 100 = 64
+  const npWatts = 200
+  const ftp = 250
+  const expectedTss = Math.round((3600 * Math.pow(npWatts / ftp, 2) / 3600) * 100)  // 64
+
+  it('Ride with device_watts + ftp → bikeTss (not duration factor)', () => {
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600,
+      weighted_average_watts: npWatts,
+      device_watts: true,
+    })
+    const load = activityLoad(a, ftp)
+    expect(load).toBeCloseTo(expectedTss, 1)
+    // Explicitly not the factor path: duration*1.0=60, TSS=64 — distinct
+    expect(load).not.toBe(60)
+  })
+
+  it('Ride without ftp → falls back to duration factor (regression guard)', () => {
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600,
+      weighted_average_watts: npWatts,
+      device_watts: true,
+    })
+    // No ftp passed → old Ride factor path (wt=0, Ride sport → factor from map or 1.0)
+    const load = activityLoad(a)
+    // wt=0 and sport_type='Ride' not in _SPORT_TYPE_FACTOR → factor 1.0 → 60 min × 1.0 = 60
+    expect(load).toBe(60)
+  })
+
+  it('Ride with ftp but device_watts=false → duration factor (no power measurement)', () => {
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600,
+      weighted_average_watts: npWatts,
+      device_watts: false,
+    })
+    expect(activityLoad(a, ftp)).toBe(60)
+  })
+
+  it('Ride with ftp but no weighted_average_watts → duration factor', () => {
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600,
+      device_watts: true,
+      // no weighted_average_watts
+    })
+    expect(activityLoad(a, ftp)).toBe(60)
+  })
+
+  it('Run with ftp → does NOT use bike_tss (run factor path)', () => {
+    const a = makeActivity({ type: 'Run', sport_type: 'Run', workout_type: 0, moving_time: 3600 })
+    // Run with ftp → ftp has no effect on runs
+    expect(activityLoad(a, ftp)).toBe(60)
+  })
+
+  it('Power-TSS takes priority over suffer_score (T-125-fix: matches coach.py _daily_load)', () => {
+    // Ride with suffer_score=200 AND device_watts+NP+FTP → Power-TSS wins, NOT suffer_score.
+    // NP=FTP=250, 1h → IF=1.0 → TSS=100. suffer_score=200 must NOT win.
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600, weighted_average_watts: 250,
+      device_watts: true, suffer_score: 200,
+    })
+    expect(activityLoad(a, 250)).toBe(100)
+    expect(activityLoad(a, 250)).not.toBe(200)
+  })
+
+  it('Same Ride WITHOUT ftp → falls back to suffer_score (regression guard)', () => {
+    // Same ride, ftp not provided → power path skipped → suffer_score=200 wins.
+    const a = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600, weighted_average_watts: 250,
+      device_watts: true, suffer_score: 200,
+    })
+    expect(activityLoad(a)).toBe(200)
+  })
+})
+
+// ── T-125: computeAtlCtl with ftp parameter propagates ────────────────────────
+
+describe('computeAtlCtl (T-125) — ftp parameter propagates to activityLoad', () => {
+  it('computeAtlCtl with ftp produces different ATL than without ftp for rides with power', () => {
+    // Single Ride 1h, NP=250, device_watts=true: with FTP=250 → TSS=100; without → 60
+    const ride = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0,
+      moving_time: 3600,
+      weighted_average_watts: 250,
+      device_watts: true,
+      start_date: new Date(Date.now() - 1 * 86400 * 1000).toISOString(),
+      start_date_local: new Date(Date.now() - 1 * 86400 * 1000).toISOString(),
+    })
+    const resultNoFtp  = computeAtlCtl([ride])
+    const resultWithFtp = computeAtlCtl([ride], 250)
+    // With FTP: load=100 → ATL > without FTP (load=60)
+    expect(resultWithFtp.atl).toBeGreaterThan(resultNoFtp.atl)
   })
 })

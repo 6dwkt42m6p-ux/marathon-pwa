@@ -38,6 +38,8 @@ interface Props {
   onGoToSettings: () => void
   // T-123: canonical VDOT from App — desktop sync wins, settings.vdot is offline fallback
   effectiveVdot: number
+  // T-125: FTP from Desktop sync.json plan — null when not yet synced or not set
+  syncedFtp?: number | null
 }
 
 function fmt(s: number) {
@@ -81,7 +83,7 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
 }
 
 
-export default function Analysis({ settings, onGoToSettings, effectiveVdot }: Props) {
+export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
@@ -121,7 +123,11 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot }: Pr
   const weeklyStats  = useMemo(() => computeWeeklyStats(runs), [runs])
   const sportWeekly  = useMemo(() => computeWeeklyStatsBySport(cached), [cached])
   const weekStats    = useMemo(() => thisWeekStatsBySport(cached), [cached])
-  const tsbData      = useMemo(() => hasStrava ? computeAtlCtl(cached) : null, [cached, hasStrava])
+  // T-125: pass syncedFtp so Rides with device_watts use bike_tss instead of duration factor
+  const tsbData      = useMemo(
+    () => hasStrava ? computeAtlCtl(cached, syncedFtp ?? undefined) : null,
+    [cached, hasStrava, syncedFtp],
+  )
   const trend        = useMemo(
     () => hasStrava ? vdotTrendFromActivities(runs, effectiveVdot, settings.maxHr, settings.restHr) : null,
     [hasStrava, runs, effectiveVdot, settings.maxHr, settings.restHr],

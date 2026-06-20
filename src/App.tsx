@@ -42,6 +42,9 @@ export default function App() {
   // T-123: VDOT from desktop sync.json plan (authoritative when present).
   // null = no sync yet; falls back to settings.vdot in effectiveVdot.
   const [syncedVdot, setSyncedVdot] = useState<number | null>(null)
+  // T-125: FTP from desktop sync.json plan — null until sync arrives.
+  // No local FTP fallback needed: without synced FTP, Ride-factor path stays active.
+  const [syncedFtp, setSyncedFtp] = useState<number | null>(null)
 
   useEffect(() => {
     const handleOnline  = () => setOnline(true)
@@ -95,6 +98,8 @@ export default function App() {
       const { data } = result
       // T-123: capture desktop-derived VDOT as canonical source
       if (data.plan?.vdot) setSyncedVdot(data.plan.vdot)
+      // T-125: capture FTP from synced plan (null when not set on Desktop)
+      if (data.plan?.ftp != null && data.plan.ftp > 0) setSyncedFtp(data.plan.ftp)
       // Apply remote settings if they exist (remote wins on first load)
       if (data.settings) {
         const merged = { ...loadSettings(), ...data.settings } as AppSettings
@@ -154,7 +159,7 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} />}
-        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} />}
+        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
