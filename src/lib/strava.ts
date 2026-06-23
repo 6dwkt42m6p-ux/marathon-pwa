@@ -890,27 +890,13 @@ function _cacheLaps(id: number, laps: any[]): void {
 type FetchStreamResult = ActivityStreams | null | 'rate_limited'
 type FetchLapsResult   = any[]           | null | 'rate_limited' // eslint-disable-line @typescript-eslint/no-explicit-any
 
-export async function fetchActivityStreams(activityId: number): Promise<ActivityStreams | null> {
+export async function fetchActivityStreams(activityId: number): Promise<FetchStreamResult> {
+  // Delegiert an den 429-bewussten Fetcher: reicht den 'rate_limited'-Sentinel durch, statt
+  // 429 (wie früher) still als null zu maskieren (T-129). Entfernt zugleich das Duplikat der
+  // Fetch/Parse/Cache-Logik — war eine Kopie von _fetchStreams429.
   const token = await getValidToken()
   if (!token) return null
-  const cached = _loadCachedStream(activityId)
-  if (cached) return cached
-  const keys = 'time,velocity_smooth,heartrate,altitude,distance'
-  const res = await fetch(
-    `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=${keys}&key_by_type=true`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  if (!res.ok) return null
-  const raw = await res.json()
-  const streams: ActivityStreams = {
-    time:            raw.time?.data            ?? [],
-    velocity_smooth: raw.velocity_smooth?.data ?? [],
-    heartrate:       raw.heartrate?.data,
-    altitude:        raw.altitude?.data,
-    distance:        raw.distance?.data,
-  }
-  _cacheStream(activityId, streams)
-  return streams
+  return _fetchStreams429(activityId, token)
 }
 
 // Strava lap raw data — variable structure, parsed in analyzeWorkoutLaps()

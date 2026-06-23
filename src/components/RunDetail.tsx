@@ -197,7 +197,9 @@ export default function RunDetail({
     setLoadingStream(true); setStreamErr(null)
     try {
       const streams = await fetchActivityStreams(act.id)
-      if (!streams || streams.velocity_smooth.length === 0) {
+      if (streams === 'rate_limited') {
+        setStreamErr('Strava-Rate-Limit erreicht — bitte in ein paar Minuten erneut versuchen.')
+      } else if (!streams || streams.velocity_smooth.length === 0) {
         setStreamErr('Keine Stream-Daten verfügbar.')
       } else {
         setClassification(classifyWorkoutStructure(
