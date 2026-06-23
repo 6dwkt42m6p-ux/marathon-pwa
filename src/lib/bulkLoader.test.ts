@@ -200,3 +200,36 @@ describe('loadAnalyticsStreams (T-124-fix)', () => {
     expect(result.partial).toBe(false)
   })
 })
+
+// ── fetchActivityStreams 429-awareness (T-129) ──────────────────────────────
+describe('fetchActivityStreams (429-aware, T-129)', () => {
+  beforeEach(() => { localStorage.clear(); vi.stubGlobal('fetch', undefined) })
+  afterEach(() => { vi.restoreAllMocks() })
+
+  function setToken() {
+    localStorage.setItem('strava_tokens', JSON.stringify({
+      access_token: 'fake-token', refresh_token: 'fake-refresh',
+      expires_at: Math.floor(Date.now() / 1000) + 3600,
+    }))
+  }
+
+  it('returns the rate_limited sentinel on HTTP 429 (not null)', async () => {
+    setToken()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 429 })))
+    const { fetchActivityStreams } = await import('./strava')
+    const res = await fetchActivityStreams(9001)
+    expect(res).toBe('rate_limited')
+  })
+
+  it('returns parsed streams on success', async () => {
+    setToken()
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, status: 200, json: async () => makeStreamPayload() })))
+    const { fetchActivityStreams } = await import('./strava')
+    const res = await fetchActivityStreams(9002)
+    expect(res).not.toBe('rate_limited')
+    expect(res).not.toBeNull()
+    if (res && res !== 'rate_limited') {
+      expect(res.velocity_smooth.length).toBe(30)
+    }
+  })
+})
