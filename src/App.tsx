@@ -158,7 +158,7 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} />}
+        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} />}
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} />}
