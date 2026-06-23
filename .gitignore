@@ -29,3 +29,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Scout runtime-Artefakte (per-Projekt, nie committen)
+scout_job.json
+scout_runlog.json
+scout_cooldown.json
+proactive_candidates.json

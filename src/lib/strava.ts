@@ -836,7 +836,7 @@ export function parseRuns(activities: StravaActivity[]): RunSummary[] {
     .sort((a, b) => b.date.getTime() - a.date.getTime())
 }
 
-// ── Activity Streams (on-demand, not cached) ─────────────────────────────────
+// ── Activity Streams — persistent localStorage cache + 429-safe fetch ────────
 
 export interface ActivityStreams {
   time:             number[]   // elapsed seconds
@@ -846,9 +846,55 @@ export interface ActivityStreams {
   distance?:        number[]   // cumulative meters
 }
 
+// Cache key functions — exported so tests can pre-populate and verify cache behaviour.
+// Streams and laps for a completed activity are immutable → no TTL needed.
+export const STREAM_CACHE_KEY = (id: number): string => `_strava_stream_${id}`
+export const LAPS_CACHE_KEY   = (id: number): string => `_strava_laps_${id}`
+
+function _loadCachedStream(id: number): ActivityStreams | null {
+  try {
+    const raw = localStorage.getItem(STREAM_CACHE_KEY(id))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // Accept both the raw Strava response shape (key→{data:[]}) and the already-parsed shape.
+    if (Array.isArray(parsed.time)) return parsed as ActivityStreams
+    return {
+      time:            parsed.time?.data            ?? [],
+      velocity_smooth: parsed.velocity_smooth?.data ?? [],
+      heartrate:       parsed.heartrate?.data,
+      altitude:        parsed.altitude?.data,
+      distance:        parsed.distance?.data,
+    }
+  } catch { return null }
+}
+
+function _cacheStream(id: number, streams: ActivityStreams): void {
+  try { localStorage.setItem(STREAM_CACHE_KEY(id), JSON.stringify(streams)) } catch {}
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function _loadCachedLaps(id: number): any[] | null {
+  try {
+    const raw = localStorage.getItem(LAPS_CACHE_KEY(id))
+    return raw ? JSON.parse(raw) : null
+  } catch { return null }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function _cacheLaps(id: number, laps: any[]): void {
+  try { localStorage.setItem(LAPS_CACHE_KEY(id), JSON.stringify(laps)) } catch {}
+}
+
+// Sentinel value distinguishing 429 (rate-limited) from other errors.
+// Callers must check `=== 'rate_limited'` to abort the bulk-fetch loop.
+type FetchStreamResult = ActivityStreams | null | 'rate_limited'
+type FetchLapsResult   = any[]           | null | 'rate_limited' // eslint-disable-line @typescript-eslint/no-explicit-any
+
 export async function fetchActivityStreams(activityId: number): Promise<ActivityStreams | null> {
   const token = await getValidToken()
   if (!token) return null
+  const cached = _loadCachedStream(activityId)
+  if (cached) return cached
   const keys = 'time,velocity_smooth,heartrate,altitude,distance'
   const res = await fetch(
     `https://www.strava.com/api/v3/activities/${activityId}/streams?keys=${keys}&key_by_type=true`,
@@ -856,25 +902,155 @@ export async function fetchActivityStreams(activityId: number): Promise<Activity
   )
   if (!res.ok) return null
   const raw = await res.json()
-  return {
+  const streams: ActivityStreams = {
     time:            raw.time?.data            ?? [],
     velocity_smooth: raw.velocity_smooth?.data ?? [],
     heartrate:       raw.heartrate?.data,
     altitude:        raw.altitude?.data,
     distance:        raw.distance?.data,
   }
+  _cacheStream(activityId, streams)
+  return streams
 }
 
 // Strava lap raw data — variable structure, parsed in analyzeWorkoutLaps()
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function fetchActivityLaps(activityId: number): Promise<any[] | null> {
   const token = await getValidToken()
   if (!token) return null
+  const cached = _loadCachedLaps(activityId)
+  if (cached) return cached
   const res = await fetch(
     `https://www.strava.com/api/v3/activities/${activityId}/laps`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (!res.ok) return null
-  return res.json()
+  const laps = await res.json()
+  _cacheLaps(activityId, laps)
+  return laps
+}
+
+// 429-aware internal fetchers — return 'rate_limited' sentinel on HTTP 429.
+async function _fetchStreams429(id: number, token: string): Promise<FetchStreamResult> {
+  const cached = _loadCachedStream(id)
+  if (cached) return cached
+  const keys = 'time,velocity_smooth,heartrate,altitude,distance'
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${id}/streams?keys=${keys}&key_by_type=true`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (res.status === 429) return 'rate_limited'
+  if (!res.ok) return null
+  const raw = await res.json()
+  const streams: ActivityStreams = {
+    time:            raw.time?.data            ?? [],
+    velocity_smooth: raw.velocity_smooth?.data ?? [],
+    heartrate:       raw.heartrate?.data,
+    altitude:        raw.altitude?.data,
+    distance:        raw.distance?.data,
+  }
+  _cacheStream(id, streams)
+  return streams
+}
+
+async function _fetchLaps429(id: number, token: string): Promise<FetchLapsResult> {
+  const cached = _loadCachedLaps(id)
+  if (cached) return cached
+  const res = await fetch(
+    `https://www.strava.com/api/v3/activities/${id}/laps`,
+    { headers: { Authorization: `Bearer ${token}` } }
+  )
+  if (res.status === 429) return 'rate_limited'
+  if (!res.ok) return null
+  const laps = await res.json()
+  _cacheLaps(id, laps)
+  return laps
+}
+
+// ── Shape types for bulk-loader output ───────────────────────────────────────
+
+export interface StrideDataEntry {
+  strideCount:     number
+  strides:         { peakPaceSec: number }[]
+  avgPeakPaceSec?: number
+}
+
+export interface BulkAnalyticsResult {
+  strideDataById: Record<string, StrideDataEntry>
+  workSplits:     Record<string, number[]>
+  partial:        boolean
+  fetched:        number
+  total:          number
+}
+
+/**
+ * Bulk-loads streams (for stride detection) and laps (for VDOT adherence) for
+ * the provided run sets. Fetches sequentially to avoid rate-limit storms.
+ * On HTTP 429: stops immediately and returns a partial result with `partial:true`.
+ * Cache-hits never trigger a fetch — the persistent localStorage cache means
+ * each activity is only fetched once across sessions.
+ *
+ * @param allRuns        All runs (used for stream fetch + stride detection)
+ * @param qualityRuns    Runs with workout_type==3 (used for lap fetch + work-splits)
+ * @param vdot           Current VDOT (used by detectStrides + analyzeWorkoutLaps)
+ */
+export async function loadAnalyticsStreams(
+  allRuns:      RunSummary[],
+  qualityRuns:  RunSummary[],
+  vdot:         number,
+): Promise<BulkAnalyticsResult> {
+  // analyzeWorkoutLaps is in vdot.ts (no circular dep: vdot.ts imports from strava.ts types only).
+  const { analyzeWorkoutLaps } = await import('./vdot')
+
+  const strideDataById: Record<string, StrideDataEntry> = {}
+  const workSplits:     Record<string, number[]>        = {}
+  let partial  = false
+  let fetched  = 0
+  const total  = allRuns.length + qualityRuns.length
+
+  const token = await getValidToken()
+  if (!token) return { strideDataById, workSplits, partial: false, fetched: 0, total }
+
+  // ── Phase 1: streams for all runs → stride detection ─────────────────────
+  for (const run of allRuns) {
+    const result = await _fetchStreams429(run.id, token)
+    if (result === 'rate_limited') { partial = true; break }
+    if (!result) continue
+    fetched++
+
+    // detectStrides is defined in this same file (strava.ts) — direct call, no import needed.
+    const analysis = detectStrides(result, run.paceSec, vdot)
+    if (analysis.strideCount > 0) {
+      strideDataById[String(run.id)] = {
+        strideCount:    analysis.strideCount,
+        strides:        analysis.strides.map(s => ({ peakPaceSec: s.peakPaceSec })),
+        avgPeakPaceSec: analysis.avgPeakPaceSec,
+      }
+    }
+  }
+
+  // ── Phase 2: laps for quality sessions → work-splits ─────────────────────
+  if (!partial) {
+    for (const run of qualityRuns) {
+      const laps = await _fetchLaps429(run.id, token)
+      if (laps === 'rate_limited') { partial = true; break }
+      if (!laps) continue
+      fetched++
+
+      const lapAnalysis = analyzeWorkoutLaps(laps, vdot)
+      if (lapAnalysis) {
+        // Extract pace of interval laps as work-splits (sec/km)
+        const intervalSplits = lapAnalysis.laps
+          .filter(l => l.role === 'interval' && l.paceSec > 0)
+          .map(l => l.paceSec)
+        if (intervalSplits.length > 0) {
+          workSplits[String(run.id)] = intervalSplits
+        }
+      }
+    }
+  }
+
+  return { strideDataById, workSplits, partial, fetched, total }
 }
 
 // ── Workout Classification v5 ───────────────────────────────────────────────
