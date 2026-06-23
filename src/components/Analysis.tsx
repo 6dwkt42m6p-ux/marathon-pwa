@@ -14,10 +14,19 @@ import {
   mondayOf,
   localISODate,
   DAY_TAGS,
+  loadAnalyticsStreams,
   type StravaActivity,
   type ActivitySummary,
+  type StrideDataEntry,
 } from '../lib/strava'
-import { analyzeRun, analyzeRide } from '../lib/vdot'
+import { analyzeRun, analyzeRide, formatPace } from '../lib/vdot'
+import {
+  intensityDistribution,
+  stagnationCheck,
+  vdotAdherenceCheck,
+  aggregateStrideTrend,
+  type AdherenceSession,
+} from '../lib/analytics'
 import {
   generatePlan,
   assessDeviation,
@@ -40,6 +49,12 @@ interface Props {
   effectiveVdot: number
   // T-125: FTP from Desktop sync.json plan — null when not yet synced or not set
   syncedFtp?: number | null
+  // T-124: work-interval splits per quality session (workout_type==3) for adherence check.
+  // Map of activityId(string) → list of interval-lap paces (sec/km).
+  // Null = no quality sessions found in cache yet.
+  workSplits?: Record<string, number[]> | null
+  // T-124: stride data by activity id, for stride trend.
+  strideDataById?: Record<string, { strideCount: number; strides: { peakPaceSec: number }[]; avgPeakPaceSec?: number }> | null
 }
 
 function fmt(s: number) {
@@ -83,12 +98,19 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
 }
 
 
-export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp }: Props) {
+export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
   const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
   const [syncLoading, setSyncLoading] = useState(true)
+  // T-124-fix: bulk-fetched stream/lap analytics — loaded once per mount when Strava is connected.
+  const [localWorkSplits, setLocalWorkSplits]       = useState<Record<string, number[]> | null>(workSplitsProp ?? null)
+  const [localStrideData, setLocalStrideData]       = useState<Record<string, StrideDataEntry> | null>(strideDataByIdProp ?? null)
+  const [analyticsLoading, setAnalyticsLoading]     = useState(false)
+  const [analyticsPartial, setAnalyticsPartial]     = useState(false)
+  const [analyticsFetched, setAnalyticsFetched]     = useState(0)
+  const [analyticsTotal, setAnalyticsTotal]         = useState(0)
 
   function onNoteSaved() { setNoteVersion(v => v + 1) }
 
@@ -116,6 +138,48 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
 
   const hasStrava   = cached.length > 0
 
+  // T-124-fix: Bulk-fetch streams (strides) + laps (VDOT adherence) once per mount.
+  // mounted-guard (T-083 gotcha: async useEffect → setState-after-unmount).
+  // Runs only when Strava activities are available; re-runs when cached activities change
+  // so newly synced activities are picked up automatically.
+  // Sequentially fetches missing data; cache-hits are free (localStorage, no API call).
+  useEffect(() => {
+    if (!hasStrava) return
+    let mounted = true
+
+    async function bulkFetch() {
+      setAnalyticsLoading(true)
+      try {
+        const runs = parseRuns(cached)
+        // Quality runs: workout_type==3, identified by checking cached raw activities
+        const qualityIds = new Set(
+          cached
+            .filter(a => a.workout_type === 3)
+            .map(a => a.id)
+        )
+        const qualityRuns = runs.filter(r => qualityIds.has(r.id))
+
+        const result = await loadAnalyticsStreams(runs, qualityRuns, effectiveVdot)
+        if (!mounted) return
+
+        setLocalStrideData(result.strideDataById)
+        setLocalWorkSplits(result.workSplits)
+        setAnalyticsPartial(result.partial)
+        setAnalyticsFetched(result.fetched)
+        setAnalyticsTotal(result.total)
+      } catch {
+        // Silently ignore — analytics is best-effort, not critical path
+      } finally {
+        if (mounted) setAnalyticsLoading(false)
+      }
+    }
+
+    bulkFetch()
+    return () => { mounted = false }
+  // effectiveVdot change = new VDOT from sync → re-run to recalculate adherence thresholds
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStrava, cached, effectiveVdot])
+
   // Expensive parse/aggregate — only recompute when cached activities change
   const runs       = useMemo(() => parseRuns(cached), [cached])
   const allActs    = useMemo(() => parseAllActivities(cached), [cached])
@@ -135,6 +199,33 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const efTrend      = useMemo(
     () => hasStrava ? efficiencyFactorTrend(runs, settings.maxHr, settings.restHr) : null,
     [hasStrava, runs, settings.maxHr, settings.restHr],
+  )
+
+  // T-124: four new analytics — each independent signal with its own guard
+  const intDist = useMemo(
+    () => hasStrava ? intensityDistribution(runs, settings.maxHr, settings.restHr) : null,
+    [hasStrava, runs, settings.maxHr, settings.restHr],
+  )
+  const stagnation = useMemo(
+    () => hasStrava && trend ? stagnationCheck(
+      runs,
+      trend ? { delta: trend.delta, insufficientEffortRuns: trend.insufficientEffortRuns } : null,
+      settings.maxHr, settings.restHr, 8, 0.3,
+      efTrend ? { deltaPct: efTrend.deltaPct ?? undefined, noHrData: efTrend.noHrData } : undefined,
+    ) : null,
+    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr],
+  )
+  // T-124-fix: use local bulk-fetched state; props serve as optional external override.
+  const workSplits     = localWorkSplits     ?? workSplitsProp     ?? null
+  const strideDataById = localStrideData     ?? strideDataByIdProp ?? null
+
+  const adherence = useMemo(
+    () => hasStrava && workSplits ? vdotAdherenceCheck(runs, effectiveVdot, workSplits) : null,
+    [hasStrava, runs, effectiveVdot, workSplits],
+  )
+  const strideTrend = useMemo(
+    () => hasStrava && strideDataById ? aggregateStrideTrend(strideDataById, runs) : null,
+    [hasStrava, runs, strideDataById],
   )
 
   const last8Weeks   = useMemo(() => weeklyStats.slice(-8), [weeklyStats])
@@ -419,6 +510,152 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               </div>
             )
           })()}
+        </>
+      )}
+
+      {/* T-124-G1: 80/20 Intensitätsverteilung — independent signal */}
+      {intDist?.hasData && (
+        <>
+          <div className="section-title">80/20 Intensitätsverteilung (12 Wochen)</div>
+          <div className="activity-card" style={{ padding: '12px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px', fontWeight: 600, letterSpacing: '0.04em' }}>ZONENVERTEILUNG</div>
+            {/* Zone bars */}
+            {(
+              [
+                { label: 'Easy (Z1–Z2)', pct: intDist.totals.easyPct,    min: intDist.totals.easyMin,    color: '#4CAF50', target: '≥80%' },
+                { label: 'Grau (Z3)',    pct: intDist.totals.greyPct,    min: intDist.totals.greyMin,    color: '#FFC107', target: '<15%' },
+                { label: 'Qualität (Z4–Z5)', pct: intDist.totals.qualityPct, min: intDist.totals.qualityMin, color: '#e53935', target: '~20%' },
+              ] as { label: string; pct: number; min: number; color: string; target: string }[]
+            ).map(z => (
+              <div key={z.label} style={{ marginBottom: '8px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', marginBottom: '3px' }}>
+                  <span style={{ fontWeight: 600 }}>{z.label}</span>
+                  <span style={{ color: 'var(--text-2)' }}>{z.pct.toFixed(0)}% · {Math.round(z.min)} min · Ziel {z.target}</span>
+                </div>
+                <div style={{ height: '7px', background: 'var(--surface2)', borderRadius: '4px', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', background: z.color, borderRadius: '4px', width: `${Math.min(100, z.pct)}%` }} />
+                </div>
+              </div>
+            ))}
+            {intDist.warning && (
+              <div style={{ fontSize: '12px', color: '#e6a817', marginTop: '6px', padding: '6px 8px', background: '#e6a81711', borderRadius: '6px' }}>
+                {intDist.warning}
+              </div>
+            )}
+            <div style={{ fontSize: '10px', color: 'var(--text-2)', marginTop: '6px' }}>
+              Aus Ø-HF-Klassifikation — nur Aktivitäten mit HF-Sensor einbezogen
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* T-124-G2: Stagnations-Check — independent signal */}
+      {stagnation?.stagnating && (
+        <>
+          <div className="section-title">Stagnations-Frühwarnung</div>
+          <div className="activity-card" style={{ padding: '12px', borderLeft: `3px solid ${stagnation.color}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+              <span style={{ fontSize: '16px' }}>{stagnation.color === '#dc3545' ? '🔴' : '🟡'}</span>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 700, color: stagnation.color }}>{stagnation.primaryCause}</div>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>VDOT-Delta: {stagnation.trendDelta > 0 ? '+' : ''}{stagnation.trendDelta} (Ziel ≥ +0.3)</div>
+              </div>
+            </div>
+            {stagnation.causes.map((c, i) => (
+              <div key={i} style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px', paddingLeft: '8px', borderLeft: `2px solid ${c.severity === 'error' ? '#dc3545' : '#e6a817'}` }}>
+                <strong style={{ color: c.severity === 'error' ? '#dc3545' : '#e6a817' }}>{c.label}:</strong> {c.detail}
+              </div>
+            ))}
+            {stagnation.recommendation && (
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px', padding: '6px 8px', background: 'var(--surface2)', borderRadius: '6px' }}>
+                {stagnation.recommendation}
+              </div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* T-124-fix: Loading/partial hint for stream-dependent metrics */}
+      {analyticsLoading && (
+        <div style={{ fontSize: '11px', color: 'var(--text-2)', padding: '4px 0', textAlign: 'center' }}>
+          Lade Lap- &amp; Stream-Daten…
+        </div>
+      )}
+      {!analyticsLoading && analyticsPartial && (
+        <div style={{ fontSize: '11px', color: '#e6a817', padding: '4px 8px', background: '#e6a81711', borderRadius: '6px', marginBottom: '4px' }}>
+          {analyticsFetched}/{analyticsTotal} Aktivitäten ausgewertet (Rate-Limit — vollständige Daten beim nächsten Öffnen)
+        </div>
+      )}
+
+      {/* T-124-G3: VDOT-Adherence — independent signal */}
+      {adherence && (
+        <>
+          <div className="section-title">VDOT-Adherence (Soll/Ist)</div>
+          <div className="activity-card" style={{ padding: '12px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '6px', fontWeight: 600, letterSpacing: '0.04em' }}>QUALITÄTSEINHEITEN VS. ZIEL-PACE</div>
+            <div style={{ display: 'flex', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '12px' }}>T-Pace Soll: <strong>{adherence.tPaceFmt}</strong></span>
+              <span style={{ fontSize: '12px' }}>I-Pace Soll: <strong>{adherence.iPaceFmt}</strong></span>
+            </div>
+            <div style={{
+              fontSize: '13px', fontWeight: 700, marginBottom: '6px',
+              color: adherence.status === 'beating' ? '#4CAF50' : adherence.status === 'missing' ? '#e53935' : '#FFC107',
+            }}>
+              {adherence.status === 'beating' ? '⚡ Paces konstant schneller als Ziel' : adherence.status === 'missing' ? '⚠️ Paces konstant langsamer als Ziel' : '✅ Paces im Zielbereich'}
+            </div>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '8px' }}>{adherence.reason}</div>
+            {adherence.suggestedVdot && (
+              <div style={{ fontSize: '12px', padding: '6px 8px', background: 'var(--surface2)', borderRadius: '6px', marginBottom: '8px' }}>
+                Empfohlener VDOT: <strong>{adherence.suggestedVdot}</strong> (aktuell: {adherence.currentVdot})
+              </div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              {(adherence.sessions as AdherenceSession[]).slice(0, 5).map((s, i) => (
+                <div key={i} style={{ fontSize: '11px', display: 'flex', justifyContent: 'space-between', padding: '4px 0', borderTop: '1px solid var(--border)' }}>
+                  <span style={{ color: 'var(--text-2)' }}>{s.date} {s.name.slice(0, 20)}</span>
+                  <span style={{ color: 'var(--text-2)' }}>{s.targetZone}: {s.targetPaceFmt}</span>
+                  <span style={{ fontWeight: 600 }}>{s.actualPaceFmt}</span>
+                  <span style={{ color: s.deltaSec < -5 ? '#4CAF50' : s.deltaSec > 8 ? '#e53935' : 'var(--text-2)', fontSize: '10px' }}>
+                    {s.deltaSec > 0 ? '+' : ''}{Math.round(s.deltaSec)}s
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* T-124-G4: Stride-Trend — independent signal */}
+      {strideTrend && strideTrend.length >= 2 && (
+        <>
+          <div className="section-title">Stride-Trend</div>
+          <div className="activity-card" style={{ padding: '12px' }}>
+            <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '8px', fontWeight: 600, letterSpacing: '0.04em' }}>STRIDES PRO WOCHE (LETZTE {strideTrend.length} WOCHEN)</div>
+            {(() => {
+              const maxStrides = Math.max(...strideTrend.map(w => w.strideCount), 1)
+              return strideTrend.slice(-8).map((w, i) => {
+                const barPct = Math.min(100, (w.strideCount / maxStrides) * 100)
+                const label = (() => {
+                  const d = w.weekStart
+                  return `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}`
+                })()
+                return (
+                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '5px' }}>
+                    <div style={{ fontSize: '10px', color: 'var(--text-2)', width: '36px', flexShrink: 0 }}>{label}</div>
+                    <div style={{ flex: 1, height: '7px', background: 'var(--surface2)', borderRadius: '4px', overflow: 'hidden' }}>
+                      <div style={{ height: '100%', background: '#3b82f6', borderRadius: '4px', width: `${barPct}%` }} />
+                    </div>
+                    <div style={{ fontSize: '10px', color: 'var(--text-2)', width: '70px', flexShrink: 0, textAlign: 'right' }}>
+                      {w.strideCount}× · {formatPace(w.bestPeakPaceSec)}/km
+                    </div>
+                  </div>
+                )
+              })
+            })()}
+            <div style={{ fontSize: '10px', color: 'var(--text-2)', marginTop: '6px' }}>
+              Strides aus Lauf-Lap-Daten — schnellste Peak-Pace je Woche
+            </div>
+          </div>
         </>
       )}
 
