@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-06-23T08:15:11.868670+00:00",
+  "lastModified": "2026-06-24T08:35:33.597450+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-23T08:15:11Z",
+    "generatedAt": "2026-06-24T08:35:33Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "647f7bf91e39535d4eeb93322b26f9624aba2b597f922d05c6b417918663abd1",
+    "inputHash": "c7d7629dd6505845a0a02434bc767bddbed34553a64f25bcf62ea6af88bae8b1",
     "weeks": [
       {
         "week_nr": 1,
@@ -1111,6 +1111,7 @@
         ]
       }
     ],
-    "ftp": null
+    "ftp": null,
+    "injury_breaks": []
   }
 }
