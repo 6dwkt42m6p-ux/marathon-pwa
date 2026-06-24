@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-06-24T08:41:15.923278+00:00",
+  "lastModified": "2026-06-24T08:45:09.075456+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-24T08:41:15Z",
+    "generatedAt": "2026-06-24T08:45:08Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "e2af6b74b2f684f16921ae953ace64896cd9283d72d9c58d74ea6985c57a42ae",
+    "inputHash": "138cbc507700c64d4d03d3c042963c53a3aa2beeaaac6b9fa5191c828e804ce4",
     "weeks": [
       {
         "week_nr": 1,
@@ -105,46 +105,10 @@
       {
         "week_nr": 2,
         "week_start": "2026-06-15",
-        "phase": "Basis",
-        "planned_km": 58.7,
+        "phase": "Verletzungspause \ud83e\ude79",
+        "planned_km": 0.0,
         "is_current": false,
         "sessions": [
-          {
-            "tag": "Mo",
-            "typ": "Regeneration",
-            "km": 9.0,
-            "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "9 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "54\u201363 min",
-            "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
-          },
-          {
-            "tag": "Di",
-            "typ": "Speed",
-            "km": 9.0,
-            "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "9 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "50\u201354 min",
-            "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
-          },
-          {
-            "tag": "Mi",
-            "typ": "Ausdauer",
-            "km": 12.0,
-            "vorgabe": "~5:04 /km \u2192 letzte 3 km bis 4:43 /km",
-            "struktur": "9 km @ 5:04 /km (Z2) \u2192 letzte 3 km progressiv bis 4:43 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Hochschrauben.",
-            "dauer": "62\u201370 min",
-            "hinweis": "Progression trainiert die F\u00e4higkeit, frisch in MP zu laufen. Abbrechkriterium: Wenn MP sich nach 1 km nicht locker anf\u00fchlt, Easy beenden."
-          },
-          {
-            "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50",
-            "km": 9.0,
-            "vorgabe": "2\u00d710 min @ 4:24 /km (T-Pace, Z4)",
-            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d710 min @ 4:24 /km (Z4) \u2014 Pause: 90 Sek. Easy-Jogging \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "43\u201347 min",
-            "hinweis": "Kurze Schwellenintervalle in der Basis halten die Laktattoleranz aktiv ohne die Gesamtbelastung zu hoch zu treiben. Pace muss kontrolliert gehalten werden \u2014 nicht durchbei\u00dfen."
-          },
           {
             "tag": "Sa",
             "typ": "Aerob",
@@ -156,58 +120,31 @@
           },
           {
             "tag": "So",
-            "typ": "Ausdauer",
-            "km": 20.0,
-            "vorgabe": "5:04 \u2013 5:50 /km (Z2)",
-            "struktur": "Durchgehend locker @ 5:04\u20135:50 /km (Z2). Erste H\u00e4lfte am unteren Ende, zweite H\u00e4lfte darf etwas flotter sein.",
-            "dauer": "110\u2013130 min",
-            "hinweis": "Gespr\u00e4ch m\u00f6glich. HF Z2. Wander-/Bergeinlage am WE z\u00e4hlt als gleichwertiger Ersatz."
+            "typ": "Pre-Race",
+            "km": 2.0,
+            "vorgabe": "5:04 /km + 4\u00d7100m Strides",
+            "struktur": "1\u20132 km @ 5:04 /km \u2192 4\u00d7100m Strides @ 3:49 /km (Pause: 30 Sek.) \u2014 fertig.",
+            "dauer": "12\u201315 min",
+            "hinweis": "10\u201315 min vor dem Start. Letzten Stride sp\u00e4testens 5 min vor dem Startschuss."
+          },
+          {
+            "tag": "So",
+            "typ": "Wettkampf",
+            "km": null,
+            "vorgabe": "Ziel-Pace \u2014 Negative Split!",
+            "struktur": "Erste 3\u20135 km: 3\u20135 Sek/km LANGSAMER als Zielpace (egal wie gut es sich anf\u00fchlt) \u2192 Mitte: Zielpace halten \u2192 letzte 20\u201325%: frei laufen wenn Energie da ist.",
+            "dauer": "Zielzeit",
+            "hinweis": "Negative Split gewinnt Rennen. Die meisten Marathonis verlieren die zweite H\u00e4lfte \u2014 starte konservativ, ende stark."
           }
         ]
       },
       {
         "week_nr": 3,
         "week_start": "2026-06-22",
-        "phase": "Basis",
-        "planned_km": 61.8,
+        "phase": "Verletzungspause \ud83e\ude79",
+        "planned_km": 0.0,
         "is_current": true,
         "sessions": [
-          {
-            "tag": "Mo",
-            "typ": "Regeneration",
-            "km": 10.0,
-            "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "10 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "60\u201370 min",
-            "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
-          },
-          {
-            "tag": "Di",
-            "typ": "Speed",
-            "km": 10.0,
-            "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "10 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "55\u201360 min",
-            "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
-          },
-          {
-            "tag": "Mi",
-            "typ": "Ausdauer",
-            "km": 12.0,
-            "vorgabe": "~5:04 /km \u2192 letzte 3 km bis 4:43 /km",
-            "struktur": "9 km @ 5:04 /km (Z2) \u2192 letzte 3 km progressiv bis 4:43 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Hochschrauben.",
-            "dauer": "62\u201370 min",
-            "hinweis": "Progression trainiert die F\u00e4higkeit, frisch in MP zu laufen. Abbrechkriterium: Wenn MP sich nach 1 km nicht locker anf\u00fchlt, Easy beenden."
-          },
-          {
-            "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50",
-            "km": 9.0,
-            "vorgabe": "2\u00d710 min @ 4:24 /km (T-Pace, Z4)",
-            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d710 min @ 4:24 /km (Z4) \u2014 Pause: 90 Sek. Easy-Jogging \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "43\u201347 min",
-            "hinweis": "Kurze Schwellenintervalle in der Basis halten die Laktattoleranz aktiv ohne die Gesamtbelastung zu hoch zu treiben. Pace muss kontrolliert gehalten werden \u2014 nicht durchbei\u00dfen."
-          },
           {
             "tag": "Sa",
             "typ": "Aerob",
@@ -219,58 +156,31 @@
           },
           {
             "tag": "So",
-            "typ": "Ausdauer",
-            "km": 21.0,
-            "vorgabe": "5:04 \u2013 5:50 /km (Z2)",
-            "struktur": "Durchgehend locker @ 5:04\u20135:50 /km (Z2). Erste H\u00e4lfte am unteren Ende, zweite H\u00e4lfte darf etwas flotter sein.",
-            "dauer": "116\u2013136 min",
-            "hinweis": "Gespr\u00e4ch m\u00f6glich. HF Z2. Wander-/Bergeinlage am WE z\u00e4hlt als gleichwertiger Ersatz."
+            "typ": "Pre-Race",
+            "km": 2.0,
+            "vorgabe": "5:04 /km + 4\u00d7100m Strides",
+            "struktur": "1\u20132 km @ 5:04 /km \u2192 4\u00d7100m Strides @ 3:49 /km (Pause: 30 Sek.) \u2014 fertig.",
+            "dauer": "12\u201315 min",
+            "hinweis": "10\u201315 min vor dem Start. Letzten Stride sp\u00e4testens 5 min vor dem Startschuss."
+          },
+          {
+            "tag": "So",
+            "typ": "Wettkampf",
+            "km": null,
+            "vorgabe": "Ziel-Pace \u2014 Negative Split!",
+            "struktur": "Erste 3\u20135 km: 3\u20135 Sek/km LANGSAMER als Zielpace (egal wie gut es sich anf\u00fchlt) \u2192 Mitte: Zielpace halten \u2192 letzte 20\u201325%: frei laufen wenn Energie da ist.",
+            "dauer": "Zielzeit",
+            "hinweis": "Negative Split gewinnt Rennen. Die meisten Marathonis verlieren die zweite H\u00e4lfte \u2014 starte konservativ, ende stark."
           }
         ]
       },
       {
         "week_nr": 4,
         "week_start": "2026-06-29",
-        "phase": "Basis (Entlastung)",
-        "planned_km": 52.0,
+        "phase": "Verletzungspause \ud83e\ude79",
+        "planned_km": 0.0,
         "is_current": false,
         "sessions": [
-          {
-            "tag": "Mo",
-            "typ": "Regeneration",
-            "km": 8.0,
-            "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "48\u201356 min",
-            "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
-          },
-          {
-            "tag": "Di",
-            "typ": "Speed",
-            "km": 8.0,
-            "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "8 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "44\u201348 min",
-            "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
-          },
-          {
-            "tag": "Mi",
-            "typ": "Ausdauer",
-            "km": 10.0,
-            "vorgabe": "~5:04 /km \u2192 letzte 3 km bis 4:43 /km",
-            "struktur": "7 km @ 5:04 /km (Z2) \u2192 letzte 3 km progressiv bis 4:43 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Hochschrauben.",
-            "dauer": "52\u201358 min",
-            "hinweis": "Progression trainiert die F\u00e4higkeit, frisch in MP zu laufen. Abbrechkriterium: Wenn MP sich nach 1 km nicht locker anf\u00fchlt, Easy beenden."
-          },
-          {
-            "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50",
-            "km": 8.0,
-            "vorgabe": "2\u00d710 min @ 4:24 /km (T-Pace, Z4)",
-            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d710 min @ 4:24 /km (Z4) \u2014 Pause: 90 Sek. Easy-Jogging \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "38\u201342 min",
-            "hinweis": "Kurze Schwellenintervalle in der Basis halten die Laktattoleranz aktiv ohne die Gesamtbelastung zu hoch zu treiben. Pace muss kontrolliert gehalten werden \u2014 nicht durchbei\u00dfen."
-          },
           {
             "tag": "Sa",
             "typ": "Aerob",
@@ -282,56 +192,65 @@
           },
           {
             "tag": "So",
-            "typ": "Ausdauer",
-            "km": 18.0,
-            "vorgabe": "5:04 \u2013 5:50 /km (Z2)",
-            "struktur": "Durchgehend locker @ 5:04\u20135:50 /km (Z2). Erste H\u00e4lfte am unteren Ende, zweite H\u00e4lfte darf etwas flotter sein.",
-            "dauer": "99\u2013117 min",
-            "hinweis": "Gespr\u00e4ch m\u00f6glich. HF Z2. Wander-/Bergeinlage am WE z\u00e4hlt als gleichwertiger Ersatz."
+            "typ": "Pre-Race",
+            "km": 2.0,
+            "vorgabe": "5:04 /km + 4\u00d7100m Strides",
+            "struktur": "1\u20132 km @ 5:04 /km \u2192 4\u00d7100m Strides @ 3:49 /km (Pause: 30 Sek.) \u2014 fertig.",
+            "dauer": "12\u201315 min",
+            "hinweis": "10\u201315 min vor dem Start. Letzten Stride sp\u00e4testens 5 min vor dem Startschuss."
+          },
+          {
+            "tag": "So",
+            "typ": "Wettkampf",
+            "km": null,
+            "vorgabe": "Ziel-Pace \u2014 Negative Split!",
+            "struktur": "Erste 3\u20135 km: 3\u20135 Sek/km LANGSAMER als Zielpace (egal wie gut es sich anf\u00fchlt) \u2192 Mitte: Zielpace halten \u2192 letzte 20\u201325%: frei laufen wenn Energie da ist.",
+            "dauer": "Zielzeit",
+            "hinweis": "Negative Split gewinnt Rennen. Die meisten Marathonis verlieren die zweite H\u00e4lfte \u2014 starte konservativ, ende stark."
           }
         ]
       },
       {
         "week_nr": 5,
         "week_start": "2026-07-06",
-        "phase": "Basis",
-        "planned_km": 68.1,
+        "phase": "Basis (Wiedereinstieg)",
+        "planned_km": 40.9,
         "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
             "typ": "Regeneration",
-            "km": 10.0,
+            "km": 6.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "10 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
-            "dauer": "60\u201370 min",
+            "struktur": "6 km sehr locker @ 5:04+ /km. Kein Pace-Druck.",
+            "dauer": "36\u201342 min",
             "hinweis": "HF Z1\u2013Z2. Wenn Beine schwer: Rad stattdessen."
           },
           {
             "tag": "Di",
             "typ": "Speed",
-            "km": 11.0,
+            "km": 6.0,
             "vorgabe": "5:04 /km + 8\u00d7100m @ 3:49 /km",
-            "struktur": "11 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "60\u201366 min",
+            "struktur": "6 km @ 5:04 /km (Z2) \u2192 8\u00d7100m Strides @ 3:49 /km (~22\u201328 Sek./St\u00fcck \u2014 kontrolliert beschleunigen, letzten 20m in Pace halten) \u2014 Pause: 45 Sek. locker gehen \u2192 1 km @ 5:04+ /km auslaufen",
+            "dauer": "33\u201336 min",
             "hinweis": "Strides sind kein Sprint \u2014 saubere Form, volle Frequenz. Aktiviert Fast-Twitch-Fasern und verbessert Lauf\u00f6knomie ohne merkliche Ersch\u00f6pfung. Jack Daniels empfiehlt diese bereits ab Phase 1 f\u00fcr erfahrene L\u00e4ufer."
           },
           {
             "tag": "Mi",
             "typ": "Ausdauer",
-            "km": 14.0,
+            "km": 8.0,
             "vorgabe": "~5:04 /km \u2192 letzte 3 km bis 4:43 /km",
-            "struktur": "11 km @ 5:04 /km (Z2) \u2192 letzte 3 km progressiv bis 4:43 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Hochschrauben.",
-            "dauer": "73\u201381 min",
+            "struktur": "5 km @ 5:04 /km (Z2) \u2192 letzte 3 km progressiv bis 4:43 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Hochschrauben.",
+            "dauer": "42\u201346 min",
             "hinweis": "Progression trainiert die F\u00e4higkeit, frisch in MP zu laufen. Abbrechkriterium: Wenn MP sich nach 1 km nicht locker anf\u00fchlt, Easy beenden."
           },
           {
             "tag": "Do",
             "typ": "Qualit\u00e4t \u2b50",
-            "km": 10.0,
+            "km": 7.0,
             "vorgabe": "2\u00d710 min @ 4:24 /km (T-Pace, Z4)",
             "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d710 min @ 4:24 /km (Z4) \u2014 Pause: 90 Sek. Easy-Jogging \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "48\u201352 min",
+            "dauer": "34\u201336 min",
             "hinweis": "Kurze Schwellenintervalle in der Basis halten die Laktattoleranz aktiv ohne die Gesamtbelastung zu hoch zu treiben. Pace muss kontrolliert gehalten werden \u2014 nicht durchbei\u00dfen."
           },
           {
@@ -346,10 +265,10 @@
           {
             "tag": "So",
             "typ": "Ausdauer",
-            "km": 23.0,
+            "km": 14.0,
             "vorgabe": "5:04 \u2013 5:50 /km (Z2)",
             "struktur": "Durchgehend locker @ 5:04\u20135:50 /km (Z2). Erste H\u00e4lfte am unteren Ende, zweite H\u00e4lfte darf etwas flotter sein.",
-            "dauer": "126\u2013150 min",
+            "dauer": "77\u201391 min",
             "hinweis": "Gespr\u00e4ch m\u00f6glich. HF Z2. Wander-/Bergeinlage am WE z\u00e4hlt als gleichwertiger Ersatz."
           }
         ]
@@ -1112,6 +1031,16 @@
       }
     ],
     "ftp": null,
-    "injury_breaks": []
+    "injury_breaks": [
+      {
+        "id": "2026-06-21_1782290659",
+        "start": "2026-06-21",
+        "est_days": 9,
+        "severity": "minor",
+        "end": null,
+        "note": "Verletzung 21.6. \u2014 7\u201310 Tage Pause, vorerst nur spazieren gehen",
+        "created_at": "2026-06-24T10:44:19.708568"
+      }
+    ]
   }
 }
