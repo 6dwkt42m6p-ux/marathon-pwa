@@ -1,6 +1,22 @@
 // Strava OAuth2 + activity sync
 import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
 
+// Thrown by fetchActivitiesAfter (and propagated through syncActivities) when Strava returns
+// HTTP 429. Callers (e.g. StravaSync.tsx) can use `instanceof StravaRateLimitError` to show
+// a user-friendly rate-limit message instead of the raw status string.
+// Mirrors the T-129 pattern used by _fetchStreams429/_fetchLaps429 (sentinel there, typed
+// error here — typed error is cleaner for async call-stack propagation).
+export class StravaRateLimitError extends Error {
+  readonly retryAfter: number | undefined
+  constructor(retryAfterSec?: number) {
+    super('Strava API 429: rate limit reached')
+    this.name = 'StravaRateLimitError'
+    this.retryAfter = retryAfterSec
+    // Restore prototype chain for instanceof to work correctly in transpiled output
+    Object.setPrototypeOf(this, new.target.prototype)
+  }
+}
+
 const CLIENT_ID     = import.meta.env.VITE_STRAVA_CLIENT_ID || ''
 // Token exchange/refresh go through the server-side proxy — secret never enters the client bundle.
 const TOKEN_PROXY   = import.meta.env.VITE_STRAVA_TOKEN_PROXY || ''
@@ -164,6 +180,11 @@ async function fetchActivitiesAfter(token: string, afterTs: number): Promise<Str
       `https://www.strava.com/api/v3/athlete/activities?after=${afterTs}&page=${page}&per_page=200`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
+    if (r.status === 429) {
+      const retryAfterRaw = r.headers.get('Retry-After')
+      const retryAfter = retryAfterRaw ? parseInt(retryAfterRaw, 10) : undefined
+      throw new StravaRateLimitError(Number.isFinite(retryAfter) ? retryAfter : undefined)
+    }
     if (!r.ok) throw new Error(`Strava API error: ${r.status}`)
     const batch: StravaActivity[] = await r.json()
     if (!batch.length) break

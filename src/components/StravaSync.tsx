@@ -2,12 +2,23 @@ import { useState, useEffect } from 'react'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
   syncActivities, getCachedActivities, parseRuns, loadTokens,
+  StravaRateLimitError,
   type RunSummary,
 } from '../lib/strava'
 import { vdotFromRace } from '../lib/vdot'
 
 interface Props {
   onVdotUpdate?: (vdot: number) => void
+}
+
+function syncErrorMessage(e: unknown): string {
+  if (e instanceof StravaRateLimitError) {
+    const hint = e.retryAfter
+      ? ` Bitte in ${e.retryAfter} Sekunden erneut versuchen.`
+      : ' Bitte in ein paar Minuten erneut versuchen.'
+    return `Strava-Limit erreicht — zu viele Anfragen.${hint}`
+  }
+  return String(e)
 }
 
 export default function StravaSync({ onVdotUpdate }: Props) {
@@ -45,12 +56,12 @@ export default function StravaSync({ onVdotUpdate }: Props) {
             computeBestVdot(parsed)
             setLastSync(new Date().toLocaleTimeString('de-AT'))
           } catch (e) {
-            setError(String(e))
+            setError(syncErrorMessage(e))
           } finally {
             setSyncing(false)
           }
         })
-        .catch(e => setError(String(e)))
+        .catch(e => setError(syncErrorMessage(e)))
     }
   }, [authed])
 
@@ -92,7 +103,7 @@ export default function StravaSync({ onVdotUpdate }: Props) {
       computeBestVdot(parsed)
       setLastSync(new Date().toLocaleTimeString('de-AT'))
     } catch (e) {
-      setError(String(e))
+      setError(syncErrorMessage(e))
     } finally {
       setSyncing(false)
     }
