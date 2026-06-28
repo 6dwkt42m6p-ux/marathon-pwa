@@ -591,3 +591,64 @@ describe('runRtss / runHrtss (T-138) — formelgleich zu coach.py', () => {
     expect(runHrtss(3600, 40, 170, 50)).toBeNull()
   })
 })
+
+// ── T-138: activityLoad Smart-Run-Block + computeAtlCtl threshold ─────────────
+
+const _THR: SyncedThreshold = {
+  lthr: 170, threshold_pace_sec: 240, rest_hr: 50, is_fallback: false, source: 'manual',
+}
+
+function _run(over: Partial<StravaActivity> = {}): StravaActivity {
+  // 15 km in 3600 s → pace = 3600/(15000/1000) = 240 s/km = threshold
+  return makeActivity({
+    type: 'Run', sport_type: 'Run', moving_time: 3600, distance: 15000,
+    average_heartrate: 170, suffer_score: 80, workout_type: 0,
+    ...over,
+  })
+}
+
+describe('activityLoad (T-138) — rTSS/hrTSS mit threshold', () => {
+  it('steady run: pace=threshold → rTSS=100 (not suffer_score=80)', () => {
+    // 15 km / 3600 s → 240 s/km = threshold → IF=1.0 → rTSS=100
+    expect(activityLoad(_run(), undefined, _THR)).toBeCloseTo(100, 0)
+  })
+  it('workout_type=3 → hrTSS wins (avg_hr=LTHR → 100)', () => {
+    // 12 km in 3600 s → pace=300, rTSS=(240/300)^2*100=64; HF=LTHR=170 → hrTSS=100
+    // structured=true (wt===3) → hrTSS wins; ratio also 1.5625 ≥ 1.15 (covered by Divergenz test too)
+    expect(activityLoad(_run({ distance: 12000, workout_type: 3 }), undefined, _THR)).toBeCloseTo(100, 0)
+  })
+  it('Divergenz: slow pace + high HF → hrTSS wins', () => {
+    // 11250m in 3600s → pace=320 s/km → rTSS=(240/320)^2*100=56.25
+    // hrTSS=100, ratio=100/56.25=1.78 ≥ 1.15 → structured → hrTSS
+    expect(activityLoad(_run({ distance: 11250, workout_type: 0 }), undefined, _THR)).toBeCloseTo(100, 0)
+  })
+  it('Lauf ohne HF → rTSS (no hrTSS fallback)', () => {
+    // avg_hr=undefined → hrTSS=null → rTSS wins (pace=threshold → 100)
+    expect(activityLoad(_run({ average_heartrate: undefined }), undefined, _THR)).toBeCloseTo(100, 0)
+  })
+  it('threshold undefined → Backward-Compat suffer_score', () => {
+    // No threshold → Smart-Run-Block skipped → suffer_score=80 wins
+    expect(activityLoad(_run({ suffer_score: 80 }))).toBe(80)
+  })
+  it('Ride with threshold → Power path still takes priority (Ride not Run)', () => {
+    const ride = makeActivity({
+      type: 'Ride', sport_type: 'Ride', workout_type: 0, moving_time: 3600,
+      weighted_average_watts: 250, device_watts: true,
+    })
+    // Power-TSS path wins (ftp=250, NP=250 → TSS=100); threshold ignored for Rides
+    expect(activityLoad(ride, 250, _THR)).toBeCloseTo(100, 0)
+  })
+})
+
+describe('computeAtlCtl (T-138) — threshold propagiert', () => {
+  it('ATL mit threshold ≠ ATL ohne (für Runs)', () => {
+    // Run 15km in 3600s, suffer_score=80. With threshold → rTSS=100; without → 80 (suffer_score)
+    const acts = [_run({
+      start_date: new Date(Date.now() - 86400 * 1000).toISOString(),
+      start_date_local: new Date(Date.now() - 86400 * 1000).toISOString(),
+    })]
+    const withT = computeAtlCtl(acts, undefined, _THR)
+    const withoutT = computeAtlCtl(acts, undefined)
+    expect(withT.atl).not.toBeCloseTo(withoutT.atl, 1)
+  })
+})
