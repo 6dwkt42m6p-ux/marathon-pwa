@@ -10,7 +10,7 @@ import Settings from './components/Settings'
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
 import CoachChat from './components/CoachChat'
 import { hasToken, fetchSync } from './lib/githubSync'
-import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC } from './lib/strava'
+import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC, type SyncedThreshold } from './lib/strava'
 import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
 
@@ -45,6 +45,7 @@ export default function App() {
   // T-125: FTP from desktop sync.json plan — null until sync arrives.
   // No local FTP fallback needed: without synced FTP, Ride-factor path stays active.
   const [syncedFtp, setSyncedFtp] = useState<number | null>(null)
+  const [syncedThreshold, setSyncedThreshold] = useState<SyncedThreshold | null>(null)
 
   useEffect(() => {
     const handleOnline  = () => setOnline(true)
@@ -100,6 +101,9 @@ export default function App() {
       if (data.plan?.vdot) setSyncedVdot(data.plan.vdot)
       // T-125: capture FTP from synced plan (null when not set on Desktop)
       if (data.plan?.ftp != null && data.plan.ftp > 0) setSyncedFtp(data.plan.ftp)
+      // T-138: capture threshold from synced plan for rTSS/hrTSS in PWA
+      if (data.plan?.threshold) setSyncedThreshold(data.plan.threshold as SyncedThreshold)
+      else setSyncedThreshold(null)
       // Apply remote settings if they exist (remote wins on first load)
       if (data.settings) {
         const merged = { ...loadSettings(), ...data.settings } as AppSettings
@@ -158,8 +162,8 @@ export default function App() {
       )}
 
       <main className="app-main">
-        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} />}
-        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} />}
+        {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
+        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}

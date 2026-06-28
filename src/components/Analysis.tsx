@@ -18,6 +18,7 @@ import {
   type StravaActivity,
   type ActivitySummary,
   type StrideDataEntry,
+  type SyncedThreshold,
 } from '../lib/strava'
 import { analyzeRun, analyzeRide, formatPace } from '../lib/vdot'
 import {
@@ -49,6 +50,8 @@ interface Props {
   effectiveVdot: number
   // T-125: FTP from Desktop sync.json plan — null when not yet synced or not set
   syncedFtp?: number | null
+  // T-138: Threshold from Desktop sync.json plan — null when not yet synced or not set
+  syncedThreshold?: SyncedThreshold | null
   // T-124: work-interval splits per quality session (workout_type==3) for adherence check.
   // Map of activityId(string) → list of interval-lap paces (sec/km).
   // Null = no quality sessions found in cache yet.
@@ -98,7 +101,7 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
 }
 
 
-export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
+export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, syncedThreshold, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
@@ -187,10 +190,10 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const weeklyStats  = useMemo(() => computeWeeklyStats(runs), [runs])
   const sportWeekly  = useMemo(() => computeWeeklyStatsBySport(cached), [cached])
   const weekStats    = useMemo(() => thisWeekStatsBySport(cached), [cached])
-  // T-125: pass syncedFtp so Rides with device_watts use bike_tss instead of duration factor
+  // T-125/T-138: pass syncedFtp + syncedThreshold so Rides use bike_tss, Runs use rTSS/hrTSS
   const tsbData      = useMemo(
-    () => hasStrava ? computeAtlCtl(cached, syncedFtp ?? undefined) : null,
-    [cached, hasStrava, syncedFtp],
+    () => hasStrava ? computeAtlCtl(cached, syncedFtp ?? undefined, syncedThreshold ?? undefined) : null,
+    [cached, hasStrava, syncedFtp, syncedThreshold],
   )
   const trend        = useMemo(
     () => hasStrava ? vdotTrendFromActivities(runs, effectiveVdot, settings.maxHr, settings.restHr) : null,
