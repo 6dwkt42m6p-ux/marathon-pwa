@@ -8,6 +8,7 @@ import { buildPaceTable } from '../lib/vdot'
 import {
   getCachedActivities, thisWeekKm, DAY_TAGS, parseAllActivities,
   computeAtlCtl, mondayOf, localISODate,
+  type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 import {
@@ -23,6 +24,8 @@ interface Props {
   effectiveVdot?: number
   // T-128: FTP from sync — used for bike TSS (power-meter parity with Analysis tab)
   syncedFtp?: number | null
+  // T-138: Threshold from sync — used for rTSS/hrTSS on Runs
+  syncedThreshold?: SyncedThreshold | null
 }
 
 const DAYS_ORDER = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
@@ -50,7 +53,7 @@ function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
 }
 
-export default function TodayWorkout({ settings, activitiesVersion = 0, effectiveVdot = settings.vdot, syncedFtp }: Props) {
+export default function TodayWorkout({ settings, activitiesVersion = 0, effectiveVdot = settings.vdot, syncedFtp, syncedThreshold }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
 
@@ -119,7 +122,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // activitiesVersion replaces the old syncedPlan dep — no longer tied to Mac-push timing.
   const cached = useMemo(() => getCachedActivities(), [activitiesVersion, effectiveVdot])  // eslint-disable-line react-hooks/exhaustive-deps
   const allActs      = useMemo(() => parseAllActivities(cached), [cached])
-  const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached, syncedFtp ?? undefined) : null, [cached, syncedFtp])
+  // T-138: syncedThreshold enables rTSS/hrTSS for Runs (like syncedFtp enables bike-TSS)
+  const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached, syncedFtp ?? undefined, syncedThreshold ?? undefined) : null, [cached, syncedFtp, syncedThreshold])
   const tsb           = tsbData?.tsb ?? 0
   const actualKmWeek  = useMemo(() => Math.round(thisWeekKm(cached) * 10) / 10, [cached])
   const todayTag      = DAY_TAGS[new Date().getDay()]

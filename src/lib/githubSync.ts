@@ -41,6 +41,7 @@ export interface SyncedPlan {
   inputHash:     string
   weeks:         SyncedPlanWeek[]
   ftp?:          number | null   // T-125: FTP from Desktop coach_profile; null when not set
+  threshold?:    import('./strava').SyncedThreshold | null   // T-138: threshold for rTSS/hrTSS
 }
 
 export interface SyncData {
