@@ -67,6 +67,28 @@ export function tempAdjFactor(tempC: number): number {
   return Math.min((10 - tempC) * 0.002, 0.06)
 }
 
+// T-140: GAP + Hitze-Normalisierung — formelgleich coach.py effort_normalization_factor.
+// Eliminiert Gelände- und Hitzeverzerrung aus EF und VDOT-Trend.
+const GAP_GRADE_FLOOR_PCT = 1.0   // < 1% Ø-Steigung gilt als flach
+const GAP_COST_PER_PCT   = 0.02  // 2% Pace-Vorteil je 1% Ø-Steigung über Floor
+const GAP_CAP            = 0.12  // max. 12% GAP-Aufschlag
+
+export function effortNormalizationFactor(
+  distanceKm: number, elevationM: number, tempC?: number,
+): number {
+  let heat = 0
+  if (tempC != null && !Number.isNaN(tempC)) {
+    heat = tempAdjFactor(tempC)
+    if (heat < 0.015) heat = 0
+  }
+  let gap = 0
+  if (distanceKm > 0 && Number.isFinite(elevationM)) {
+    const gradePct = (elevationM / (distanceKm * 1000)) * 100
+    gap = Math.min(GAP_COST_PER_PCT * Math.max(gradePct - GAP_GRADE_FLOOR_PCT, 0), GAP_CAP)
+  }
+  return (1 + heat) * (1 + gap)
+}
+
 export function parsePaceToSec(paceStr: string): number | null {
   const match = paceStr.match(/^(\d+):(\d{2})$/)
   if (!match) return null

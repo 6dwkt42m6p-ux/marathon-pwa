@@ -1,5 +1,5 @@
 // Strava OAuth2 + activity sync
-import { vdotFromRace as _vdotFromRace, trainingPaces } from './vdot'
+import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor } from './vdot'
 
 // Thrown by fetchActivitiesAfter (and propagated through syncActivities) when Strava returns
 // HTTP 429. Callers (e.g. StravaSync.tsx) can use `instanceof StravaRateLimitError` to show
@@ -442,7 +442,10 @@ export function vdotTrendFromActivities(
 
   const withVdot = effortRuns.map(r => {
     try {
-      const v = _vdotFromRace(r.distanceKm * 1000, r.durationSec)
+      // T-140: GAP + Hitze-Normalisierung — durationSec/factor = äquivalente Flachdauer.
+      // Roh-Filter (isEffortRun) und easyHrTrend bleiben auf unbereinigten Werten.
+      const factor = effortNormalizationFactor(r.distanceKm, r.elevationM, r.tempC)
+      const v = _vdotFromRace(r.distanceKm * 1000, r.durationSec / factor)
       return { ...r, computedVdot: (v > 20 && v < 85) ? v : null }
     } catch { return { ...r, computedVdot: null } }
   }).filter(r => r.computedVdot !== null) as (RunSummary & { computedVdot: number })[]
@@ -560,7 +563,10 @@ export function efficiencyFactorTrend(
   // ── 2. Per-run EF ──────────────────────────────────────────────────────────
   const withEf = qualifying.map(r => {
     const speedMs = (r.distanceKm * 1000) / r.durationSec
-    const ef      = (speedMs * 60) / r.avgHr!
+    // T-140: GAP + Hitze-Normalisierung — Speed mit Faktor skalieren.
+    // Roh-Filter (qualifying) und easyHrTrend bleiben auf unbereinigten Werten.
+    const factor  = effortNormalizationFactor(r.distanceKm, r.elevationM, r.tempC)
+    const ef      = (speedMs * factor * 60) / r.avgHr!
     return { date: r.date, ef }
   })
 
