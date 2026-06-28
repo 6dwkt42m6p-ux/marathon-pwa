@@ -742,6 +742,48 @@ const _SPORT_TYPE_FACTOR: Record<string, number> = {
   EBikeRide:   0.6,
 }
 
+// T-138: rTSS/hrTSS — formelgleich zu coach.py run_rtss/run_hrtss.
+// 1 h @ threshold = 100; IF = threshold/avgPace (faster pace → higher IF).
+const TSS_REF_SEC = 3600
+const STRUCTURED_DIVERGENCE = 1.15  // hrTSS/rTSS ratio above which workout is treated as structured
+
+export function runRtss(
+  durationSec: number,
+  avgPaceSec: number | null | undefined,
+  thresholdPaceSec: number,
+): number | null {
+  const d = Number(durationSec)
+  const p = Number(avgPaceSec)
+  const tp = Number(thresholdPaceSec)
+  if (!(d > 0) || !(p > 120 && p < 900) || !(tp > 0) || Number.isNaN(p) || Number.isNaN(tp)) return null
+  const intf = tp / p
+  return (d / TSS_REF_SEC) * intf * intf * 100
+}
+
+export function runHrtss(
+  durationSec: number,
+  avgHr: number | null | undefined,
+  lthr: number,
+  restHr: number,
+): number | null {
+  const d = Number(durationSec)
+  const hr = Number(avgHr)
+  const lt = Number(lthr)
+  const rh = Number(restHr)
+  if (!(d > 0) || !(hr > 0) || !(lt > rh) || Number.isNaN(hr) || Number.isNaN(lt)) return null
+  const intf = (hr - rh) / (lt - rh)
+  if (intf <= 0) return null
+  return (d / TSS_REF_SEC) * intf * intf * 100
+}
+
+export interface SyncedThreshold {
+  lthr: number
+  threshold_pace_sec: number
+  rest_hr: number
+  is_fallback: boolean
+  source: string
+}
+
 export function activityLoad(a: StravaActivity, ftp?: number): number {
   // Priority 1: Power-TSS for Rides with device-measured NP and known FTP.
   // Mirrors coach.py _daily_load priority: power path runs FIRST, before suffer_score.
