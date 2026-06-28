@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-06-24T08:49:21.463658+00:00",
+  "lastModified": "2026-06-28T05:19:23.721314+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-24T08:49:21Z",
+    "generatedAt": "2026-06-28T05:19:23Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "76a79e29e6c943842baf3dbc7c3f6177cdc4b6b55810bd0cba731e2f08e9f172",
+    "inputHash": "412ab67efb2ba5a16b2b3c5f75367aefd7d305bbcc358edce65a0d21ee3757d5",
     "weeks": [
       {
         "week_nr": 1,
@@ -1095,6 +1095,13 @@
         "note": "Verletzung 21.6. \u2014 7\u201310 Tage Pause, vorerst nur spazieren gehen",
         "created_at": "2026-06-24T10:44:19.708568"
       }
-    ]
+    ],
+    "threshold": {
+      "lthr": 175,
+      "threshold_pace_sec": 267.6,
+      "rest_hr": 45,
+      "is_fallback": false,
+      "source": "activity:Afternoon Run"
+    }
   }
 }
