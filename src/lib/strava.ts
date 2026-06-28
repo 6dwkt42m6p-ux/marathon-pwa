@@ -742,7 +742,49 @@ const _SPORT_TYPE_FACTOR: Record<string, number> = {
   EBikeRide:   0.6,
 }
 
-export function activityLoad(a: StravaActivity, ftp?: number): number {
+// T-138: rTSS/hrTSS — formelgleich zu coach.py run_rtss/run_hrtss.
+// 1 h @ threshold = 100; IF = threshold/avgPace (faster pace → higher IF).
+const TSS_REF_SEC = 3600
+const STRUCTURED_DIVERGENCE = 1.15  // hrTSS/rTSS ratio above which workout is treated as structured
+
+export function runRtss(
+  durationSec: number,
+  avgPaceSec: number | null | undefined,
+  thresholdPaceSec: number,
+): number | null {
+  const d = Number(durationSec)
+  const p = Number(avgPaceSec)
+  const tp = Number(thresholdPaceSec)
+  if (!(d > 0) || !(p > 120 && p < 900) || !(tp > 0) || Number.isNaN(p) || Number.isNaN(tp)) return null
+  const intf = tp / p
+  return (d / TSS_REF_SEC) * intf * intf * 100
+}
+
+export function runHrtss(
+  durationSec: number,
+  avgHr: number | null | undefined,
+  lthr: number,
+  restHr: number,
+): number | null {
+  const d = Number(durationSec)
+  const hr = Number(avgHr)
+  const lt = Number(lthr)
+  const rh = Number(restHr)
+  if (!(d > 0) || !(hr > 0) || !(lt > rh) || Number.isNaN(hr) || Number.isNaN(lt)) return null
+  const intf = (hr - rh) / (lt - rh)
+  if (intf <= 0) return null
+  return (d / TSS_REF_SEC) * intf * intf * 100
+}
+
+export interface SyncedThreshold {
+  lthr: number
+  threshold_pace_sec: number
+  rest_hr: number
+  is_fallback: boolean
+  source: string
+}
+
+export function activityLoad(a: StravaActivity, ftp?: number, threshold?: SyncedThreshold): number {
   // Priority 1: Power-TSS for Rides with device-measured NP and known FTP.
   // Mirrors coach.py _daily_load priority: power path runs FIRST, before suffer_score.
   // weighted_average_watts is Strava's NP field; fallback to average_watts not used here
@@ -758,6 +800,20 @@ export function activityLoad(a: StravaActivity, ftp?: number): number {
     if (durationSec > 0) {
       return bikeTss(a.weighted_average_watts, durationSec, ftp)
     }
+  }
+
+  // T-138: Smart Run-TSS (rTSS steady / hrTSS structured) — before suffer_score.
+  if (threshold && (sportType === 'Run' || sportType === 'TrailRun' || sportType === 'VirtualRun')) {
+    const durSec = a.moving_time || 0
+    const paceSec = a.distance && a.distance > 0 ? durSec / (a.distance / 1000) : null
+    const rtss = runRtss(durSec, paceSec, threshold.threshold_pace_sec)
+    const hrtss = runHrtss(durSec, a.average_heartrate, threshold.lthr, threshold.rest_hr)
+    const structured = a.workout_type === 3 ||
+      (rtss != null && hrtss != null && hrtss >= rtss * STRUCTURED_DIVERGENCE)
+    if (structured && hrtss != null) return Math.round(hrtss)
+    if (rtss != null) return Math.round(rtss)
+    if (hrtss != null) return Math.round(hrtss)
+    // Both null → fall through to suffer_score/factor path
   }
 
   // Priority 2: suffer_score when present and > 0 (Strava HR-based load).
@@ -783,15 +839,16 @@ export function activityLoad(a: StravaActivity, ftp?: number): number {
   return Math.round(durationMin * factor)
 }
 
-export function computeAtlCtl(activities: StravaActivity[], ftp?: number): AtlCtlResult {
+export function computeAtlCtl(activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold): AtlCtlResult {
   if (!activities.length) return { atl: 0, ctl: 0, tsb: 0 }
 
   // Build a map of load per calendar day (ISO date string → total load).
   // T-125: ftp propagated to activityLoad for power-TSS on Rides with device_watts.
+  // T-138: threshold propagated for rTSS/hrTSS on Runs.
   const dayMap = new Map<string, number>()
   for (const a of activities) {
     const day = (a.start_date_local || a.start_date).slice(0, 10)
-    dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp))
+    dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp, threshold))
   }
 
   // Determine date range: oldest activity → today
