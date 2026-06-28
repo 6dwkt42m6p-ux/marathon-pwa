@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
+import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
 // Root cause: using latestTs directly as "after" permanently skips any activity
@@ -650,5 +651,98 @@ describe('computeAtlCtl (T-138) — threshold propagiert', () => {
     const withT = computeAtlCtl(acts, undefined, _THR)
     const withoutT = computeAtlCtl(acts, undefined)
     expect(withT.atl).not.toBeCloseTo(withoutT.atl, 1)
+  })
+})
+
+// ── T-140: effortNormalizationFactor — formelgleich coach.py ──────────────────
+
+describe('effortNormalizationFactor (T-140) — formelgleich coach.py', () => {
+  it('flach + kühl → 1.0', () => {
+    expect(effortNormalizationFactor(10, 0, 12)).toBe(1.0)
+  })
+  it('fehlende Daten → 1.0', () => {
+    expect(effortNormalizationFactor(10, 0, undefined)).toBe(1.0)
+    // dist<=0 → kein GAP; kühl → factor=1.0
+    expect(effortNormalizationFactor(0, 500, 12)).toBe(1.0)
+    expect(effortNormalizationFactor(10, NaN, NaN)).toBe(1.0)
+  })
+  it('heiß == 1 + tempAdjFactor(28)', () => {
+    expect(effortNormalizationFactor(10, 0, 28)).toBeCloseTo(1 + tempAdjFactor(28), 9)
+  })
+  it('hügelig 5 % (600 m / 12 km) → 1.08', () => {
+    // grade = 600/(12000)*100 = 5%; gap = 0.02*(5-1)=0.08; heat=0 → factor=(1+0)*(1+0.08)=1.08
+    expect(effortNormalizationFactor(12, 600, 12)).toBeCloseTo(1.08, 6)
+  })
+  it('Gelände gedeckelt (8 % → cap 0.12 → 1.12)', () => {
+    // grade = 800/(10000)*100 = 8%; gap=0.02*(8-1)=0.14 → capped at 0.12 → factor=1.12
+    expect(effortNormalizationFactor(10, 800, 12)).toBeCloseTo(1.12, 6)
+  })
+  it('unter Floor (0.5 %) → kein GAP', () => {
+    // grade = 50/(10000)*100 = 0.5%; below 1% floor → gap=0 → factor=1.0
+    expect(effortNormalizationFactor(10, 50, 12)).toBe(1.0)
+  })
+  it('kombiniert heat und grade', () => {
+    // grade=5% → gap=0.08; heat=tempAdjFactor(28) → factor=(1+heat)*(1+0.08)
+    expect(effortNormalizationFactor(12, 600, 28)).toBeCloseTo((1 + tempAdjFactor(28)) * 1.08, 6)
+  })
+})
+
+// ── T-140: GAP/Hitze in efficiencyFactorTrend + vdotTrendFromActivities ───────
+
+function _makeEasyRuns(elevationM: number, n = 6): RunSummary[] {
+  const now = Date.now()
+  return Array.from({ length: n }, (_, i) => ({
+    id: i,
+    name: `Easy ${i}`,
+    date: new Date(now - (4 + i * 5) * 24 * 3600 * 1000),
+    distanceKm: 10,
+    durationSec: 3000,
+    paceSec: 300,
+    paceFmt: '',
+    avgHr: 140,
+    elevationM,
+    tempC: 12,
+  } as RunSummary))
+}
+
+describe('GAP/Hitze in efficiencyFactorTrend (T-140)', () => {
+  it('hügelig → höhere recentEf als flach', () => {
+    const flat  = efficiencyFactorTrend(_makeEasyRuns(0),   8, 190, 50)
+    const hilly = efficiencyFactorTrend(_makeEasyRuns(500), 8, 190, 50)  // 5% grade → factor 1.08
+    expect(flat).not.toBeNull()
+    expect(hilly).not.toBeNull()
+    expect(flat!.noHrData).toBe(false)
+    expect(hilly!.recentEf!).toBeGreaterThan(flat!.recentEf!)
+  })
+  it('ohne Höhe (elevationM=0) → backward-compat (Faktor 1.0)', () => {
+    const a = efficiencyFactorTrend(_makeEasyRuns(0), 8, 190, 50)
+    expect(a).not.toBeNull()
+    expect(a!.recentEf).toBeTruthy()
+  })
+})
+
+describe('GAP/Hitze in vdotTrendFromActivities (T-140)', () => {
+  function _makeEffortRuns(elevationM: number): RunSummary[] {
+    const now = Date.now()
+    return Array.from({ length: 6 }, (_, i) => ({
+      id: i,
+      name: `Effort ${i}`,
+      date: new Date(now - (4 + i * 5) * 24 * 3600 * 1000),
+      distanceKm: 10,
+      durationSec: 2400,  // 240 s/km = M-pace for VDOT ~45
+      paceSec: 240,
+      paceFmt: '',
+      avgHr: 170,
+      elevationM,
+      tempC: 12,
+    } as RunSummary))
+  }
+
+  it('hügeliger Effort → höheres recent VDOT als flach', () => {
+    const flat  = vdotTrendFromActivities(_makeEffortRuns(0),   50, 190, 50)
+    const hilly = vdotTrendFromActivities(_makeEffortRuns(600), 50, 190, 50)  // 6% grade
+    expect(flat).not.toBeNull()
+    expect(hilly).not.toBeNull()
+    expect(hilly!.recent).toBeGreaterThan(flat!.recent)
   })
 })
