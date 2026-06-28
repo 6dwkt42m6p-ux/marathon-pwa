@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl } from './strava'
-import type { RunSummary, StravaActivity } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss } from './strava'
+import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
 // Root cause: using latestTs directly as "after" permanently skips any activity
@@ -552,5 +552,42 @@ describe('computeAtlCtl (T-125) — ftp parameter propagates to activityLoad', (
     const resultWithFtp = computeAtlCtl([ride], 250)
     // With FTP: load=100 → ATL > without FTP (load=60)
     expect(resultWithFtp.atl).toBeGreaterThan(resultNoFtp.atl)
+  })
+})
+
+// ── T-138: runRtss / runHrtss — formula identical to coach.py ─────────────────
+
+describe('runRtss / runHrtss (T-138) — formelgleich zu coach.py', () => {
+  it('rTSS: 1 h @ threshold pace = 100', () => {
+    // IF = thresholdPace/avgPace = 240/240 = 1.0 → TSS = 1h * 1.0^2 * 100 = 100
+    expect(runRtss(3600, 240, 240)!).toBeCloseTo(100, 1)
+  })
+  it('rTSS: IF=√2 (pace=threshold/√2) → 200 für 1 h', () => {
+    // IF = 240 / (240/√2) = √2 → TSS = 1 * 2 * 100 = 200
+    expect(runRtss(3600, 240 / Math.sqrt(2), 240)!).toBeCloseTo(200, 0)
+  })
+  it('rTSS: guards → null', () => {
+    expect(runRtss(0, 240, 240)).toBeNull()
+    expect(runRtss(3600, null as unknown as number, 240)).toBeNull()
+    expect(runRtss(3600, 240, 0)).toBeNull()
+  })
+  it('rTSS: pace out of plausible range → null', () => {
+    expect(runRtss(3600, 100, 240)).toBeNull()  // 100 s/km = implausibly fast
+    expect(runRtss(3600, 1000, 240)).toBeNull() // 1000 s/km = implausibly slow
+  })
+  it('hrTSS: 1 h @ LTHR = 100', () => {
+    // IF_hr = (170-50)/(170-50) = 1.0 → hrTSS = 1h * 1.0^2 * 100 = 100
+    expect(runHrtss(3600, 170, 170, 50)!).toBeCloseTo(100, 1)
+  })
+  it('hrTSS: IF_hr=0.5 → 25 für 1 h', () => {
+    // avg_hr=110, lthr=170, rest_hr=50 → IF=(110-50)/(170-50) = 60/120 = 0.5
+    // TSS = 1 * 0.25 * 100 = 25
+    expect(runHrtss(3600, 110, 170, 50)!).toBeCloseTo(25, 0)
+  })
+  it('hrTSS: lthr==restHr → null (division by zero guard)', () => {
+    expect(runHrtss(3600, 170, 170, 170)).toBeNull()
+  })
+  it('hrTSS: IF_hr ≤ 0 (avgHr below restHr) → null', () => {
+    expect(runHrtss(3600, 40, 170, 50)).toBeNull()
   })
 })
