@@ -689,12 +689,14 @@ describe('effortNormalizationFactor (T-140) — formelgleich coach.py', () => {
 
 // ── T-140: GAP/Hitze in efficiencyFactorTrend + vdotTrendFromActivities ───────
 
-function _makeEasyRuns(elevationM: number, n = 6): RunSummary[] {
+// 8 easy runs spread across 8 weeks (1 per week), HR 140 (64% HRR, within 50–80% qualifying range)
+// pace=300s/km → speed=3.33m/s → EF=(3.33*60)/140=1.43 (within 1.1–4.2 m/s range)
+function _makeEasyRuns(elevationM: number): RunSummary[] {
   const now = Date.now()
-  return Array.from({ length: n }, (_, i) => ({
+  return Array.from({ length: 8 }, (_, i) => ({
     id: i,
     name: `Easy ${i}`,
-    date: new Date(now - (4 + i * 5) * 24 * 3600 * 1000),
+    date: new Date(now - (i * 7 + 3) * 24 * 3600 * 1000),  // 3,10,17,...59 days ago = 8 weeks
     distanceKm: 10,
     durationSec: 3000,
     paceSec: 300,
@@ -707,15 +709,15 @@ function _makeEasyRuns(elevationM: number, n = 6): RunSummary[] {
 
 describe('GAP/Hitze in efficiencyFactorTrend (T-140)', () => {
   it('hügelig → höhere recentEf als flach', () => {
-    const flat  = efficiencyFactorTrend(_makeEasyRuns(0),   8, 190, 50)
-    const hilly = efficiencyFactorTrend(_makeEasyRuns(500), 8, 190, 50)  // 5% grade → factor 1.08
+    const flat  = efficiencyFactorTrend(_makeEasyRuns(0),   190, 50)
+    const hilly = efficiencyFactorTrend(_makeEasyRuns(500), 190, 50)  // 5% grade → factor 1.08
     expect(flat).not.toBeNull()
     expect(hilly).not.toBeNull()
     expect(flat!.noHrData).toBe(false)
     expect(hilly!.recentEf!).toBeGreaterThan(flat!.recentEf!)
   })
   it('ohne Höhe (elevationM=0) → backward-compat (Faktor 1.0)', () => {
-    const a = efficiencyFactorTrend(_makeEasyRuns(0), 8, 190, 50)
+    const a = efficiencyFactorTrend(_makeEasyRuns(0), 190, 50)
     expect(a).not.toBeNull()
     expect(a!.recentEf).toBeTruthy()
   })
