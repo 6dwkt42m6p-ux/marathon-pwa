@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-06-28T05:19:23.721314+00:00",
+  "lastModified": "2026-06-29T04:55:37.716185+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-06-28T05:19:23Z",
+    "generatedAt": "2026-06-29T04:55:37Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "412ab67efb2ba5a16b2b3c5f75367aefd7d305bbcc358edce65a0d21ee3757d5",
+    "inputHash": "d6dc1ad7b388ae311f8c8cca1b668d35ad2d2811c2d10f875fd1c206a166801b",
     "weeks": [
       {
         "week_nr": 1,
@@ -170,7 +170,7 @@
         "week_start": "2026-06-22",
         "phase": "Verletzungspause \ud83e\ude79",
         "planned_km": 0.0,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Sa",
@@ -206,7 +206,7 @@
         "week_start": "2026-06-29",
         "phase": "Basis (Entlastung) (Wiedereinstieg)",
         "planned_km": 31.2,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
