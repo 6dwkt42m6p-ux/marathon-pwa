@@ -6,6 +6,7 @@ import {
   upsertDurability, loadAllDurability, DURABILITY_CACHE_KEY,
   type DurabilityRecord,
 } from './durability'
+import { localISODate } from './strava'
 
 function flatStreams(n = 1300, v = 3.0, hr = 150) {
   const time = Array.from({ length: n }, (_, i) => i)
@@ -75,7 +76,7 @@ describe('durabilityTrend', () => {
   const rec = (daysAgo: number, fade: number, drift: number,
                dur = 5400, dist = 22): DurabilityRecord => {
     const d = new Date(); d.setDate(d.getDate() - daysAgo)
-    return { date: d.toISOString().slice(0, 10), durationS: dur, distanceKm: dist,
+    return { date: localISODate(d), durationS: dur, distanceKm: dist,
              paceFadePct: fade, driftPct: drift, gapAdjusted: true }
   }
 
