@@ -1071,6 +1071,8 @@ export async function loadAnalyticsStreams(
 ): Promise<BulkAnalyticsResult> {
   // analyzeWorkoutLaps is in vdot.ts (no circular dep: vdot.ts imports from strava.ts types only).
   const { analyzeWorkoutLaps } = await import('./vdot')
+  // durability.ts is a separate module (no circular dep: imports types only from strava.ts).
+  const { durabilityRecordForRun, upsertDurability } = await import('./durability')
 
   const strideDataById: Record<string, StrideDataEntry> = {}
   const workSplits:     Record<string, number[]>        = {}
@@ -1096,6 +1098,12 @@ export async function loadAnalyticsStreams(
         strides:        analysis.strides.map(s => ({ peakPaceSec: s.peakPaceSec })),
         avgPeakPaceSec: analysis.avgPeakPaceSec,
       }
+    }
+
+    // T-142: Durability-Cache aus denselben Streams befüllen (Longrun-Gate).
+    if (run.durationSec >= 4500 || run.distanceKm >= 18) {
+      const drec = durabilityRecordForRun(run, result)
+      if (drec) upsertDurability(run.id, drec)
     }
   }
 
