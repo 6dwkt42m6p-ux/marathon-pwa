@@ -73,6 +73,13 @@ const GAP_GRADE_FLOOR_PCT = 1.0   // < 1% Ø-Steigung gilt als flach
 const GAP_COST_PER_PCT   = 0.02  // 2% Pace-Vorteil je 1% Ø-Steigung über Floor
 const GAP_CAP            = 0.12  // max. 12% GAP-Aufschlag
 
+// T-142: uphill-only Gelände-Kostenfaktor (≥ 1.0). Eine Quelle für die GAP-Konstanten,
+// genutzt von durability.ts (formelgleich coach.py _gap_factor_for_grade / effort_normalization).
+export function gapFactorForGrade(gradePct: number): number {
+  const gap = Math.min(GAP_COST_PER_PCT * Math.max(gradePct - GAP_GRADE_FLOOR_PCT, 0), GAP_CAP)
+  return 1 + gap
+}
+
 export function effortNormalizationFactor(
   distanceKm: number, elevationM: number, tempC?: number,
 ): number {
