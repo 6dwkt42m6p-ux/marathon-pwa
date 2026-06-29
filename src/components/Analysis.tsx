@@ -29,6 +29,12 @@ import {
   type AdherenceSession,
 } from '../lib/analytics'
 import {
+  durabilityTrend,
+  loadAllDurability,
+  type DurabilityTrend,
+  type DurabilitySignalTrend,
+} from '../lib/durability'
+import {
   generatePlan,
   assessDeviation,
   assessDeviationForRestDay,
@@ -100,6 +106,26 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
   }
 }
 
+
+// T-142: Inline-SVG-Sparkline für Durability-Signale (Drift + Fade).
+function DurabilitySparkline({ series, color }: { series: Array<[number, number]>; color: string }) {
+  if (!series || series.length < 2) return null
+  const w = 120, h = 32, pad = 3
+  const xs = series.map(p => p[0]), ys = series.map(p => p[1])
+  const xMin = Math.min(...xs), xMax = Math.max(...xs)
+  const yMin = Math.min(...ys), yMax = Math.max(...ys)
+  const sx = (x: number) => xMax === xMin ? w / 2 : pad + (x - xMin) / (xMax - xMin) * (w - 2 * pad)
+  const sy = (y: number) => yMax === yMin ? h / 2 : h - pad - (y - yMin) / (yMax - yMin) * (h - 2 * pad)
+  const pts = series.map(([x, y]) => `${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(' ')
+  return (
+    <svg width={w} height={h} style={{ display: 'block', marginTop: 4 }}>
+      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} />
+      {series.map(([x, y], i) => (
+        <circle key={i} cx={sx(x)} cy={sy(y)} r={1.8} fill={color} />
+      ))}
+    </svg>
+  )
+}
 
 export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, syncedThreshold, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
@@ -202,6 +228,13 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const efTrend      = useMemo(
     () => hasStrava ? efficiencyFactorTrend(runs, settings.maxHr, settings.restHr) : null,
     [hasStrava, runs, settings.maxHr, settings.restHr],
+  )
+  // T-142: Durability-Trend aus localStorage-Cache (befüllt von loadAnalyticsStreams).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const durTrend: DurabilityTrend | null = useMemo(
+    () => hasStrava ? durabilityTrend(loadAllDurability()) : null,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hasStrava, analyticsFetched, analyticsPartial],
   )
 
   // T-124: four new analytics — each independent signal with its own guard
@@ -514,6 +547,44 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             )
           })()}
         </>
+      )}
+
+      {/* T-142: Durability-Trend — Sub-3-Limiter (analog Desktop Tab 4), eigenständiger Guard */}
+      {hasStrava && durTrend && durTrend.nLongruns > 0 && (durTrend.drift || durTrend.fade) && (
+        <>
+          <div className="section-title">Durability-Trend (Longruns)</div>
+          <div className="activity-card" style={{ padding: '12px' }}>
+            {(
+              [
+                ['HR-Decoupling', durTrend.drift],
+                ['Pace-Fade (2. Hälfte)', durTrend.fade],
+              ] as Array<[string, DurabilitySignalTrend | null]>
+            ).map(([title, sg]) => (
+              <div key={title} style={{ marginBottom: 8 }}>
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', fontWeight: 600, letterSpacing: '0.04em', marginBottom: 4 }}>{title.toUpperCase()}</div>
+                {sg ? (
+                  <>
+                    <div className="trend-badge" style={{ background: `${sg.color}22`, color: sg.color }}>
+                      <span>{sg.direction}</span>
+                      <span>{sg.label}</span>
+                    </div>
+                    <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: 2 }}>
+                      Ø zuletzt {sg.recentAvg}% · früher {sg.earlyAvg}% · {sg.slopePerWeek > 0 ? '+' : ''}{sg.slopePerWeek.toFixed(2)} %/Woche
+                    </div>
+                    <DurabilitySparkline series={sg.series} color={sg.color} />
+                  </>
+                ) : (
+                  <div style={{ fontSize: '11px', color: 'var(--text-2)' }}>Zu wenige Longruns</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {hasStrava && durTrend && durTrend.nLongruns === 0 && (
+        <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: 4, padding: '4px 0' }}>
+          Öffne Longruns / Sync für den Durability-Trend (≥75 min oder ≥18 km)
+        </div>
       )}
 
       {/* T-124-G1: 80/20 Intensitätsverteilung — independent signal */}
