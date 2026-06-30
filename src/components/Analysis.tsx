@@ -26,7 +26,9 @@ import {
   stagnationCheck,
   vdotAdherenceCheck,
   aggregateStrideTrend,
+  injuryRisk,
   type AdherenceSession,
+  type InjuryRiskResult,
 } from '../lib/analytics'
 import {
   durabilityTrend,
@@ -220,6 +222,11 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const tsbData      = useMemo(
     () => hasStrava ? computeAtlCtl(cached, syncedFtp ?? undefined, syncedThreshold ?? undefined) : null,
     [cached, hasStrava, syncedFtp, syncedThreshold],
+  )
+  // T-144: ACWR + CTL-Ramp injury risk (shares dailyLoadSeries with computeAtlCtl)
+  const injury: InjuryRiskResult | null = useMemo(
+    () => hasStrava ? injuryRisk(cached, syncedFtp ?? undefined, syncedThreshold ?? undefined) : null,
+    [hasStrava, cached, syncedFtp, syncedThreshold],
   )
   const trend        = useMemo(
     () => hasStrava ? vdotTrendFromActivities(runs, effectiveVdot, settings.maxHr, settings.restHr) : null,
@@ -457,6 +464,23 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                   }} />
                 </div>
               </div>
+              {/* T-144: Verletzungsrisiko-Block (ACWR + CTL-Ramp) */}
+              {injury && injury.enoughData && (
+                <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border, #ffffff22)' }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                    {injury.riskEmoji} Verletzungsrisiko
+                  </div>
+                  <div style={{ fontSize: '12px', color: injury.acwrColor, marginTop: 2 }}>{injury.acwrLabel}</div>
+                  {injury.rampLabel && (
+                    <div style={{ fontSize: '11px', color: injury.rampColor, marginTop: 2 }}>{injury.rampLabel}</div>
+                  )}
+                </div>
+              )}
+              {injury && !injury.enoughData && (
+                <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: 8 }}>
+                  🩹 Verletzungsrisiko-Insight ab ~4 Wochen Trainingshistorie.
+                </div>
+              )}
             </div>
           </>
         )
