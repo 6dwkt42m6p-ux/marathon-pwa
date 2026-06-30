@@ -892,6 +892,17 @@ export function computeAtlCtl(activities: StravaActivity[], ftp?: number, thresh
   }
 }
 
+// T-146: Steigt der 42d-CTL? Letzter EWMA-Wert > 28 Kalendertage zuvor. <29 Tage → null.
+export function ctlRising(activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold): boolean | null {
+  const series = dailyLoadSeries(activities, ftp, threshold)
+  if (series.length < 29) return null
+  const k = 1 / 42
+  let ctl = 0
+  const out: number[] = []
+  for (const load of series) { ctl = ctl * (1 - k) + load * k; out.push(ctl) }
+  return out[out.length - 1] > out[out.length - 29]
+}
+
 export function thisWeekKm(activities: StravaActivity[]): number {
   const now    = new Date()
   const monday = mondayOf(now)
