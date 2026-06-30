@@ -10,6 +10,7 @@ import {
   injuryRisk,
 } from './analytics'
 import { trainingPaces } from './vdot'
+import { dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity } from './strava'
 
 // ── T-144: injuryRisk helpers ─────────────────────────────────────────────────
@@ -40,6 +41,16 @@ describe('injuryRisk', () => {
     expect(r.acwr!).toBeGreaterThanOrEqual(0.9)
     expect(r.acwr!).toBeLessThanOrEqual(1.15)
     expect(r.acwrZone).toBe('sweet')
+  })
+
+  it('acwr matches coupled EWMA formula (cross-app fidelity)', () => {
+    const acts: StravaActivity[] = []
+    for (let d = 0; d < 35; d++) acts.push(_act(d, 40 + d, d + 1))
+    const series = dailyLoadSeries(acts)
+    const ewma = (k: number) => series.reduce((v, load) => v * (1 - k) + load * k, 0)
+    const expected = ewma(1 / 7) / ewma(1 / 28)
+    const r = injuryRisk(acts)
+    expect(Math.abs(r.acwr! - expected)).toBeLessThan(0.02)
   })
 
   it('acute spike → high risk', () => {
