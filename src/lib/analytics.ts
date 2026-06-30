@@ -1,10 +1,11 @@
 // T-124: Analytics functions ported from coach.py (faithful port — same formulas/thresholds).
 // Functions: intensityDistribution, stagnationCheck, vdotAdherenceCheck, aggregateStrideTrend.
+// T-144: injuryRisk added — faithful port of coach.injury_risk (ACWR + CTL-Ramp).
 // Cross-app guardrail: coach.py is SSoT. Any change to coach.py thresholds must be mirrored here.
 
 import { trainingPaces, formatPace } from './vdot'
-import { mondayOf, localISODate } from './strava'
-import type { RunSummary } from './strava'
+import { mondayOf, localISODate, dailyLoadSeries } from './strava'
+import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 
 // ── Karvonen HR zone helper (mirrors coach.py _hr_zone_code) ─────────────────
 // hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
@@ -503,4 +504,100 @@ export function aggregateStrideTrend(
       avgPeakPaceSec:  Math.round(w.avgPps.reduce((s, v) => s + v, 0) / w.avgPps.length * 10) / 10,
       sessionCount:    w.sessionCount,
     }))
+}
+
+// ── injuryRisk ────────────────────────────────────────────────────────────────
+// T-144: Faithful port of coach.injury_risk (T-143).
+// ACWR = 7d-EWMA / 28d-EWMA; CTL-Ramp = 42d-CTL delta over 7 calendar days.
+// SSoT: coach.py constants ACWR_SWEET_LOW/HIGH, ACWR_CAUTION_HIGH, RAMP_SAFE, RAMP_CAUTION, ACWR_MIN_DAYS.
+
+const ACWR_SWEET_LOW    = 0.8
+const ACWR_SWEET_HIGH   = 1.3
+const ACWR_CAUTION_HIGH = 1.5
+const RAMP_SAFE         = 5.0
+const RAMP_CAUTION      = 8.0
+const ACWR_MIN_DAYS     = 28
+
+export interface InjuryRiskResult {
+  acwr:        number | null
+  acwrZone:    'underload' | 'sweet' | 'caution' | 'high' | null
+  acwrLabel:   string
+  acwrColor:   string
+  rampPerWeek: number | null
+  rampLabel:   string
+  rampColor:   string
+  riskLevel:   'ok' | 'caution' | 'high' | 'underload' | 'insufficient'
+  riskEmoji:   string
+  enoughData:  boolean
+}
+
+export function injuryRisk(
+  activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold,
+): InjuryRiskResult {
+  const neutral: InjuryRiskResult = {
+    acwr: null, acwrZone: null, acwrLabel: 'Datenbasis zu kurz', acwrColor: '#888888',
+    rampPerWeek: null, rampLabel: '', rampColor: '#888888',
+    riskLevel: 'insufficient', riskEmoji: '⚪', enoughData: false,
+  }
+  if (!activities || !activities.length) return neutral
+  const series = dailyLoadSeries(activities, ftp, threshold)
+  // series.length - 1 = span_days (oldest-to-today inclusive means length entries = length-1 gaps)
+  if (!series.length || series.length - 1 < ACWR_MIN_DAYS) return neutral
+
+  const k7 = 1 / 7, k28 = 1 / 28, k42 = 1 / 42
+  let acute = 0, chronic = 0, ctl42 = 0
+  const ctl42Series: number[] = []
+  for (const load of series) {
+    acute   = acute   * (1 - k7)  + load * k7
+    chronic = chronic * (1 - k28) + load * k28
+    ctl42   = ctl42   * (1 - k42) + load * k42
+    ctl42Series.push(ctl42)
+  }
+
+  // ── ACWR ──
+  const acwr = chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : null
+  let acwrZone: InjuryRiskResult['acwrZone'], acwrColor: string, acwrLabel: string
+  if (acwr === null) {
+    acwrZone = null; acwrColor = '#888888'; acwrLabel = 'Keine chronische Last'
+  } else if (acwr < ACWR_SWEET_LOW) {
+    acwrZone = 'underload'; acwrColor = '#3498DB'
+    acwrLabel = `ACWR ${acwr.toFixed(2)} — Unterlast (Detraining-Bereich)`
+  } else if (acwr <= ACWR_SWEET_HIGH) {
+    acwrZone = 'sweet'; acwrColor = '#2ECC71'
+    acwrLabel = `ACWR ${acwr.toFixed(2)} — Sweet-Spot, Last gut balanciert`
+  } else if (acwr <= ACWR_CAUTION_HIGH) {
+    acwrZone = 'caution'; acwrColor = '#F1C40F'
+    acwrLabel = `ACWR ${acwr.toFixed(2)} — erhöhte akute Last, beobachten`
+  } else {
+    acwrZone = 'high'; acwrColor = '#E74C3C'
+    acwrLabel = `ACWR ${acwr.toFixed(2)} — akute Last deutlich über Chronic; 1–2 Tage zurücknehmen`
+  }
+
+  // ── CTL-Ramp (7 calendar days = ctl42[-1] − ctl42[-8]) ──
+  let rampPerWeek: number | null = null
+  if (ctl42Series.length >= 8) {
+    rampPerWeek = Math.round((ctl42Series[ctl42Series.length - 1] - ctl42Series[ctl42Series.length - 8]) * 10) / 10
+  }
+  const rampStr = (v: number) => (v > 0 ? '+' : '') + v.toFixed(1)
+  let rampColor: string, rampLabel: string
+  if (rampPerWeek === null) {
+    rampColor = '#888888'; rampLabel = ''
+  } else if (rampPerWeek <= RAMP_SAFE) {
+    rampColor = '#2ECC71'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau im sicheren Bereich`
+  } else if (rampPerWeek <= RAMP_CAUTION) {
+    rampColor = '#F1C40F'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zügig, Steigerung dämpfen`
+  } else {
+    rampColor = '#E74C3C'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zu schnell (Verletzungsrisiko)`
+  }
+
+  // ── Kombiniertes Verdikt (schlechtere Ampel; Unterlast = Hinweis) ──
+  const sev: Record<string, number> = { '#2ECC71': 0, '#3498DB': 0, '#F1C40F': 1, '#E74C3C': 2, '#888888': 0 }
+  const worst = Math.max(sev[acwrColor] ?? 0, sev[rampColor] ?? 0)
+  let riskLevel: InjuryRiskResult['riskLevel'], riskEmoji: string
+  if (worst >= 2)                  { riskLevel = 'high';     riskEmoji = '🔴' }
+  else if (worst === 1)            { riskLevel = 'caution';  riskEmoji = '🟡' }
+  else if (acwrZone === 'underload') { riskLevel = 'underload'; riskEmoji = '🔵' }
+  else                             { riskLevel = 'ok';       riskEmoji = '🟢' }
+
+  return { acwr, acwrZone, acwrLabel, acwrColor, rampPerWeek, rampLabel, rampColor, riskLevel, riskEmoji, enoughData: true }
 }
