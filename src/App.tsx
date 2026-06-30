@@ -165,7 +165,7 @@ export default function App() {
         {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
-        {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} />}
+        {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
       </main>
