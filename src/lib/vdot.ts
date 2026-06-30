@@ -539,6 +539,139 @@ export function selectEffectiveVdot(
   return settingsVdot
 }
 
+// T-146: Bisection-inverse of vdotFromRace. Port of coach._time_for_vdot.
+export function timeForVdot(distanceM: number, targetVdot: number): number {
+  let lo = 60, hi = 36000
+  for (let i = 0; i < 60; i++) {
+    const mid = (lo + hi) / 2
+    if (vdotFromRace(distanceM, mid) > targetVdot) lo = mid; else hi = mid
+  }
+  return (lo + hi) / 2
+}
+
+// T-146: Race-Predictor — faithful port of coach.race_predictor (T-145). Konservativ.
+const PRED_FITNESS_RATE_VDOT = 0.05
+const PRED_FITNESS_CAP_VDOT  = 0.4
+const PRED_FITNESS_MAX_WEEKS = 8
+const PRED_FADE_PENALTY_CAP  = 0.04
+const PRED_TAPER_WEEKS       = 3
+const PRED_MARATHON_MIN_M    = 30000
+
+export interface RacePredictorOpts {
+  weeksToRace?:      number | null
+  tsb?:              number | null
+  ctlRising?:        boolean | null
+  durabilityFactor?: number | null
+  paceFadeRecent?:   number | null
+  lowData?:          boolean
+}
+
+export interface RacePredictorResult {
+  predictedSec:     number | null
+  rangeLowSec:      number | null
+  rangeHighSec:     number | null
+  baseSec:          number | null
+  bandPct:          number
+  confidence:       'hoch' | 'mittel' | 'niedrig'
+  effVdot:          number | null
+  fitnessGainVdot:  number
+  durabilityMult:   number
+  taperMult:        number
+  notes:            string[]
+}
+
+function _clampP(x: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, x))
+}
+
+function _isFiniteNum(x: number | null | undefined): x is number {
+  return x != null && Number.isFinite(x)
+}
+
+export function racePredictor(
+  currentVdot: number | null,
+  goalDistM: number,
+  opts: RacePredictorOpts = {},
+): RacePredictorResult {
+  const neutral: RacePredictorResult = {
+    predictedSec: null, rangeLowSec: null, rangeHighSec: null, baseSec: null,
+    bandPct: 0.10, confidence: 'niedrig', effVdot: null, fitnessGainVdot: 0,
+    durabilityMult: 1, taperMult: 1,
+    notes: ['Zu wenig Fitness-Daten für eine Prognose.'],
+  }
+  if (!_isFiniteNum(currentVdot) || currentVdot <= 0 || !goalDistM || goalDistM <= 0) return neutral
+
+  const {
+    weeksToRace = null, tsb = null, ctlRising = null,
+    durabilityFactor = null, paceFadeRecent = null, lowData = false,
+  } = opts
+  const notes: string[] = []
+  const baseSec = timeForVdot(goalDistM, currentVdot)
+
+  // 1. Fitness-Projektion (nur bei steigendem CTL)
+  let fitnessGain = 0
+  if (weeksToRace != null && ctlRising) {
+    const w = Math.max(Math.floor(weeksToRace), 0)
+    fitnessGain = _clampP(
+      Math.min(w, PRED_FITNESS_MAX_WEEKS) * PRED_FITNESS_RATE_VDOT,
+      0, PRED_FITNESS_CAP_VDOT,
+    )
+    if (fitnessGain > 0) notes.push(`Aufbau-Projektion +${fitnessGain.toFixed(2)} VDOT (CTL steigt).`)
+  }
+  let effVdot = currentVdot + fitnessGain
+
+  // 2. Durability (nur Marathon-Distanz >= 30 km)
+  let durabilityMult = 1
+  if (goalDistM >= PRED_MARATHON_MIN_M) {
+    if (_isFiniteNum(durabilityFactor) && durabilityFactor > 0) {
+      durabilityMult = durabilityFactor
+      if (durabilityMult < 1) notes.push(`Durability-Abschlag ×${durabilityMult.toFixed(3)} (Marathon-Renn-Historie).`)
+    } else if (_isFiniteNum(paceFadeRecent) && paceFadeRecent > 0) {
+      const fadePenalty = _clampP(paceFadeRecent / 100 * 0.5, 0, PRED_FADE_PENALTY_CAP)
+      durabilityMult = 1 - fadePenalty
+      if (fadePenalty > 0) notes.push(`Durability-Abschlag −${(fadePenalty * 100).toFixed(1)}% (Longrun-Pace-Fade).`)
+    }
+  }
+  effVdot *= durabilityMult
+
+  let predicted = timeForVdot(goalDistM, effVdot)
+
+  // 3. Taper (nur im Taper-Fenster weeks_to_race <= PRED_TAPER_WEEKS)
+  let taperMult = 1
+  if (weeksToRace != null && _isFiniteNum(tsb) && weeksToRace <= PRED_TAPER_WEEKS) {
+    taperMult = 1 - _clampP(tsb, -20, 25) / 25 * 0.02
+    if (taperMult < 1) notes.push(`Taper-Bonus ×${taperMult.toFixed(3)} (frisch, TSB ${tsb >= 0 ? '+' : ''}${Math.round(tsb)}).`)
+    else if (taperMult > 1) notes.push(`Ermüdungs-Malus ×${taperMult.toFixed(3)} (TSB ${tsb >= 0 ? '+' : ''}${Math.round(tsb)}).`)
+  }
+  predicted *= taperMult
+
+  // 4. Konfidenzband (additiv aus Unsicherheitsquellen)
+  let bandPct = goalDistM >= PRED_MARATHON_MIN_M ? 0.03 : (goalDistM >= 20000 ? 0.02 : 0.015)
+  if (goalDistM >= PRED_MARATHON_MIN_M && durabilityFactor == null) bandPct += 0.02
+  bandPct += Math.min(weeksToRace ?? 0, 16) / 16 * 0.02
+  if (_isFiniteNum(paceFadeRecent) && paceFadeRecent > 3) bandPct += 0.01
+  if (lowData) bandPct += 0.02
+  bandPct = _clampP(bandPct, 0.015, 0.10)
+
+  const bandSec = Math.round(predicted * bandPct)
+  predicted = Math.round(predicted)
+  const confidence: 'hoch' | 'mittel' | 'niedrig' = bandPct < 0.025 ? 'hoch' : (bandPct < 0.05 ? 'mittel' : 'niedrig')
+
+  return {
+    predictedSec:  predicted,
+    rangeLowSec:   predicted - bandSec,
+    rangeHighSec:  predicted + bandSec,
+    baseSec:       Math.round(baseSec),
+    bandPct:       Math.round(bandPct * 10000) / 10000,
+    confidence,
+    effVdot:       Math.round(effVdot * 100) / 100,
+    fitnessGainVdot: Math.round(fitnessGain * 100) / 100,
+    durabilityMult:  Math.round(durabilityMult * 1000) / 1000,
+    taperMult:       Math.round(taperMult * 1000) / 1000,
+    notes,
+  }
+}
+
 export const RACE_TARGETS: Record<string, { label: string; distM: number; targetSec: number }[]> = {
   hm: [
     { label: 'Sub 1:30', distM: 21097, targetSec: 89 * 60 + 59 },
