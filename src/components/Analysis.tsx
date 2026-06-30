@@ -478,7 +478,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               )}
               {injury && !injury.enoughData && (
                 <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: 8 }}>
-                  Verletzungsrisiko-Insight ab ~4 Wochen Trainingshistorie.
+                  🩹 Verletzungsrisiko-Insight ab ~4 Wochen Trainingshistorie.
                 </div>
               )}
             </div>
