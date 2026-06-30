@@ -7,9 +7,79 @@ import {
   stagnationCheck,
   vdotAdherenceCheck,
   aggregateStrideTrend,
+  injuryRisk,
 } from './analytics'
 import { trainingPaces } from './vdot'
-import type { RunSummary } from './strava'
+import type { RunSummary, StravaActivity } from './strava'
+
+// ── T-144: injuryRisk helpers ─────────────────────────────────────────────────
+
+function _act(daysAgo: number, suffer: number, id: number): StravaActivity {
+  const d = new Date(); d.setDate(d.getDate() - daysAgo); d.setHours(8, 0, 0, 0)
+  return {
+    id, name: `a${id}`, type: 'Run', sport_type: 'Run',
+    start_date: d.toISOString(), start_date_local: d.toISOString(),
+    distance: 10000, moving_time: 3600, elapsed_time: 3600,
+    total_elevation_gain: 0, suffer_score: suffer,
+  } as unknown as StravaActivity
+}
+
+function _steady(loadPerDay: number, days: number): StravaActivity[] {
+  const out: StravaActivity[] = []
+  for (let d = 0; d < days; d++) out.push(_act(d, loadPerDay, d + 1))
+  return out
+}
+
+// ── T-144: injuryRisk tests ───────────────────────────────────────────────────
+
+describe('injuryRisk', () => {
+  it('steady load → ACWR ~1, sweet', () => {
+    const r = injuryRisk(_steady(50, 80))
+    expect(r.enoughData).toBe(true)
+    expect(r.acwr).not.toBeNull()
+    expect(r.acwr!).toBeGreaterThanOrEqual(0.9)
+    expect(r.acwr!).toBeLessThanOrEqual(1.15)
+    expect(r.acwrZone).toBe('sweet')
+  })
+
+  it('acute spike → high risk', () => {
+    const acts: StravaActivity[] = []
+    for (let d = 7; d < 40; d++) acts.push(_act(d, 20, d + 1))
+    for (let d = 0; d < 5; d++) acts.push(_act(d, 120, 100 + d))
+    const r = injuryRisk(acts)
+    expect(r.acwr!).toBeGreaterThan(1.5)
+    expect(r.acwrZone).toBe('high')
+    expect(r.riskLevel).toBe('high')
+  })
+
+  it('flat load → ramp safe green', () => {
+    const r = injuryRisk(_steady(50, 90))
+    expect(r.rampPerWeek).not.toBeNull()
+    expect(r.rampPerWeek!).toBeLessThanOrEqual(5)
+    expect(r.rampColor).toBe('#2ECC71')
+  })
+
+  it('steep recent build → ramp red', () => {
+    const acts: StravaActivity[] = []
+    for (let d = 8; d < 60; d++) acts.push(_act(d, 10, d + 1))
+    for (let d = 0; d < 8; d++) acts.push(_act(d, 200, 100 + d))
+    const r = injuryRisk(acts)
+    expect(r.rampPerWeek!).toBeGreaterThan(8)
+    expect(r.rampColor).toBe('#E74C3C')
+  })
+
+  it('< 28 days → insufficient', () => {
+    const r = injuryRisk(_steady(50, 10))
+    expect(r.enoughData).toBe(false)
+    expect(r.riskLevel).toBe('insufficient')
+  })
+
+  it('empty → enoughData false, acwr null', () => {
+    const r = injuryRisk([])
+    expect(r.enoughData).toBe(false)
+    expect(r.acwr).toBeNull()
+  })
+})
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
