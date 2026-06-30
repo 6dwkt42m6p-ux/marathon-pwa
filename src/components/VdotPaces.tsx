@@ -1,13 +1,17 @@
-import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones } from '../lib/vdot'
+import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, racePredictor, type RacePredictorResult } from '../lib/vdot'
+import { getCachedActivities, computeAtlCtl, ctlRising, type SyncedThreshold } from '../lib/strava'
+import { durabilityTrend, loadAllDurability } from '../lib/durability'
 import type { AppSettings } from '../lib/storage'
 
 interface Props {
   settings: AppSettings
   // T-123: canonical VDOT from App — desktop sync wins, settings.vdot is offline fallback
   effectiveVdot: number
+  syncedFtp?: number | null
+  syncedThreshold?: SyncedThreshold | null
 }
 
-export default function VdotPaces({ settings, effectiveVdot }: Props) {
+export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedThreshold }: Props) {
   const vdot = effectiveVdot
   const paces = buildPaceTable(vdot)
 
@@ -23,6 +27,16 @@ export default function VdotPaces({ settings, effectiveVdot }: Props) {
 
   const hmFeas  = feasibilityCheck(vdot, vdotHmSub130,  hmWeeks)
   const marFeas = feasibilityCheck(vdot, vdotMarSub300, marWeeks)
+
+  // T-146: Race-Predictor inputs from cached activities + derived signals
+  const _acts    = getCachedActivities()
+  const _atl     = computeAtlCtl(_acts, syncedFtp ?? undefined, syncedThreshold ?? undefined)
+  const _rising  = ctlRising(_acts, syncedFtp ?? undefined, syncedThreshold ?? undefined)
+  const _fade    = durabilityTrend(loadAllDurability())?.fade?.recentAvg ?? null
+  const _lowData = _acts.length < 10
+
+  const hmPred  = racePredictor(vdot, 21097, { weeksToRace: hmWeeks,  tsb: _atl.tsb, ctlRising: _rising, paceFadeRecent: _fade, lowData: _lowData })
+  const marPred = racePredictor(vdot, 42195, { weeksToRace: marWeeks, tsb: _atl.tsb, ctlRising: _rising, paceFadeRecent: _fade, lowData: _lowData })
 
   return (
     <div className="tab-content">
@@ -67,6 +81,7 @@ export default function VdotPaces({ settings, effectiveVdot }: Props) {
           targetVdot={vdotHmSub130}
           feas={hmFeas}
         />
+        <PredictorCard title="Prognose Halbmarathon" pred={hmPred} />
         <FeasCard
           title="Sub 3:00h Marathon"
           date={marDate}
@@ -75,10 +90,58 @@ export default function VdotPaces({ settings, effectiveVdot }: Props) {
           targetVdot={vdotMarSub300}
           feas={marFeas}
         />
+        <PredictorCard title="Prognose Marathon" pred={marPred} />
       </div>
 
       <div className="section-title">Herzfrequenzzonen (Karvonen)</div>
       <HrZonesTable maxHr={settings.maxHr} restHr={settings.restHr} />
+    </div>
+  )
+}
+
+function _fmtHms(sec: number | null): string {
+  if (sec == null) return '—'
+  const s = Math.round(sec)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const ss = s % 60
+  return `${h}:${String(m).padStart(2, '0')}:${String(ss).padStart(2, '0')}`
+}
+
+function PredictorCard({ title, pred }: { title: string; pred: RacePredictorResult }) {
+  if (pred.predictedSec == null) {
+    return (
+      <div className="feas-card">
+        <div className="feas-header">
+          <div>
+            <span className="feas-title">{title}</span>
+          </div>
+        </div>
+        <p className="feas-msg" style={{ color: 'var(--text-2)', fontSize: 12 }}>
+          Prognose noch nicht möglich (zu wenig Daten).
+        </p>
+      </div>
+    )
+  }
+  const confColor = pred.confidence === 'hoch' ? '#2ECC71' : pred.confidence === 'mittel' ? '#F1C40F' : '#E74C3C'
+  return (
+    <div className="feas-card">
+      <div className="feas-header">
+        <span className="feas-emoji">&#128302;</span>
+        <div>
+          <span className="feas-title">{title}</span>
+          <span className="feas-rating" style={{ color: confColor }}>Konfidenz {pred.confidence}</span>
+        </div>
+      </div>
+      <div className="feas-details">
+        <span style={{ fontSize: 20, fontWeight: 700 }}>{_fmtHms(pred.predictedSec)}</span>
+        <span style={{ color: confColor }}>
+          {_fmtHms(pred.rangeLowSec)} – {_fmtHms(pred.rangeHighSec)}
+        </span>
+      </div>
+      {pred.notes.map((n, i) => (
+        <p key={i} className="feas-msg" style={{ fontSize: 11, marginTop: 2 }}>• {n}</p>
+      ))}
     </div>
   )
 }
