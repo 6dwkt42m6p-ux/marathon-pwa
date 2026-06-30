@@ -845,23 +845,34 @@ export function activityLoad(a: StravaActivity, ftp?: number, threshold?: Synced
   return Math.round(durationMin * factor)
 }
 
-export function computeAtlCtl(activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold): AtlCtlResult {
-  if (!activities.length) return { atl: 0, ctl: 0, tsb: 0 }
-
-  // Build a map of load per calendar day (ISO date string → total load).
-  // T-125: ftp propagated to activityLoad for power-TSS on Rides with device_watts.
-  // T-138: threshold propagated for rTSS/hrTSS on Runs.
+// T-144: per-Kalendertag-Last oldest→today (gefüllt 0). Geteilt von computeAtlCtl + injuryRisk,
+// spiegelt coach.py _daily_load + reindex-to-today.
+export function dailyLoadSeries(
+  activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold,
+): number[] {
+  if (!activities.length) return []
   const dayMap = new Map<string, number>()
   for (const a of activities) {
     const day = (a.start_date_local || a.start_date).slice(0, 10)
     dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp, threshold))
   }
-
-  // Determine date range: oldest activity → today
   const dates = Array.from(dayMap.keys()).sort()
   const startDate = new Date(dates[0])
-  const today     = new Date()
-  today.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const out: number[] = []
+  for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
+    out.push(dayMap.get(localISODate(d)) ?? 0)
+  }
+  return out
+}
+
+export function computeAtlCtl(activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold): AtlCtlResult {
+  if (!activities.length) return { atl: 0, ctl: 0, tsb: 0 }
+
+  // T-125: ftp propagated to activityLoad for power-TSS on Rides with device_watts.
+  // T-138: threshold propagated for rTSS/hrTSS on Runs.
+  // T-144: shared dailyLoadSeries — same series injuryRisk uses.
+  const series = dailyLoadSeries(activities, ftp, threshold)
 
   const K_CTL = 1 / 42
   const K_ATL = 1 / 7
@@ -869,9 +880,7 @@ export function computeAtlCtl(activities: StravaActivity[], ftp?: number, thresh
   let ctl = 0
   let atl = 0
 
-  for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {
-    const key  = localISODate(d)
-    const load = dayMap.get(key) ?? 0
+  for (const load of series) {
     ctl = ctl * (1 - K_CTL) + load * K_CTL
     atl = atl * (1 - K_ATL) + load * K_ATL
   }
