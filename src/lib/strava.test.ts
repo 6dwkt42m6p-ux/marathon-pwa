@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -746,5 +746,37 @@ describe('GAP/Hitze in vdotTrendFromActivities (T-140)', () => {
     expect(flat).not.toBeNull()
     expect(hilly).not.toBeNull()
     expect(hilly!.recent).toBeGreaterThan(flat!.recent)
+  })
+})
+
+// T-146: ctlRising — 42d-EWMA steigt wenn Last aufgebaut wurde; null bei <29 Tagen Daten.
+describe('ctlRising (T-146)', () => {
+  // Helper: activity at daysAgo with given moving_time (seconds, maps to suffer_score-free load)
+  function _actDaysAgo(daysAgo: number, movingTimeSec: number): StravaActivity {
+    const d = new Date(Date.now() - daysAgo * 86400 * 1000)
+    const iso = d.toISOString()
+    return makeActivity({ start_date: iso, start_date_local: iso, moving_time: movingTimeSec, workout_type: 0 })
+  }
+
+  it('returns null when fewer than 29 days of data', () => {
+    const short: StravaActivity[] = []
+    for (let d = 0; d < 10; d++) short.push(_actDaysAgo(d, 3600))
+    expect(ctlRising(short)).toBeNull()
+  })
+
+  it('returns true when load builds up over 41 days (heute höher als vor 28)', () => {
+    const building: StravaActivity[] = []
+    // Older days: light load (1 min), recent days: heavy load (120 min) → CTL rises
+    for (let d = 40; d >= 14; d--) building.push(_actDaysAgo(d, 60))   // 1 min = load 1
+    for (let d = 13; d >= 0; d--) building.push(_actDaysAgo(d, 7200))  // 120 min = load 120
+    expect(ctlRising(building)).toBe(true)
+  })
+
+  it('returns false when load declines over 41 days (heute niedriger als vor 28)', () => {
+    const declining: StravaActivity[] = []
+    // Days 60–30: very heavy load; days 29–0: zero load → CTL definitely falls
+    for (let d = 60; d >= 30; d--) declining.push(_actDaysAgo(d, 14400)) // 4h
+    // days 29–0: no activities → dailyLoadSeries fills 0
+    expect(ctlRising(declining)).toBe(false)
   })
 })
