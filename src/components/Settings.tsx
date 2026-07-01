@@ -5,9 +5,14 @@ import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
-  loadLastSyncTimestamp,
+  loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
 import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync } from '../lib/githubSync'
+import {
+  activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
+  loadPendingMutation, savePendingMutation, clearPendingMutation, isPendingMutationApplied,
+  type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
+} from '../lib/injury'
 
 interface Props {
   settings: AppSettings
@@ -24,6 +29,65 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [ghMsg,      setGhMsg]     = useState<string | null>(null)
   const [ghErr,      setGhErr]     = useState<string | null>(null)
   const [_ghSha,     setGhSha]     = useState<string | null>(null)
+
+  // T-132: Verletzungspausen — synced state + pending optimistic overlay
+  const [injuryBreaks,  setInjuryBreaks]  = useState<RawInjuryBreak[]>([])
+  const [injuryPending, setInjuryPending] = useState<InjuryBreakMutation | null>(loadPendingMutation)
+  const [injStart,    setInjStart]    = useState(localISODate(new Date()))
+  const [injDays,     setInjDays]     = useState(9)
+  const [injSeverity, setInjSeverity] = useState<InjurySeverity>('minor')
+  const [injNote,     setInjNote]     = useState('')
+  const [injBusy,     setInjBusy]     = useState(false)
+  const [injErr,      setInjErr]      = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!hasToken()) return
+    let mounted = true
+    fetchSync().then(result => {
+      if (!mounted || !result) return
+      const breaks = (result.data.plan?.injury_breaks ?? []) as RawInjuryBreak[]
+      setInjuryBreaks(breaks)
+      const pending = loadPendingMutation()
+      if (pending && isPendingMutationApplied(pending, breaks)) {
+        clearPendingMutation()
+        setInjuryPending(null)
+      }
+    }).catch(() => { /* best-effort, same pattern as App.tsx startup sync */ })
+    return () => { mounted = false }
+  }, [])
+
+  async function handleStartInjuryBreak() {
+    setInjBusy(true); setInjErr(null)
+    try {
+      const fresh = await fetchSync(true)
+      const mutation = buildStartMutation(injStart, injDays, injSeverity, injNote)
+      const existing = fresh?.data.injuryBreakMutations ?? []
+      await pushSync({ ...(fresh?.data ?? {}), injuryBreakMutations: [...existing, mutation] }, fresh?.sha)
+      savePendingMutation(mutation)
+      setInjuryPending(mutation)
+      setInjNote('')
+    } catch (e) {
+      setInjErr(String(e))
+    } finally {
+      setInjBusy(false)
+    }
+  }
+
+  async function handleEndInjuryBreak(breakId: string) {
+    setInjBusy(true); setInjErr(null)
+    try {
+      const fresh = await fetchSync(true)
+      const mutation = buildEndMutation(breakId, localISODate(new Date()))
+      const existing = fresh?.data.injuryBreakMutations ?? []
+      await pushSync({ ...(fresh?.data ?? {}), injuryBreakMutations: [...existing, mutation] }, fresh?.sha)
+      savePendingMutation(mutation)
+      setInjuryPending(mutation)
+    } catch (e) {
+      setInjErr(String(e))
+    } finally {
+      setInjBusy(false)
+    }
+  }
 
   async function handleGhSync() {
     setGhSyncing(true); setGhErr(null); setGhMsg(null)
@@ -321,6 +385,95 @@ export default function Settings({ settings, onUpdate }: Props) {
         )}
         {ghMsg && <div style={{ fontSize: '12px', color: 'var(--green)' }}>{ghMsg}</div>}
         {ghErr && <div className="error-box">{ghErr}</div>}
+      </div>
+
+      {/* T-132: Verletzungspause */}
+      <div className="section-title">🩹 Verletzungspause</div>
+      <div className="settings-group">
+        {(() => {
+          const active = activeInjuryBreak(injuryBreaks, new Date())
+          if (active) {
+            const { end } = effectiveWindow(active)
+            return (
+              <>
+                <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5 }}>
+                  Aktive Pause seit <strong>{active.start}</strong> ({active.severity}, vsl. bis {localISODate(end)}).
+                  {active.note && ` ${active.note}`}
+                </p>
+                <button
+                  className="btn-primary"
+                  onClick={() => handleEndInjuryBreak(active.id)}
+                  disabled={injBusy || !hasToken()}
+                >
+                  {injBusy ? '⏳ Speichere…' : '✅ Wieder fit (Pause beenden)'}
+                </button>
+              </>
+            )
+          }
+          return (
+            <>
+              <label className="setting-label">
+                Start
+                <input
+                  type="date"
+                  className="setting-input"
+                  value={injStart}
+                  onChange={e => setInjStart(e.target.value)}
+                />
+              </label>
+              <label className="setting-label">
+                Geschätzte Tage
+                <input
+                  type="number"
+                  className="setting-input"
+                  value={injDays}
+                  min="1"
+                  max="180"
+                  onChange={e => setInjDays(parseInt(e.target.value) || 1)}
+                />
+              </label>
+              <label className="setting-label">
+                Schwere
+                <select
+                  className="setting-input"
+                  value={injSeverity}
+                  onChange={e => setInjSeverity(e.target.value as InjurySeverity)}
+                >
+                  <option value="minor">Minor</option>
+                  <option value="moderate">Moderate</option>
+                  <option value="major">Major</option>
+                </select>
+              </label>
+              <label className="setting-label">
+                Notiz (optional)
+                <input
+                  type="text"
+                  className="setting-input"
+                  value={injNote}
+                  onChange={e => setInjNote(e.target.value)}
+                />
+              </label>
+              <button
+                className="btn-primary"
+                onClick={handleStartInjuryBreak}
+                disabled={injBusy || !hasToken()}
+              >
+                {injBusy ? '⏳ Speichere…' : '🩹 Pause eintragen'}
+              </button>
+              {!hasToken() && (
+                <p style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+                  Geräte-Sync-Token oben eintragen, um Pausen vom Handy einzutragen.
+                </p>
+              )}
+            </>
+          )
+        })()}
+        {injuryPending && (
+          <div style={{ fontSize: '12px', color: 'var(--text-2)' }}>
+            ⏳ Wartet auf Desktop-Sync
+          </div>
+        )}
+        {injErr && <div className="error-box">{injErr}</div>}
       </div>
 
       <div className="section-title">Fitness</div>
