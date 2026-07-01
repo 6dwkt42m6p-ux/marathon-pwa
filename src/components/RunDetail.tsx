@@ -5,10 +5,12 @@ import {
   classifyWorkoutStructure,
   type ActivitySummary,
   type WorkoutClassification,
+  type ActivityStreams,
 } from '../lib/strava'
 import { analyzeRun, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
 import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
 import type { WorkoutSession, PlanDeviation } from '../lib/plan'
+import { sessionExecutionQuality, dataQualityScore } from '../lib/analytics'
 
 const ZONE_COLORS: Record<string, string> = {
   Z1: '#42A5F5', Z2: '#4CAF50', Z3: '#FFC107', Z4: '#FF9800', Z5: '#e53935',
@@ -154,6 +156,7 @@ export default function RunDetail({
   onNoteSaved,
 }: RunDetailProps) {
   const [classification, setClassification] = useState<WorkoutClassification | null>(null)
+  const [streams,        setStreams]        = useState<ActivityStreams | null>(null)
   const [loadingStream,  setLoadingStream]  = useState(false)
   const [streamErr,      setStreamErr]      = useState<string | null>(null)
   const [lapData,        setLapData]        = useState<WorkoutLapAnalysis | null>(null)
@@ -196,16 +199,17 @@ export default function RunDetail({
   async function loadStreams() {
     setLoadingStream(true); setStreamErr(null)
     try {
-      const streams = await fetchActivityStreams(act.id)
-      if (streams === 'rate_limited') {
+      const fetchedStreams = await fetchActivityStreams(act.id)
+      if (fetchedStreams === 'rate_limited') {
         setStreamErr('Strava-Rate-Limit erreicht — bitte in ein paar Minuten erneut versuchen.')
-      } else if (!streams || streams.velocity_smooth.length === 0) {
+      } else if (!fetchedStreams || fetchedStreams.velocity_smooth.length === 0) {
         setStreamErr('Keine Stream-Daten verfügbar.')
       } else {
+        setStreams(fetchedStreams)
         setClassification(classifyWorkoutStructure(
-          streams.time,
-          streams.velocity_smooth,
-          streams.heartrate,
+          fetchedStreams.time,
+          fetchedStreams.velocity_smooth,
+          fetchedStreams.heartrate,
           vdot,
         ))
       }
@@ -304,6 +308,25 @@ export default function RunDetail({
       {streamErr && <div style={{ color: '#e53935', fontSize: '11px' }}>{streamErr}</div>}
 
       {classification && <WorkoutBadge classification={classification} />}
+
+      {classification && (() => {
+        const exq = sessionExecutionQuality(classification, vdot, act.distanceKm, streams)
+        return exq ? (
+          <div style={{ marginTop: 8, fontSize: 13, color: exq.color, fontWeight: 600 }}>
+            {'🎯'} {exq.label} — Zeit im Ziel {exq.timeInTargetPct}% · Fade {exq.repFadePct}% · CV {exq.splitCvPct}%
+          </div>
+        ) : null
+      })()}
+
+      {streams && (() => {
+        const dq = dataQualityScore(streams)
+        return (
+          <div style={{ marginTop: 4, fontSize: 11, color: 'var(--text-2)' }}>
+            {'📶'} Datenqualität: <span style={{ color: dq.color }}>{dq.reliability}</span> ({Math.round(dq.score)}/100)
+            {dq.flags.length ? ' — ' + dq.flags.join('; ') : ''}
+          </div>
+        )
+      })()}
 
       {(act.workoutType ?? 0) > 1 && (
         <div style={{ background: '#FFC10722', border: '1px solid #FFC10744', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
