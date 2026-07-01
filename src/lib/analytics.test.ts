@@ -1,5 +1,6 @@
 // T-124: Tests for four new analytics functions
 // Test-first approach: expected values derived from coach.py formulas, not from the TS implementation.
+// T-148: Tests for executionQuality / sessionExecutionQuality / dataQualityScore (faithful port).
 
 import { describe, it, expect } from 'vitest'
 import {
@@ -8,10 +9,89 @@ import {
   vdotAdherenceCheck,
   aggregateStrideTrend,
   injuryRisk,
+  executionQuality,
+  sessionExecutionQuality,
+  dataQualityScore,
 } from './analytics'
 import { trainingPaces } from './vdot'
 import { dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity } from './strava'
+import type { WorkoutClassification, ActivityStreams } from './strava'
+
+// ── T-148: executionQuality ───────────────────────────────────────────────────
+
+describe('executionQuality', () => {
+  it('on target consistent → sauber', () => {
+    const r = executionQuality([240, 240, 241, 239, 240], 240, 12)!
+    expect(r.timeInTargetPct).toBe(100)
+    expect(Math.abs(r.repFadePct)).toBeLessThan(1)
+    expect(r.verdict).toBe('sauber')
+  })
+  it('late fade flagged', () => {
+    const r = executionQuality([240, 242, 250, 262, 270], 240, 12)!
+    expect(r.repFadePct).toBeGreaterThan(8)
+    expect(['verfehlt', 'leicht abgebaut']).toContain(r.verdict)
+  })
+  it('interval tolerance tighter than tempo', () => {
+    const p = [258, 258, 258, 258]
+    expect(executionQuality(p, 240, 12)!.timeInTargetPct).toBe(0)
+    expect(executionQuality(p, 240, 20)!.timeInTargetPct).toBe(100)
+  })
+  it('empty → null', () => { expect(executionQuality([], 240, 12)).toBeNull() })
+})
+
+// ── T-148: sessionExecutionQuality ───────────────────────────────────────────
+
+describe('sessionExecutionQuality', () => {
+  const cls = (wt: WorkoutClassification['workoutType'], extra: Partial<WorkoutClassification> = {}): WorkoutClassification =>
+    ({ workoutType: wt, strides: [], intervalBlocks: [], tempoBlocks: [], ...extra })
+  it('intervals → result', () => {
+    const c = cls('intervals', { intervalBlocks: Array(4).fill({ startSec: 0, durationSec: 180, avgPaceSec: 222, avgHr: 175 }) })
+    const r = sessionExecutionQuality(c, 50)!
+    expect(r.sessionType).toBe('intervals')
+  })
+  it('strides → null', () => { expect(sessionExecutionQuality(cls('strides'), 50)).toBeNull() })
+  it('easy → null', () => { expect(sessionExecutionQuality(cls('easy'), 50)).toBeNull() })
+  it('null vdot → null', () => {
+    const c = cls('intervals', { intervalBlocks: [{ startSec: 0, durationSec: 180, avgPaceSec: 222 }] as unknown as WorkoutClassification['intervalBlocks'] })
+    expect(sessionExecutionQuality(c, null)).toBeNull()
+  })
+})
+
+// ── T-148: dataQualityScore ───────────────────────────────────────────────────
+
+describe('dataQualityScore', () => {
+  const clean = (n = 1200): ActivityStreams => ({
+    time: Array.from({ length: n }, (_, i) => i),
+    heartrate: Array.from({ length: n }, (_, i) => 140 + (i % 20)),
+    velocity_smooth: Array.from({ length: n }, (_, i) => 3.0 + 0.3 * ((Math.floor(i / 30)) % 3)),
+    altitude: Array(n).fill(100), distance: Array.from({ length: n }, (_, i) => 3 * i),
+  })
+  it('clean → high score', () => {
+    const r = dataQualityScore(clean())
+    expect(r.score).toBeGreaterThanOrEqual(80)
+    expect(r.reliability).toBe('zuverlässig')
+    expect(r.flags).toEqual([])
+  })
+  it('frozen hr block flagged', () => {
+    const s = clean(); for (let i = 200; i < 260; i++) s.heartrate![i] = 150
+    expect(dataQualityScore(s).flags.some(f => /eingefroren/i.test(f))).toBe(true)
+  })
+  it('early hr artifact flagged', () => {
+    const s = clean()
+    for (let i = 0; i < 120; i++) s.heartrate![i] = 175
+    for (let i = 120; i < s.heartrate!.length; i++) s.heartrate![i] = 140
+    expect(dataQualityScore(s).flags.some(f => /artefakt|anlauf/i.test(f))).toBe(true)
+  })
+  it('missing hr penalised', () => {
+    const s = clean(); s.heartrate = undefined
+    const r = dataQualityScore(s); expect(r.hasHr).toBe(false); expect(r.score).toBeLessThan(100)
+  })
+  it('gps spike flagged', () => {
+    const s = clean(); s.velocity_smooth[500] = 15
+    expect(dataQualityScore(s).flags.some(f => /gps/i.test(f))).toBe(true)
+  })
+})
 
 // ── T-144: injuryRisk helpers ─────────────────────────────────────────────────
 
