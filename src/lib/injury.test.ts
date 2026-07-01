@@ -55,6 +55,12 @@ describe('activeInjuryBreak', () => {
     const today = new Date('2026-06-28T00:00:00')
     expect(activeInjuryBreak([b], today)).toBeNull()
   })
+
+  it('recognizes a break as still active later on its last calendar day (non-midnight today)', () => {
+    const b = mkBreak({ start: '2026-07-01', est_days: 7, end: null }) // effective end = 2026-07-08 midnight
+    const today = new Date('2026-07-08T14:00:00')
+    expect(activeInjuryBreak([b], today)).toEqual(b)
+  })
 })
 
 describe('mutation builders', () => {
