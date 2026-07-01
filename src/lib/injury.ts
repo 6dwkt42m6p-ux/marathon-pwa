@@ -44,10 +44,14 @@ export function effectiveWindow(b: RawInjuryBreak): { start: Date; end: Date } {
 }
 
 export function activeInjuryBreak(breaks: RawInjuryBreak[], today: Date): RawInjuryBreak | null {
+  // today kommt in Settings.tsx als `new Date()` mit realer Uhrzeit, effectiveWindow()-Grenzen
+  // sind aber immer lokale Mitternacht -> ohne Normalisierung faellt der letzte Kalendertag
+  // eines offenen Breaks ab 00:00:01 Uhr faelschlich aus dem Fenster (T-132 Review-Fix).
+  const t = new Date(today.getFullYear(), today.getMonth(), today.getDate())
   for (const b of breaks) {
     if (b.end) continue
     const { start, end } = effectiveWindow(b)
-    if (start <= today && today <= end) return b
+    if (start <= t && t <= end) return b
   }
   return null
 }
