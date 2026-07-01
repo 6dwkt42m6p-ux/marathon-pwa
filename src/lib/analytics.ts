@@ -1,11 +1,13 @@
 // T-124: Analytics functions ported from coach.py (faithful port — same formulas/thresholds).
 // Functions: intensityDistribution, stagnationCheck, vdotAdherenceCheck, aggregateStrideTrend.
 // T-144: injuryRisk added — faithful port of coach.injury_risk (ACWR + CTL-Ramp).
+// T-148: executionQuality, sessionExecutionQuality, dataQualityScore — faithful port of T-147.
+//   Port-Anpassung: PWA IntervalBlock/TempoBlock haben kein zone-Feld → Zone aus workoutType (intervals→I, tempo→T).
 // Cross-app guardrail: coach.py is SSoT. Any change to coach.py thresholds must be mirrored here.
 
 import { trainingPaces, formatPace } from './vdot'
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
-import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
+import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams } from './strava'
 
 // ── Karvonen HR zone helper (mirrors coach.py _hr_zone_code) ─────────────────
 // hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
@@ -600,4 +602,157 @@ export function injuryRisk(
   else                             { riskLevel = 'ok';       riskEmoji = '🟢' }
 
   return { acwr, acwrZone, acwrLabel, acwrColor, rampPerWeek, rampLabel, rampColor, riskLevel, riskEmoji, enoughData: true }
+}
+
+// ── T-148: Execution Quality + Data Quality ───────────────────────────────────
+// Faithful port of coach.execution_quality, streams.session_execution_quality, streams.data_quality_score.
+// Port-Anpassung: PWA IntervalBlock/TempoBlock kein zone-Feld → Zone aus workoutType (intervals→I, tempo→T).
+
+const EXEC_CLEAN_INTARGET = 70, EXEC_CLEAN_FADE = 3, EXEC_CLEAN_CV = 4
+const EXEC_FAIL_INTARGET = 40, EXEC_FAIL_FADE = 8
+const EXEC_TOL_I = 12, EXEC_TOL_T = 20, EXEC_TOL_M = 25
+const EXEC_LONGRUN_MIN_KM = 25, EXEC_FF_FASTER_PCT = 4
+const DQ_FROZEN_S = 30, DQ_EARLY_S = 120, DQ_EARLY_BPM = 12, DQ_SPIKE_MS = 8
+
+export interface ExecutionQualityResult {
+  repFadePct: number; splitCvPct: number; timeInTargetPct: number
+  nReps: number; verdict: 'sauber' | 'leicht abgebaut' | 'verfehlt'; label: string; color: string
+}
+
+export interface SessionExecutionResult extends ExecutionQualityResult {
+  sessionType: 'intervals' | 'tempo' | 'longrun_ff'; zone: 'I' | 'T' | 'M'
+}
+
+export interface DataQualityResult {
+  score: number; reliability: 'zuverlässig' | 'eingeschränkt' | 'unzuverlässig'
+  color: string; flags: string[]; frozenPct: number; hasHr: boolean; hasVelocity: boolean
+}
+
+export function executionQuality(repPaces: number[], targetPaceSec: number, toleranceSec: number): ExecutionQualityResult | null {
+  const paces = (repPaces || []).filter(p => Number.isFinite(p) && p > 0)
+  const n = paces.length
+  if (n < 1) return null
+  const mean = paces.reduce((a, b) => a + b, 0) / n
+  let first: number, last: number
+  if (n >= 3) {
+    const third = Math.max(1, Math.floor(n / 3))
+    first = paces.slice(0, third).reduce((a, b) => a + b, 0) / third
+    last  = paces.slice(-third).reduce((a, b) => a + b, 0) / third
+  } else { first = paces[0]; last = paces[n - 1] }
+  const repFadePct = first > 0 ? Math.round((last - first) / first * 1000) / 10 : 0
+  let splitCvPct = 0
+  if (n >= 2 && mean > 0) {
+    const variance = paces.reduce((a, p) => a + (p - mean) ** 2, 0) / n
+    splitCvPct = Math.round(Math.sqrt(variance) / mean * 1000) / 10
+  }
+  const inTarget = paces.filter(p => Math.abs(p - targetPaceSec) <= toleranceSec).length
+  const timeInTargetPct = Math.round(inTarget / n * 1000) / 10
+  let verdict: ExecutionQualityResult['verdict'], color: string, label: string
+  if (timeInTargetPct >= EXEC_CLEAN_INTARGET && repFadePct <= EXEC_CLEAN_FADE && splitCvPct <= EXEC_CLEAN_CV) {
+    verdict = 'sauber'; color = '#2ECC71'; label = 'Sauber ausgeführt'
+  } else if (timeInTargetPct < EXEC_FAIL_INTARGET || repFadePct > EXEC_FAIL_FADE) {
+    verdict = 'verfehlt'; color = '#E74C3C'; label = 'Ziel verfehlt'
+  } else { verdict = 'leicht abgebaut'; color = '#F1C40F'; label = 'Leicht abgebaut' }
+  return { repFadePct, splitCvPct, timeInTargetPct, nReps: n, verdict, label, color }
+}
+
+function _fastFinishReps(streams: ActivityStreams | null | undefined, distanceKm?: number | null): number[] | null {
+  const d = Number.isFinite(distanceKm as number) ? (distanceKm as number) : null
+  if (d === null || d < EXEC_LONGRUN_MIN_KM || !streams) return null
+  const vel = streams.velocity_smooth
+  if (!vel || vel.length < 8) return null
+  const n = vel.length
+  // 2nd quartile (25–50%) as reference, last quartile (75–100%) as finish
+  const mid = vel.slice(Math.floor(n / 4), Math.floor(n / 2))
+  const lastQ = vel.slice(Math.floor(n * 0.75))
+  if (!mid.length || !lastQ.length) return null
+  const meanMid = mid.reduce((a, b) => a + b, 0) / mid.length
+  const meanLast = lastQ.reduce((a, b) => a + b, 0) / lastQ.length
+  if (meanMid <= 0 || meanLast <= 0) return null
+  const paceMid = 1000 / meanMid, paceLast = 1000 / meanLast
+  // faster = smaller pace; last must be >= FF% faster
+  if (paceLast <= paceMid * (1 - EXEC_FF_FASTER_PCT / 100)) return [Math.round(paceMid), Math.round(paceLast)]
+  return null
+}
+
+export function sessionExecutionQuality(cls: WorkoutClassification | null, vdot: number | null, distanceKm?: number | null, streams?: ActivityStreams | null): SessionExecutionResult | null {
+  if (!cls || !Number.isFinite(vdot as number) || (vdot as number) <= 0) return null
+  const paces = trainingPaces(vdot as number)
+  let reps: number[] = [], zone: 'I' | 'T' | 'M' | null = null
+  let sessionType: SessionExecutionResult['sessionType'] | null = null, tolerance = 0
+  if (cls.workoutType === 'intervals') {
+    reps = cls.intervalBlocks.map(b => b.avgPaceSec).filter(p => Number.isFinite(p) && p > 0)
+    zone = 'I'; sessionType = 'intervals'; tolerance = EXEC_TOL_I
+  } else if (cls.workoutType === 'tempo') {
+    reps = cls.tempoBlocks.map(b => b.avgPaceSec).filter(p => Number.isFinite(p) && p > 0)
+    zone = 'T'; sessionType = 'tempo'; tolerance = EXEC_TOL_T
+  } else {
+    // Fast-Finish-Longrun check (also on easy/mixed)
+    const ff = _fastFinishReps(streams, distanceKm)
+    if (ff) { reps = ff; zone = 'M'; sessionType = 'longrun_ff'; tolerance = EXEC_TOL_M }
+  }
+  if (!reps.length || !zone || !sessionType) return null
+  const target = paces[zone as keyof typeof paces]
+  if (!Number.isFinite(target)) return null
+  const res = executionQuality(reps, target, tolerance)
+  if (!res) return null
+  return { ...res, sessionType, zone }
+}
+
+export function dataQualityScore(streams: ActivityStreams | null): DataQualityResult {
+  const flags: string[] = []
+  let score = 100
+  const s = streams || ({} as ActivityStreams)
+  const time = s.time || []
+  const hr = s.heartrate, vel = s.velocity_smooth
+  const hasHr = !!(hr && hr.length), hasVelocity = !!(vel && vel.length)
+  if (!hasHr) { score -= 25; flags.push('Keine HF-Daten') }
+  if (!hasVelocity) { score -= 25; flags.push('Keine Pace-Daten') }
+
+  const dur = (i0: number, i1: number) =>
+    (time.length && i1 < time.length && i0 < time.length) ? time[i1] - time[i0] : i1 - i0
+
+  // Frozen segments: longest run of identical values >= DQ_FROZEN_S
+  let frozenSec = 0
+  for (const [seq, name] of [[hr, 'HF'], [vel, 'Pace']] as [number[] | undefined, string][]) {
+    if (!seq) continue
+    let i = 0; const n = seq.length
+    while (i < n - 1) {
+      let j = i
+      while (j < n - 1 && seq[j + 1] === seq[i]) j++
+      if (j > i) { const d = dur(i, j); if (d >= DQ_FROZEN_S) { frozenSec += d; flags.push(`${name}-Sensor eingefroren (${Math.round(d)} s)`) } }
+      i = j + 1
+    }
+  }
+  const totalSec = time.length >= 2 ? time[time.length - 1] - time[0] : Math.max((hr || vel || []).length, 1)
+  const frozenPct = totalSec > 0 ? Math.min(Math.round(frozenSec / totalSec * 1000) / 10, 100) : 0
+  if (frozenSec > 0) score -= Math.min(frozenPct, 30)
+
+  // Early HR artefact: first DQ_EARLY_S seconds avg >= +DQ_EARLY_BPM over median of rest
+  if (hasHr && time.length && hr!.length >= 20) {
+    const early = hr!.filter((_, i) => i < time.length && time[i] - time[0] <= DQ_EARLY_S)
+    const rest  = hr!.filter((_, i) => i < time.length && time[i] - time[0] >  DQ_EARLY_S)
+    if (early.length && rest.length) {
+      const meanEarly = early.reduce((a, b) => a + b, 0) / early.length
+      const srt = [...rest].sort((a, b) => a - b); const medRest = srt[Math.floor(srt.length / 2)]
+      if (meanEarly - medRest >= DQ_EARLY_BPM) { score -= 10; flags.push('HF-Anlauf-Artefakt (Watch)') }
+    }
+  }
+
+  // GPS spikes: velocity > DQ_SPIKE_MS AND > 3× neighbour average
+  if (vel) {
+    let spikes = 0
+    for (let k = 1; k < vel.length - 1; k++) {
+      const v = vel[k]
+      if (v > DQ_SPIKE_MS) { const nb = (vel[k - 1] + vel[k + 1]) / 2; if (nb <= 0 || v > 3 * nb) spikes++ }
+    }
+    if (spikes > 0) { score -= Math.min(spikes / Math.max(vel.length, 1) * 100 * 3, 15); flags.push(`GPS-Aussetzer (${spikes})`) }
+  }
+
+  score = Math.max(0, Math.min(100, Math.round(score * 10) / 10))
+  let reliability: DataQualityResult['reliability'], color: string
+  if (score >= 80) { reliability = 'zuverlässig'; color = '#2ECC71' }
+  else if (score >= 55) { reliability = 'eingeschränkt'; color = '#F1C40F' }
+  else { reliability = 'unzuverlässig'; color = '#E74C3C' }
+  return { score, reliability, color, flags, frozenPct, hasHr, hasVelocity }
 }
