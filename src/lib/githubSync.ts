@@ -109,7 +109,16 @@ export async function fetchSync(force = false): Promise<{ data: SyncData; sha: s
   return _fetchInFlight
 }
 
-export async function pushSync(data: SyncData, sha?: string, _retried = false): Promise<void> {
+// T-151: rebuildFn closes the 409-retry RMW race — called with the freshly fetched
+// remote state so the caller's mutation is re-applied against the latest data instead
+// of the stale snapshot from the initial fetch.  Without rebuildFn, the original data
+// is reused (backward-compatible for callers that do not perform a Read-Modify-Write).
+export async function pushSync(
+  data: SyncData,
+  sha?: string,
+  rebuildFn?: (fresh: SyncData) => SyncData,
+  _retried = false,
+): Promise<void> {
   if (!hasToken()) return
   const payload: SyncData = { ...data, lastModified: new Date().toISOString(), lastDevice: 'pwa' }
   const content = btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2))))
@@ -123,14 +132,19 @@ export async function pushSync(data: SyncData, sha?: string, _retried = false): 
   })
   if (res.status === 409 && !_retried) {
     // Stale sha due to concurrent Streamlit write — fetch fresh sha and retry once.
-    // If the refresh-fetch fails or returns null (no token / 404), throw a clear
-    // error rather than silently proceeding with sha=undefined (last-write-wins
-    // overwrite that could clobber a concurrent PWA write).
-    const fresh = await fetchSync()
+    // force=true bypasses the 60s TTL cache: the cache sha is exactly what caused the
+    // 409, so returning it again would loop forever.  If the refresh-fetch fails or
+    // returns null (no token / 404), throw a clear error rather than silently
+    // overwriting with sha=undefined (last-write-wins).
+    const fresh = await fetchSync(true)
     if (!fresh) {
       throw new Error('Konflikt beim Speichern — frischer Stand nicht abrufbar. Bitte erneut versuchen.')
     }
-    return pushSync(data, fresh.sha, true)
+    // rebuildFn: re-apply the caller's own mutation against the freshly fetched remote
+    // state, preserving concurrent writes (e.g. Desktop plan-push or Desktop queue-pop)
+    // that arrived between our initial fetch and this push.
+    const retryData = rebuildFn ? rebuildFn(fresh.data) : data
+    return pushSync(retryData, fresh.sha, rebuildFn, true)
   }
   if (!res.ok) throw new Error(`GitHub push ${res.status}`)
 }

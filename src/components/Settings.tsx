@@ -7,7 +7,7 @@ import {
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
   loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
-import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync } from '../lib/githubSync'
+import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync, type SyncData } from '../lib/githubSync'
 import {
   activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
   loadPendingMutation, savePendingMutation, clearPendingMutation, isPendingMutationApplied,
@@ -61,8 +61,13 @@ export default function Settings({ settings, onUpdate }: Props) {
     try {
       const fresh = await fetchSync(true)
       const mutation = buildStartMutation(injStart, injDays, injSeverity, injNote)
-      const existing = fresh?.data.injuryBreakMutations ?? []
-      await pushSync({ ...(fresh?.data ?? {}), injuryBreakMutations: [...existing, mutation] }, fresh?.sha)
+      // rebuildFn closes the 409 RMW race: on conflict, re-append OWN mutation to the
+      // freshly fetched queue instead of pushing the stale pre-fetch snapshot.
+      const buildPayload = (base: SyncData): SyncData => ({
+        ...base,
+        injuryBreakMutations: [...(base.injuryBreakMutations ?? []), mutation],
+      })
+      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
       savePendingMutation(mutation)
       setInjuryPending(mutation)
       setInjNote('')
@@ -78,8 +83,12 @@ export default function Settings({ settings, onUpdate }: Props) {
     try {
       const fresh = await fetchSync(true)
       const mutation = buildEndMutation(breakId, localISODate(new Date()))
-      const existing = fresh?.data.injuryBreakMutations ?? []
-      await pushSync({ ...(fresh?.data ?? {}), injuryBreakMutations: [...existing, mutation] }, fresh?.sha)
+      // rebuildFn closes the 409 RMW race: same pattern as handleStartInjuryBreak.
+      const buildPayload = (base: SyncData): SyncData => ({
+        ...base,
+        injuryBreakMutations: [...(base.injuryBreakMutations ?? []), mutation],
+      })
+      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
       savePendingMutation(mutation)
       setInjuryPending(mutation)
     } catch (e) {
@@ -223,10 +232,13 @@ export default function Settings({ settings, onUpdate }: Props) {
     if (hasToken()) {
       try {
         const current = await fetchSync(true)  // force: need fresh sha before push
-        await pushSync(
-          { settings: s as unknown as Record<string, unknown>, weekOverrides: current?.data.weekOverrides },
-          current?.sha
-        )
+        // rebuildFn: spread fresh remote state, then overwrite only the settings field.
+        // Preserves plan, injuryBreakMutations etc. from any concurrent Desktop write.
+        const buildPayload = (base: SyncData): SyncData => ({
+          ...base,
+          settings: s as unknown as Record<string, unknown>,
+        })
+        await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
         setGhSha(null)
       } catch { /* sync failure is non-critical */ }
     }
