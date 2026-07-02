@@ -13,7 +13,7 @@ import {
 import type { AppSettings } from '../lib/storage'
 import {
   hasToken, fetchSync, pushSync,
-  type SyncedPlan, type SyncedPlanSession,
+  type SyncData, type SyncedPlan, type SyncedPlanSession,
 } from '../lib/githubSync'
 
 interface Props {
@@ -97,20 +97,19 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     fetchSync(true)
       .then(fresh => {
         if (!fresh) return
-        return pushSync(
-          {
-            ...fresh.data,
-            planRecomputeRequested: true,
-            // Include changed settings so Desktop can see what changed
-            settings: {
-              ...(fresh.data.settings ?? {}),
-              vdot: settings.vdot,
-              event1: { date: settings.raceDate1, dist: settings.raceType1 === 'hm' ? 'Halbmarathon (21.1 km)' : 'Marathon (42.2 km)' },
-              event2: { date: settings.raceDate2, dist: settings.raceType2 === 'marathon' ? 'Marathon (42.2 km)' : 'Halbmarathon (21.1 km)' },
-            },
+        // rebuildFn closes the 409 RMW race: re-apply planRecomputeRequested + settings
+        // against the freshly fetched remote state, preserving concurrent Desktop changes.
+        const buildPayload = (base: SyncData): SyncData => ({
+          ...base,
+          planRecomputeRequested: true,
+          settings: {
+            ...(base.settings ?? {}),
+            vdot: settings.vdot,
+            event1: { date: settings.raceDate1, dist: settings.raceType1 === 'hm' ? 'Halbmarathon (21.1 km)' : 'Marathon (42.2 km)' },
+            event2: { date: settings.raceDate2, dist: settings.raceType2 === 'marathon' ? 'Marathon (42.2 km)' : 'Halbmarathon (21.1 km)' },
           },
-          fresh.sha,
-        )
+        })
+        return pushSync(buildPayload(fresh.data), fresh.sha, buildPayload)
       })
       .catch(() => { /* non-critical */ })
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
@@ -187,8 +186,13 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
       const current = await fetchSync(true)  // force: need fresh sha before push
       const map: Record<string, string> = {}
       overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
-      const allWeekOverrides = { ...(current?.data.weekOverrides ?? {}), [wKey]: map }
-      await pushSync({ ...current?.data, weekOverrides: allWeekOverrides }, current?.sha)
+      // rebuildFn closes the 409 RMW race: re-apply THIS week's overrides against the
+      // freshly fetched remote state, preserving other weeks and concurrent Desktop changes.
+      const buildPayload = (base: SyncData): SyncData => ({
+        ...base,
+        weekOverrides: { ...(base.weekOverrides ?? {}), [wKey]: map },
+      })
+      await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
     } catch { /* sync failure is non-critical */ }
   }
 
