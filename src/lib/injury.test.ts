@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   effectiveWindow, activeInjuryBreak, buildStartMutation, buildEndMutation,
   loadPendingMutation, savePendingMutation, clearPendingMutation,
-  isPendingMutationApplied,
-  type RawInjuryBreak,
+  isPendingMutationApplied, resolvePendingMutation,
+  type RawInjuryBreak, type SyncInfo,
 } from './injury'
 // T-079-Gotcha: effectiveWindow() gibt lokale Mitternachts-Dates zurück (new Date(str+'T00:00:00')).
 // toISOString().slice(0,10) shiftet nach UTC und liefert in TZ östlich von UTC den Vortag —
@@ -126,5 +126,65 @@ describe('isPendingMutationApplied', () => {
     const m = buildEndMutation('b1', '2026-07-03')
     const breaks = [mkBreak({ id: 'b1', end: null })]
     expect(isPendingMutationApplied(m, breaks)).toBe(false)
+  })
+})
+
+describe('resolvePendingMutation', () => {
+  // T-152: pure resolver — 'applied' | 'discarded' | 'pending'
+  // Discard requires Desktop evidence: mutation gone from queue AND lastDevice='streamlit'
+  // AND lastModified newer than pending.ts. Without evidence stays 'pending'.
+
+  it('returns applied when break with matching start and end=null exists', () => {
+    const m = buildStartMutation('2026-07-01', 5, 'minor', '')
+    const breaks = [mkBreak({ start: '2026-07-01', end: null })]
+    const sync: SyncInfo = {
+      injuryBreakMutations: [],
+      lastDevice: 'streamlit',
+      lastModified: new Date(new Date(m.ts).getTime() + 5000).toISOString(),
+    }
+    expect(resolvePendingMutation(m, breaks, sync)).toBe('applied')
+  })
+
+  it('returns discarded when queue cleared by streamlit after mutation ts and no open break', () => {
+    const m = buildStartMutation('2026-07-01', 5, 'minor', '')
+    const sync: SyncInfo = {
+      injuryBreakMutations: [],
+      lastDevice: 'streamlit',
+      lastModified: new Date(new Date(m.ts).getTime() + 5000).toISOString(),
+    }
+    expect(resolvePendingMutation(m, [], sync)).toBe('discarded')
+  })
+
+  it('returns pending when mutation is still in queue even if streamlit evidence would otherwise apply', () => {
+    const m = buildStartMutation('2026-07-01', 5, 'minor', '')
+    const sync: SyncInfo = {
+      injuryBreakMutations: [m],  // still in queue — not yet processed
+      lastDevice: 'streamlit',
+      lastModified: new Date(new Date(m.ts).getTime() + 5000).toISOString(),
+    }
+    expect(resolvePendingMutation(m, [], sync)).toBe('pending')
+  })
+
+  it('returns pending without desktop evidence (lastDevice pwa, queue empty)', () => {
+    const m = buildStartMutation('2026-07-01', 5, 'minor', '')
+    const sync: SyncInfo = {
+      injuryBreakMutations: [],
+      lastDevice: 'pwa',
+      lastModified: new Date(new Date(m.ts).getTime() + 5000).toISOString(),
+    }
+    expect(resolvePendingMutation(m, [], sync)).toBe('pending')
+  })
+
+  it('handles end mutation: discarded when queue cleared by streamlit; applied when end set on break', () => {
+    const m = buildEndMutation('b1', '2026-07-03')
+    const sync: SyncInfo = {
+      injuryBreakMutations: [],
+      lastDevice: 'streamlit',
+      lastModified: new Date(new Date(m.ts).getTime() + 5000).toISOString(),
+    }
+    // Break still open — end not applied and queue cleared → discarded
+    expect(resolvePendingMutation(m, [mkBreak({ id: 'b1', end: null })], sync)).toBe('discarded')
+    // Break has end set → applied
+    expect(resolvePendingMutation(m, [mkBreak({ id: 'b1', end: '2026-07-03' })], sync)).toBe('applied')
   })
 })

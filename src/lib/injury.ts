@@ -91,3 +91,36 @@ export function isPendingMutationApplied(pending: InjuryBreakMutation, breaks: R
   }
   return breaks.some(b => b.id === pending.break_id && b.end === pending.end)
 }
+
+// T-152: Minimal sync-state surface for resolver — subset of SyncData to avoid circular import.
+export interface SyncInfo {
+  injuryBreakMutations?: InjuryBreakMutation[]
+  lastModified?: string
+  lastDevice?: string
+}
+
+// T-152: Determine fate of a pending mutation against fresh sync data.
+// 'applied'   — mutation effect is visible in breaks (normal success).
+// 'discarded' — Desktop processed the queue AND removed our mutation WITHOUT applying it
+//               (Guard 1: break already existed; Guard 2 T-150: same-start break existed).
+//               Evidence required: mutation not in queue AND lastDevice='streamlit' AND
+//               lastModified newer than pending.ts. Without evidence stays 'pending' to
+//               avoid false-discarding directly after enqueue (queue still contains it)
+//               or after a PWA-only push (lastDevice='pwa').
+// 'pending'   — still waiting.
+export function resolvePendingMutation(
+  pending: InjuryBreakMutation,
+  breaks: RawInjuryBreak[],
+  sync: SyncInfo,
+): 'applied' | 'discarded' | 'pending' {
+  if (isPendingMutationApplied(pending, breaks)) return 'applied'
+
+  const stillInQueue = (sync.injuryBreakMutations ?? []).some(m => m.ts === pending.ts)
+  if (!stillInQueue && sync.lastDevice === 'streamlit' && sync.lastModified) {
+    const desktopTime = new Date(sync.lastModified).getTime()
+    const pendingTime = new Date(pending.ts).getTime()
+    if (desktopTime > pendingTime) return 'discarded'
+  }
+
+  return 'pending'
+}

@@ -10,7 +10,8 @@ import {
 import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync, type SyncData } from '../lib/githubSync'
 import {
   activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
-  loadPendingMutation, savePendingMutation, clearPendingMutation, isPendingMutationApplied,
+  loadPendingMutation, savePendingMutation, clearPendingMutation,
+  resolvePendingMutation,
   type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
 } from '../lib/injury'
 
@@ -39,6 +40,7 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [injNote,     setInjNote]     = useState('')
   const [injBusy,     setInjBusy]     = useState(false)
   const [injErr,      setInjErr]      = useState<string | null>(null)
+  const [injMsg,      setInjMsg]      = useState<string | null>(null)
 
   useEffect(() => {
     if (!hasToken()) return
@@ -48,9 +50,16 @@ export default function Settings({ settings, onUpdate }: Props) {
       const breaks = (result.data.plan?.injury_breaks ?? []) as RawInjuryBreak[]
       setInjuryBreaks(breaks)
       const pending = loadPendingMutation()
-      if (pending && isPendingMutationApplied(pending, breaks)) {
-        clearPendingMutation()
-        setInjuryPending(null)
+      if (pending) {
+        const resolution = resolvePendingMutation(pending, breaks, result.data)
+        if (resolution === 'applied') {
+          clearPendingMutation()
+          setInjuryPending(null)
+        } else if (resolution === 'discarded') {
+          clearPendingMutation()
+          setInjuryPending(null)
+          setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
+        }
       }
     }).catch(() => { /* best-effort, same pattern as App.tsx startup sync */ })
     return () => { mounted = false }
@@ -105,6 +114,23 @@ export default function Settings({ settings, onUpdate }: Props) {
       if (result) {
         setGhSha(result.sha)
         setGhMsg(`Synced — zuletzt geändert: ${result.data.lastDevice ?? '?'} ${result.data.lastModified ? new Date(result.data.lastModified).toLocaleString('de-AT') : ''}`)
+        // T-152: resolve any pending mutation against fresh sync data so a manual
+        // sync clears the overlay without requiring an app restart.
+        const pending = loadPendingMutation()
+        if (pending) {
+          const breaks = (result.data.plan?.injury_breaks ?? []) as RawInjuryBreak[]
+          const resolution = resolvePendingMutation(pending, breaks, result.data)
+          if (resolution === 'applied') {
+            clearPendingMutation()
+            setInjuryPending(null)
+            setInjuryBreaks(breaks)
+          } else if (resolution === 'discarded') {
+            clearPendingMutation()
+            setInjuryPending(null)
+            setInjuryBreaks(breaks)
+            setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
+          }
+        }
       } else {
         setGhMsg('Noch keine Sync-Daten vorhanden.')
       }
@@ -485,6 +511,7 @@ export default function Settings({ settings, onUpdate }: Props) {
             ⏳ Wartet auf Desktop-Sync
           </div>
         )}
+        {injMsg && <div style={{ fontSize: '12px', color: 'var(--green)' }}>{injMsg}</div>}
         {injErr && <div className="error-box">{injErr}</div>}
       </div>
 
