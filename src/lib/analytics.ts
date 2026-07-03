@@ -720,7 +720,14 @@ export function dataQualityScore(streams: ActivityStreams | null): DataQualityRe
     while (i < n - 1) {
       let j = i
       while (j < n - 1 && seq[j + 1] === seq[i]) j++
-      if (j > i) { const d = dur(i, j); if (d >= DQ_FROZEN_S) { frozenSec += d; flags.push(`${name}-Sensor eingefroren (${Math.round(d)} s)`) } }
+      if (j > i) {
+        // Velocity == 0 = normal standstill (Ampel, Trinkpause, Auto-Pause off) — not sensor freeze.
+        // Only flag non-zero constant velocity runs; HR is checked unchanged.
+        const d = dur(i, j)
+        if (d >= DQ_FROZEN_S && !(name === 'Pace' && seq[i] === 0)) {
+          frozenSec += d; flags.push(`${name}-Sensor eingefroren (${Math.round(d)} s)`)
+        }
+      }
       i = j + 1
     }
   }

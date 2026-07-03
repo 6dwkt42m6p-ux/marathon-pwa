@@ -109,7 +109,7 @@ export function durabilitySignals(
 
   return {
     driftPct, paceFadePct,
-    gapAdjusted: !!(alt && dist),
+    gapAdjusted: !!(alt?.length && dist?.length),
     durationS: duration,
     distanceKm: distKm !== null ? Math.round(distKm * 1000) / 1000 : null,
     date: null,

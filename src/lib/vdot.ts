@@ -648,7 +648,7 @@ export function racePredictor(
   // 4. Konfidenzband (additiv aus Unsicherheitsquellen)
   let bandPct = goalDistM >= PRED_MARATHON_MIN_M ? 0.03 : (goalDistM >= 20000 ? 0.02 : 0.015)
   if (goalDistM >= PRED_MARATHON_MIN_M && durabilityFactor == null) bandPct += 0.02
-  bandPct += Math.min(weeksToRace ?? 0, 16) / 16 * 0.02
+  bandPct += Math.max(0, Math.min(weeksToRace ?? 0, 16)) / 16 * 0.02
   if (_isFiniteNum(paceFadeRecent) && paceFadeRecent > 3) bandPct += 0.01
   if (lowData) bandPct += 0.02
   bandPct = _clampP(bandPct, 0.015, 0.10)

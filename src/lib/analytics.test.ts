@@ -91,6 +91,28 @@ describe('dataQualityScore', () => {
     const s = clean(); s.velocity_smooth[500] = 15
     expect(dataQualityScore(s).flags.some(f => /gps/i.test(f))).toBe(true)
   })
+
+  // T-153 (b): velocity == 0 for ≥ DQ_FROZEN_S is normal standstill — must NOT flag as frozen
+  it('velocity 60 s standstill (vel=0) → no Pace-frozen flag, score unaffected vs clean', () => {
+    const base = clean()
+    const s = clean()
+    // inject 60 consecutive zeros into velocity (standstill at Ampel or Trinkpause)
+    for (let i = 400; i < 460; i++) s.velocity_smooth![i] = 0
+    const r = dataQualityScore(s)
+    const baseScore = dataQualityScore(base).score
+    expect(r.flags.some(f => /pace.*eingefroren|eingefroren.*pace/i.test(f))).toBe(false)
+    expect(r.score).toBe(baseScore)
+  })
+  it('velocity 60 s constant 3.0 (not zero) → Pace-frozen flag (regression guard)', () => {
+    const s = clean()
+    for (let i = 400; i < 460; i++) s.velocity_smooth![i] = 3.0
+    const r = dataQualityScore(s)
+    expect(r.flags.some(f => /eingefroren/i.test(f))).toBe(true)
+  })
+  it('HR frozen at constant value (non-zero) still flagged — HR check unchanged', () => {
+    const s = clean(); for (let i = 200; i < 260; i++) s.heartrate![i] = 145
+    expect(dataQualityScore(s).flags.some(f => /hf.*eingefroren|eingefroren.*hf/i.test(f))).toBe(true)
+  })
 })
 
 // ── T-144: injuryRisk helpers ─────────────────────────────────────────────────
