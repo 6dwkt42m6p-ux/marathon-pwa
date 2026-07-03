@@ -81,4 +81,11 @@ describe('racePredictor', () => {
     expect(rNull.predictedSec).toBeNull()
     expect(rNull.confidence).toBe('niedrig')
   })
+
+  // T-153 (c): negative weeksToRace (race already passed) must not shrink band below distance floor
+  it('weeksToRace=-2 gives same bandPct as weeksToRace=0', () => {
+    const rNeg  = racePredictor(50, HM, { weeksToRace: -2 })
+    const rZero = racePredictor(50, HM, { weeksToRace: 0 })
+    expect(rNeg.bandPct).toBe(rZero.bandPct)
+  })
 })
