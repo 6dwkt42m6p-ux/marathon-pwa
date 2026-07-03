@@ -70,6 +70,24 @@ describe('durabilitySignals', () => {
   it('too short → null', () => {
     expect(durabilitySignals(flatStreams(100))).toBeNull()
   })
+
+  // T-153 (a): empty arrays are truthy in JS — gapAdjusted must check .length
+  it('empty altitude array → gapAdjusted false', () => {
+    const s = flatStreams()
+    const r = durabilitySignals({ ...s, altitude: [] }, s.distance[s.distance.length - 1] / 1000)
+    expect(r).not.toBeNull()
+    expect(r!.gapAdjusted).toBe(false)
+  })
+  it('empty distance array → gapAdjusted false', () => {
+    const s = flatStreams()
+    const r = durabilitySignals({ ...s, distance: [] }, s.distance[s.distance.length - 1] / 1000)
+    expect(r).not.toBeNull()
+    expect(r!.gapAdjusted).toBe(false)
+  })
+  it('both altitude and distance filled → gapAdjusted true', () => {
+    const r = durabilitySignals(flatStreams(), 3.9)
+    expect(r!.gapAdjusted).toBe(true)
+  })
 })
 
 describe('durabilityTrend', () => {
