@@ -9,7 +9,13 @@ import Settings from './components/Settings'
 // CoachChat import kept intentionally — deaktiviert via COACH_TAB_ENABLED (separate Anthropic-API-Kosten).
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
 import CoachChat from './components/CoachChat'
-import { hasToken, fetchSync } from './lib/githubSync'
+import { hasToken, fetchSync, pushSync, type SyncData } from './lib/githubSync'
+import {
+  loadPendingNoteMutations,
+  removePendingNoteMutations,
+  resolvePendingNoteMutation,
+  type NoteMutation,
+} from './lib/notesSync'
 import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC, type SyncedThreshold } from './lib/strava'
 import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
@@ -31,6 +37,28 @@ const ALL_TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 const TABS = COACH_TAB_ENABLED ? ALL_TABS : ALL_TABS.filter(t => t.id !== 'coach')
+
+// T-156: Flush pending note mutations against just-fetched sync data.
+// Remove applied mutations (Desktop already processed them), re-push remaining once.
+// Pure helper so it can be called from both App startup and Settings manual sync.
+function flushPendingNoteMutations(data: SyncData, sha: string): void {
+  const pending = loadPendingNoteMutations()
+  if (pending.length === 0) return
+  const syncInfo = { noteMutations: data.noteMutations, notes: data.plan?.notes }
+  const appliedTs = pending
+    .filter(m => resolvePendingNoteMutation(m, syncInfo) === 'applied')
+    .map(m => m.ts)
+  if (appliedTs.length > 0) removePendingNoteMutations(appliedTs)
+  const remaining = loadPendingNoteMutations()
+  if (remaining.length === 0) return
+  // Re-push remaining once — best-effort, no retry, no await (fire-and-forget).
+  const buildPayload = (base: SyncData): SyncData => {
+    const existingTs = new Set((base.noteMutations ?? []).map((m: NoteMutation) => m.ts))
+    const toAdd = remaining.filter((m: NoteMutation) => !existingTs.has(m.ts))
+    return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
+  }
+  pushSync(buildPayload(data), sha, buildPayload).catch(() => { /* best-effort */ })
+}
 
 export default function App() {
   const hasOAuthCode = new URLSearchParams(window.location.search).has('code')
@@ -128,6 +156,9 @@ export default function App() {
           if (updated.length > 0) localStorage.setItem(lsKey, JSON.stringify(updated))
         })
       }
+      // T-156: Flush pending note mutations — resolve applied ones, re-push remaining.
+      // Best-effort: one attempt, no retry, no new timer/poll.
+      flushPendingNoteMutations(data, result.sha)
     }).catch(() => { /* silent — sync is best-effort */ })
     return () => { mounted = false }
   }, [])

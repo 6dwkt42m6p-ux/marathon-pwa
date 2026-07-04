@@ -14,6 +14,12 @@ import {
   resolvePendingMutation,
   type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
 } from '../lib/injury'
+import {
+  loadPendingNoteMutations,
+  removePendingNoteMutations,
+  resolvePendingNoteMutation,
+  type NoteMutation,
+} from '../lib/notesSync'
 
 interface Props {
   settings: AppSettings
@@ -129,6 +135,24 @@ export default function Settings({ settings, onUpdate }: Props) {
             setInjuryPending(null)
             setInjuryBreaks(breaks)
             setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
+          }
+        }
+        // T-156: resolve and re-push pending note mutations on manual sync.
+        const notePending = loadPendingNoteMutations()
+        if (notePending.length > 0) {
+          const syncInfo = { noteMutations: result.data.noteMutations, notes: result.data.plan?.notes }
+          const appliedTs = notePending
+            .filter((m: NoteMutation) => resolvePendingNoteMutation(m, syncInfo) === 'applied')
+            .map((m: NoteMutation) => m.ts)
+          if (appliedTs.length > 0) removePendingNoteMutations(appliedTs)
+          const stillPending = loadPendingNoteMutations()
+          if (stillPending.length > 0) {
+            const buildPayload = (base: SyncData): SyncData => {
+              const existingTs = new Set((base.noteMutations ?? []).map((m: NoteMutation) => m.ts))
+              const toAdd = stillPending.filter((m: NoteMutation) => !existingTs.has(m.ts))
+              return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
+            }
+            pushSync(buildPayload(result.data), result.sha, buildPayload).catch(() => { /* best-effort */ })
           }
         }
       } else {
