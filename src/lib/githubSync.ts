@@ -43,6 +43,7 @@ export interface SyncedPlan {
   ftp?:          number | null   // T-125: FTP from Desktop coach_profile; null when not set
   threshold?:    import('./strava').SyncedThreshold | null   // T-138: threshold for rTSS/hrTSS
   injury_breaks?: import('./injury').RawInjuryBreak[]        // T-132: read-only, Desktop SSoT
+  notes?:        Record<string, import('./notesSync').SyncedNote>  // T-156: Desktop→PWA, read-only
 }
 
 export interface SyncData {
@@ -51,6 +52,7 @@ export interface SyncData {
   plan?:                  SyncedPlan    // T-024: set by Streamlit, read by PWA
   planRecomputeRequested?: boolean      // T-024: set by PWA when inputs change
   injuryBreakMutations?:  import('./injury').InjuryBreakMutation[]  // T-132: PWA→Desktop queue
+  noteMutations?:         import('./notesSync').NoteMutation[]       // T-156: PWA→Desktop queue
   lastModified?:          string
   lastDevice?:            'pwa' | 'streamlit'
 }

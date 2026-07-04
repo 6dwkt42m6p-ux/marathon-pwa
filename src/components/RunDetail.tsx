@@ -11,6 +11,13 @@ import { analyzeRun, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/
 import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
 import type { WorkoutSession, PlanDeviation } from '../lib/plan'
 import { sessionExecutionQuality, dataQualityScore } from '../lib/analytics'
+import { fetchSync, pushSync, type SyncData } from '../lib/githubSync'
+import {
+  buildSaveNoteMutation, buildDeleteNoteMutation,
+  appendPendingNoteMutation, loadPendingNoteMutations,
+  resolveNote,
+  type SyncedNote,
+} from '../lib/notesSync'
 
 const ZONE_COLORS: Record<string, string> = {
   Z1: '#42A5F5', Z2: '#4CAF50', Z3: '#FFC107', Z4: '#FF9800', Z5: '#e53935',
@@ -144,6 +151,8 @@ interface RunDetailProps {
   deviation: PlanDeviation | null
   vdot: number
   onNoteSaved: () => void
+  // T-156: Desktop→PWA synced notes (plan.notes), for display merge via resolveNote
+  syncedNotes?: Record<string, SyncedNote>
 }
 
 export default function RunDetail({
@@ -154,6 +163,7 @@ export default function RunDetail({
   deviation,
   vdot,
   onNoteSaved,
+  syncedNotes,
 }: RunDetailProps) {
   const [classification, setClassification] = useState<WorkoutClassification | null>(null)
   const [streams,        setStreams]        = useState<ActivityStreams | null>(null)
@@ -163,25 +173,51 @@ export default function RunDetail({
   const [loadingLaps,    setLoadingLaps]    = useState(false)
   const [lapErr,         setLapErr]         = useState<string | null>(null)
 
-  const existingNote                  = loadNote(act.id)
-  const [noteText,   setNoteText]     = useState<string>(existingNote?.text ?? '')
-  const [noteRating, setNoteRating]   = useState<number>(existingNote?.rating ?? 0)
-  const [noteSaved,  setNoteSaved]    = useState<ActivityNote | null>(existingNote)
+  // T-156: merge local localStorage note with synced Desktop note via resolveNote.
+  // Local wins when its savedAt >= synced.saved_at (freshest write wins).
+  const syncedNote = syncedNotes?.[String(act.id)] ?? null
+  const effectiveNote                  = resolveNote(loadNote(act.id), syncedNote)
+  const [noteText,   setNoteText]     = useState<string>(effectiveNote?.text ?? '')
+  const [noteRating, setNoteRating]   = useState<number>(effectiveNote?.rating ?? 0)
+  const [noteSaved,  setNoteSaved]    = useState<ActivityNote | null>(effectiveNote)
 
-  function handleSaveNote() {
+  // T-156: enqueue note mutation in pending list + best-effort push to GitHub.
+  // localStorage write (optimistic) happens first; push errors are silent — mutation
+  // stays in the pending list for the next flush (App.tsx startup or Settings sync).
+  async function enqueueMutationAndPush(mutation: ReturnType<typeof buildSaveNoteMutation> | ReturnType<typeof buildDeleteNoteMutation>) {
+    appendPendingNoteMutation(mutation)
+    try {
+      const fresh = await fetchSync(true)
+      const allPending = loadPendingNoteMutations()
+      // rebuildFn: append ALL local pending mutations to the fresh remote queue, deduped by ts.
+      // (T-151 pattern: on 409-retry, re-apply own mutations against the freshly fetched state.)
+      const buildPayload = (base: SyncData): SyncData => {
+        const existingTs = new Set((base.noteMutations ?? []).map(m => m.ts))
+        const toAdd = allPending.filter(m => !existingTs.has(m.ts))
+        return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
+      }
+      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
+    } catch {
+      // Offline or conflict — mutation stays in pending list for next flush
+    }
+  }
+
+  async function handleSaveNote() {
     if (!noteText.trim() && noteRating === 0) return
     saveNote(act.id, noteText.trim(), noteRating)
     const saved = loadNote(act.id)!
     setNoteSaved(saved)
     onNoteSaved()
+    await enqueueMutationAndPush(buildSaveNoteMutation(act.id, noteText.trim(), noteRating))
   }
 
-  function handleDeleteNote() {
+  async function handleDeleteNote() {
     deleteNote(act.id)
     setNoteText('')
     setNoteRating(0)
     setNoteSaved(null)
     onNoteSaved()
+    await enqueueMutationAndPush(buildDeleteNoteMutation(act.id))
   }
 
   async function loadLaps(vdotVal: number) {
