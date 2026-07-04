@@ -50,6 +50,7 @@ import type { AppSettings } from '../lib/storage'
 import { loadNote } from '../lib/storage'
 import { fetchSync, type SyncedPlan, type SyncedPlanSession } from '../lib/githubSync'
 import RunDetail from './RunDetail'
+import { resolveNote } from '../lib/notesSync'
 
 interface Props {
   settings: AppSettings
@@ -848,8 +849,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             frei:      '',  // no plan — don't show badge
           }
 
-          // noteVersion read ensures the list re-renders after a note is saved
-          const hasNote = noteVersion >= 0 && loadNote(act.id) !== null
+          // T-156: merge local + synced note; noteVersion ensures re-render after save
+          const hasNote = noteVersion >= 0 && resolveNote(loadNote(act.id), syncedPlan?.notes?.[String(act.id)] ?? null) !== null
           return (
             <div key={act.id} className="activity-card">
               <div
@@ -918,6 +919,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                       deviation={deviation}
                       vdot={effectiveVdot}
                       onNoteSaved={onNoteSaved}
+                      syncedNotes={syncedPlan?.notes}
                     />
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />
