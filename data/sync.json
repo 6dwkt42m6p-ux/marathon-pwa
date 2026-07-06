@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-07-04T19:11:25.748697+00:00",
+  "lastModified": "2026-07-06T03:59:27.605929+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-07-04T19:11:25Z",
+    "generatedAt": "2026-07-06T03:59:27Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "a3d3134c5a0f739e118bbe17138e4d035a09b8c10f05978617ef44cc7ded2488",
+    "inputHash": "76c23f0ed142536e98c4da5c9bc940703d620ef31cc9c06e125cf9240325fff2",
     "weeks": [
       {
         "week_nr": 1,
@@ -206,7 +206,7 @@
         "week_start": "2026-06-29",
         "phase": "Basis (Entlastung) (Wiedereinstieg)",
         "planned_km": 31.2,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
@@ -269,7 +269,7 @@
         "week_start": "2026-07-06",
         "phase": "Basis",
         "planned_km": 68.1,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
@@ -1098,10 +1098,10 @@
     ],
     "threshold": {
       "lthr": 175,
-      "threshold_pace_sec": 267.6,
+      "threshold_pace_sec": 272.3,
       "rest_hr": 45,
       "is_fallback": false,
-      "source": "activity:Afternoon Run"
+      "source": "activity:Evening Run"
     },
     "notes": {
       "18820788688": {
