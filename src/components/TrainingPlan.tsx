@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { generatePlan } from '../lib/plan'
+import { generatePlan, weekHasSessionError } from '../lib/plan'
 import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
 import { isPlanStale } from '../lib/plan'
@@ -274,6 +274,21 @@ function SyncedPlanRow({ week, actualKm }: SyncedPlanRowProps) {
           </span>
         </div>
       </div>
+
+      {/* T-157: Error hint when Desktop flagged session build failure */}
+      {weekHasSessionError(week) && (
+        <div style={{
+          background: '#FF980020',
+          border: '1px solid #FF980055',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#FF9800',
+          margin: '4px 0',
+        }}>
+          ⚠️ Einheiten für diese Woche konnten nicht erzeugt werden — Desktop prüfen
+        </div>
+      )}
 
       {/* Expanded: show all sessions verbatim */}
       {expanded && (

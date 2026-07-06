@@ -42,6 +42,7 @@ import {
   assessDeviationForRestDay,
   syncedWeekForDate,
   syncedSessionForTag,
+  weekHasSessionError,
   type PlanRow,
   type WorkoutSession,
   type PlanDeviation,
@@ -829,8 +830,10 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
           const actIcon = act.isTrail ? '🏔️' : act.actType === 'run' ? '🏃' : act.actType === 'ride' ? '🚴' : '🥾'
 
           // Deviation badge for last 7 activities — only from synced plan (SSoT)
+          // T-157: skip when Desktop flagged the week with a session-build error — sessions=[]
+          // would falsely trigger "Ruhetag trainiert" for every activity in that week.
           let deviation: PlanDeviation | null = null
-          if (actIdx < 7 && syncedPlan && syncedWeek) {
+          if (actIdx < 7 && syncedPlan && syncedWeek && !weekHasSessionError(syncedWeek)) {
             const tsb = tsbData?.tsb ?? 0
             if (!syncedSession) {
               // Day not in synced plan = rest day

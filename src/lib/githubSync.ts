@@ -21,6 +21,7 @@ export interface SyncedPlanWeek {
   planned_km: number
   is_current: boolean
   sessions:   SyncedPlanSession[]
+  error?:     string   // T-157: set by Desktop when session build fails ("sessions_failed")
 }
 
 export interface SyncedPlanPaces {
