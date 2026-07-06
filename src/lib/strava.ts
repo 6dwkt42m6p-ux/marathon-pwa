@@ -27,6 +27,8 @@ export const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
 const TOKEN_KEY          = 'strava_tokens'
 const ACTS_KEY           = 'strava_activities'
 export const STRAVA_LAST_SYNC_KEY = 'strava_last_sync'
+// T-117: Cutover auf www.api-v3.strava.com erst ab 4.1.2027 — nur diese Zeile ändern
+const STRAVA_API_BASE    = 'https://www.strava.com/api/v3'
 
 export interface StravaTokens {
   access_token:  string
@@ -177,7 +179,7 @@ async function fetchActivitiesAfter(token: string, afterTs: number): Promise<Str
   let page = 1
   while (true) {
     const r = await fetch(
-      `https://www.strava.com/api/v3/athlete/activities?after=${afterTs}&page=${page}&per_page=200`,
+      `${STRAVA_API_BASE}/athlete/activities?after=${afterTs}&page=${page}&per_page=200`,
       { headers: { Authorization: `Bearer ${token}` } }
     )
     if (r.status === 429) {
@@ -1011,7 +1013,7 @@ export async function fetchActivityLaps(activityId: number): Promise<any[] | nul
   const cached = _loadCachedLaps(activityId)
   if (cached) return cached
   const res = await fetch(
-    `https://www.strava.com/api/v3/activities/${activityId}/laps`,
+    `${STRAVA_API_BASE}/activities/${activityId}/laps`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (!res.ok) return null
@@ -1026,7 +1028,7 @@ async function _fetchStreams429(id: number, token: string): Promise<FetchStreamR
   if (cached) return cached
   const keys = 'time,velocity_smooth,heartrate,altitude,distance'
   const res = await fetch(
-    `https://www.strava.com/api/v3/activities/${id}/streams?keys=${keys}&key_by_type=true`,
+    `${STRAVA_API_BASE}/activities/${id}/streams?keys=${keys}&key_by_type=true`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (res.status === 429) return 'rate_limited'
@@ -1047,7 +1049,7 @@ async function _fetchLaps429(id: number, token: string): Promise<FetchLapsResult
   const cached = _loadCachedLaps(id)
   if (cached) return cached
   const res = await fetch(
-    `https://www.strava.com/api/v3/activities/${id}/laps`,
+    `${STRAVA_API_BASE}/activities/${id}/laps`,
     { headers: { Authorization: `Bearer ${token}` } }
   )
   if (res.status === 429) return 'rate_limited'
