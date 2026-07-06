@@ -1,8 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
-import { generatePlan, weekHasSessionError } from '../lib/plan'
+import { generatePlan, weekHasSessionError, isPlanStale } from '../lib/plan'
 import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
-import { isPlanStale } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 
 interface Props {
