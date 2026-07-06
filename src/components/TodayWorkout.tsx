@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   assessDeviation, assessDeviationForRestDay,
-  syncedCurrentWeek, isPlanStale,
+  syncedCurrentWeek, isPlanStale, weekHasSessionError,
   type PlanDeviation,
 } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
@@ -137,7 +137,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   let latestDeviation: PlanDeviation | null = null
   const latestAct = allActs.length > 0 ? allActs[0] : null
 
-  if (latestAct && syncedCurrentW) {
+  // T-157: no deviation assessment when Desktop couldn't build sessions — week has no usable plan
+  if (latestAct && syncedCurrentW && !weekHasSessionError(syncedCurrentW)) {
     const actDay    = new Date(latestAct.date)
     actDay.setHours(0, 0, 0, 0)
     const actMonday = mondayOf(actDay)
@@ -289,6 +290,20 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
           color: '#FF9800',
         }}>
           ⚠️ Plan ggf. veraltet — am Desktop aktualisieren
+        </div>
+      )}
+
+      {/* T-157: Session build error for current week */}
+      {syncedCurrentW && weekHasSessionError(syncedCurrentW) && (
+        <div style={{
+          background: '#FF980020',
+          border: '1px solid #FF980055',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#FF9800',
+        }}>
+          ⚠️ Einheiten für diese Woche konnten nicht erzeugt werden — Desktop prüfen
         </div>
       )}
 

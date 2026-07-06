@@ -37,6 +37,12 @@ export function syncedTodaySession(week: SyncedPlanWeek): SyncedPlanSession | nu
   return week.sessions.find(s => s.tag === todayTag) ?? null
 }
 
+// T-157: True when the Desktop flagged the week with a session-build error.
+// Defensively truthy — any non-empty error string counts, not just the canonical value.
+export function weekHasSessionError(week: SyncedPlanWeek): boolean {
+  return !!week.error
+}
+
 // Plans older than this many days are considered stale regardless of other signals.
 const PLAN_STALE_DAYS = 7
 
