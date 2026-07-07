@@ -53,6 +53,14 @@ export function updateSettings(partial: Partial<AppSettings>): AppSettings {
   return next
 }
 
+// T-158(b): True when the user has never saved custom settings (coach_settings absent).
+// On a fresh install the app renders with DEFAULTS.vdot=47.9 — a personal value that
+// suggests false precision. Call sites use this to show a "Standardwert" notice.
+// Pure function: reads only localStorage, no side-effects.
+export function isUsingDefaultSettings(): boolean {
+  return localStorage.getItem(KEY) === null
+}
+
 // --- Training Notes ---
 
 export interface ActivityNote {

@@ -9,9 +9,11 @@ interface Props {
   effectiveVdot: number
   syncedFtp?: number | null
   syncedThreshold?: SyncedThreshold | null
+  // T-158(b): true when no settings saved and no sync → DEFAULTS.vdot in use (show notice)
+  usingDefaultVdot?: boolean
 }
 
-export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedThreshold }: Props) {
+export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedThreshold, usingDefaultVdot = false }: Props) {
   const vdot = effectiveVdot
   const paces = buildPaceTable(vdot)
 
@@ -41,6 +43,11 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
   return (
     <div className="tab-content">
       <div className="section-title">VDOT {vdot.toFixed(1)} — Trainingspaces</div>
+      {usingDefaultVdot && (
+        <div className="info-banner" style={{ marginBottom: '12px', opacity: 0.8, fontSize: '0.82rem' }}>
+          (Standardwert — bitte Settings/Sync)
+        </div>
+      )}
 
       <div className="paces-table">
         <PaceSection label="Easy (E)" sub="Grundlagentraining" color="#4CAF50">

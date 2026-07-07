@@ -491,10 +491,24 @@ export function assessDeviation(
   const plannedIntensity = sessionIntensityLevel(plannedSession.typ)
   const actualIntensity  = classification ? classificationIntensityLevel(classification.workoutType) : 'easy'
 
+  // T-158(a): when plannedKm is non-numeric (e.g. "Renndistanz", "—") or zero, skip km-comparison.
+  // pct=Infinity would produce a spurious "Deutlich mehr Volumen" badge on race/special days.
+  if (plannedKm <= 0) {
+    return {
+      plannedLabel,
+      actualType: actualLabel,
+      actualKm,
+      kmDelta:     0,
+      coachComment: 'Sondereinheit — kein km-Soll.',
+      badge:        'plangemäß',
+      badgeColor:   '#4CAF50',
+    }
+  }
+
   // Rest day (no planned session typ that indicates running) → we use null session for rest
   // At this point we have a planned session, so check if it's a quality mismatch
-  const kmDelta   = plannedKm > 0 ? Math.round((actualKm - plannedKm) * 10) / 10 : actualKm
-  const pct       = plannedKm > 0 ? actualKm / plannedKm : Infinity
+  const kmDelta   = Math.round((actualKm - plannedKm) * 10) / 10
+  const pct       = actualKm / plannedKm
 
   let coachComment: string
   let badge: PlanDeviation['badge']

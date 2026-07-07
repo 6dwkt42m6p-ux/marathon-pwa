@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { loadSettings, saveSettings } from './lib/storage'
+import { loadSettings, saveSettings, isUsingDefaultSettings } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
@@ -174,6 +174,9 @@ export default function App() {
   const vdotLabel = syncedVdot
     ? `VDOT ${effectiveVdot.toFixed(1)}`
     : `VDOT ${effectiveVdot.toFixed(1)} (lokal)`
+  // T-158(b): true when no coach_settings saved AND no sync available → DEFAULTS.vdot in use.
+  // VdotPaces shows a hint so a fresh-install user isn't misled by the hardcoded 47.9 default.
+  const usingDefaultVdot = !syncedVdot && isUsingDefaultSettings()
 
   return (
     <div className="app">
@@ -196,7 +199,7 @@ export default function App() {
         {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
-        {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
+        {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} usingDefaultVdot={usingDefaultVdot} />}
         {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
         {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
       </main>
