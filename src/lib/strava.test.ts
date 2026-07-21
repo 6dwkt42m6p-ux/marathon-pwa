@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -327,7 +327,7 @@ function makeActivity(overrides: Partial<StravaActivity>): StravaActivity {
     type: 'Run',
     sport_type: 'Run',
     start_date: '2026-06-17T08:00:00Z',
-    start_date_local: '2026-06-17T10:00:00+0200',
+    start_date_local: '2026-06-17T10:00:00Z',  // real Strava format: local wallclock + 'Z'
     distance: 10000,
     moving_time: 3600,   // 60 min default
     total_elevation_gain: 0,
@@ -778,5 +778,102 @@ describe('ctlRising (T-146)', () => {
     for (let d = 60; d >= 30; d--) declining.push(_actDaysAgo(d, 14400)) // 4h
     // days 29–0: no activities → dailyLoadSeries fills 0
     expect(ctlRising(declining)).toBe(false)
+  })
+})
+
+// ── T-162: parseStravaLocal + Wochenkilometer-Bug (start_date_local Z-Suffix) ──
+//
+// Strava liefert start_date_local als LOKALE Uhrzeit mit irreführendem 'Z'-Suffix.
+// new Date('…T19:30:00Z') → UTC-Interpretation → Lauf liegt ~2h in der "Zukunft" für GMT+2.
+// thisWeekKm und thisWeekStatsBySport filterten mit d <= now → frische Läufe herausgefiltert.
+
+describe('parseStravaLocal (T-162)', () => {
+  it('strips Z suffix so local wallclock time is parsed as local (not UTC)', () => {
+    // Simulate a run that started at 19:30 local time with Strava's misleading 'Z' suffix.
+    // Without the fix: new Date('…T19:30:00Z') = UTC → in GMT+2 = 21:30 local (2h into future).
+    // After fix: parsed as local 19:30 → same calendar day, no future shift.
+    const nowLocal = new Date()
+    const localDateStr = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, '0')}-${String(nowLocal.getDate()).padStart(2, '0')}`
+    const stravaLocalStr = `${localDateStr}T19:30:00Z`  // real Strava format: local time + Z
+
+    const a: StravaActivity = {
+      id: 1, name: 'T-162 test', type: 'Run', sport_type: 'Run',
+      start_date: `${localDateStr}T17:30:00Z`,  // actual UTC
+      start_date_local: stravaLocalStr,
+      distance: 10000, moving_time: 3600, total_elevation_gain: 0, average_speed: 2.78,
+    }
+
+    const parsed = parseStravaLocal(a)
+    // Must be parsed as LOCAL 19:30 (not UTC 19:30 = 21:30 local in GMT+2)
+    expect(parsed.getHours()).toBe(19)
+    expect(parsed.getMinutes()).toBe(30)
+  })
+
+  it('strips +HH:MM offset variant', () => {
+    const a: StravaActivity = {
+      id: 2, name: 'T-162 offset', type: 'Run', sport_type: 'Run',
+      start_date: '2026-06-17T08:00:00Z',
+      start_date_local: '2026-06-17T10:00:00+02:00',
+      distance: 5000, moving_time: 1800, total_elevation_gain: 0, average_speed: 2.78,
+    }
+    const parsed = parseStravaLocal(a)
+    expect(parsed.getHours()).toBe(10)
+    expect(parsed.getMinutes()).toBe(0)
+  })
+
+  it('falls back to start_date when start_date_local is absent', () => {
+    const a: StravaActivity = {
+      id: 3, name: 'T-162 fallback', type: 'Run', sport_type: 'Run',
+      start_date: '2026-06-17T10:00:00Z',
+      start_date_local: '',
+      distance: 5000, moving_time: 1800, total_elevation_gain: 0, average_speed: 2.78,
+    }
+    // Empty string fallback → uses start_date
+    const parsed = parseStravaLocal(a)
+    expect(parsed instanceof Date).toBe(true)
+    expect(isNaN(parsed.getTime())).toBe(false)
+  })
+})
+
+describe('thisWeekKm + thisWeekStatsBySport (T-162 regression — Z-suffix bug)', () => {
+  // Run finished 5 minutes ago in Strava's real format: local wallclock time + 'Z' suffix.
+  // Before fix: new Date('…T<now+2h>:…Z') > now → filtered OUT of week KPIs.
+  // After fix: parsed as local time → d <= now → counted IN.
+
+  function makeRecentRun(distanceM: number): StravaActivity {
+    // Build a start_date_local that is 5 minutes ago in LOCAL time with 'Z' suffix
+    // (mirroring exactly what Strava sends: local clock + 'Z').
+    const fiveMinsAgo = new Date(Date.now() - 5 * 60 * 1000)
+    const localStr = fiveMinsAgo.getFullYear()
+      + '-' + String(fiveMinsAgo.getMonth() + 1).padStart(2, '0')
+      + '-' + String(fiveMinsAgo.getDate()).padStart(2, '0')
+      + 'T' + String(fiveMinsAgo.getHours()).padStart(2, '0')
+      + ':' + String(fiveMinsAgo.getMinutes()).padStart(2, '0')
+      + ':' + String(fiveMinsAgo.getSeconds()).padStart(2, '0')
+      + 'Z'  // real Strava 'Z' on local time
+
+    return {
+      id: 999, name: 'Fresh run T-162', type: 'Run', sport_type: 'Run',
+      start_date: new Date(Date.now() - 5 * 60 * 1000 - 7200 * 1000).toISOString(), // actual UTC
+      start_date_local: localStr,
+      distance: distanceM,
+      moving_time: 1800,
+      total_elevation_gain: 0,
+      average_speed: 2.78,
+      workout_type: 0,
+    }
+  }
+
+  it('thisWeekKm counts a run finished 5 min ago (real Strava Z-suffix format)', () => {
+    const run = makeRecentRun(10000)  // 10 km
+    const km = thisWeekKm([run])
+    // Expected: 10.0 km. Before fix: 0 (filtered by d > now due to UTC misparse).
+    expect(km).toBeCloseTo(10.0, 1)
+  })
+
+  it('thisWeekStatsBySport.run.km counts a run finished 5 min ago (real Strava Z-suffix)', () => {
+    const run = makeRecentRun(8000)  // 8 km
+    const stats = thisWeekStatsBySport([run])
+    expect(stats.run.km).toBeCloseTo(8.0, 1)
   })
 })
