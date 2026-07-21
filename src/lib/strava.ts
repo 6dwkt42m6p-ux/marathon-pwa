@@ -273,6 +273,14 @@ function isHikeType(a: StravaActivity): boolean {
 
 export const DAY_TAGS: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
 
+// Strava sends start_date_local as LOCAL wallclock time with a misleading 'Z' (or +HH:MM) suffix.
+// Stripping the TZ designator makes JS parse the string as local time → correct week bucketing.
+// Falls back to start_date (true UTC) when start_date_local is absent.
+export function parseStravaLocal(a: StravaActivity): Date {
+  const s = a.start_date_local || a.start_date
+  return new Date(s.replace(/(Z|[+-]\d{2}:?\d{2})$/, ''))
+}
+
 export function parseAllActivities(activities: StravaActivity[]): ActivitySummary[] {
   return activities
     .filter(a => isRunType(a) || isRideType(a) || isHikeType(a))
@@ -288,7 +296,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
       return {
         id:          a.id,
         name:        a.name,
-        date:        new Date(a.start_date_local || a.start_date),
+        date:        parseStravaLocal(a),
         distanceKm:  Math.round(distKm * 100) / 100,
         durationSec: durSec,
         paceSec,
@@ -649,7 +657,7 @@ export function thisWeekStatsBySport(activities: StravaActivity[]): Record<'run'
   const now    = new Date()
   const monday = mondayOf(now)
   const week   = activities.filter(a => {
-    const d = new Date(a.start_date_local || a.start_date)
+    const d = parseStravaLocal(a)
     return d >= monday && d <= now
   })
   const stats = (filter: (a: StravaActivity) => boolean): SportWeekStats => {
@@ -685,7 +693,7 @@ export function computeWeeklyStatsBySport(activities: StravaActivity[], weeksBac
   const map    = new Map<string, SportWeeklyStats>()
 
   for (const a of activities) {
-    const d = new Date(a.start_date_local || a.start_date)
+    const d = parseStravaLocal(a)
     if (d < cutoff) continue
     const ws  = mondayOf(d)
     const key = localISODate(ws)
@@ -910,7 +918,7 @@ export function thisWeekKm(activities: StravaActivity[]): number {
   const monday = mondayOf(now)
   return activities
     .filter(a => {
-      const d = new Date(a.start_date_local || a.start_date)
+      const d = parseStravaLocal(a)
       return isRunType(a) && d >= monday && d <= now
     })
     .reduce((sum, a) => sum + (a.distance || 0) / 1000, 0)
@@ -928,7 +936,7 @@ export function parseRuns(activities: StravaActivity[]): RunSummary[] {
       return {
         id:          a.id,
         name:        a.name,
-        date:        new Date(a.start_date_local || a.start_date),
+        date:        parseStravaLocal(a),
         distanceKm:  Math.round(distKm * 100) / 100,
         durationSec: durSec,
         paceSec,
