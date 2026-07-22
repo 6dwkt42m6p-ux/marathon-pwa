@@ -187,6 +187,23 @@ export default function App() {
       const now = new Date()
       const monday = mondayOf(now)
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      // TEMP T-162-DEBUG: localStorage quota probe
+      let totalChars = 0, nKeys = 0, nStream = 0, nLaps = 0, actsChars = 0
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i) || ''
+        const v = localStorage.getItem(k) || ''
+        totalChars += k.length + v.length
+        nKeys++
+        if (k.startsWith('_strava_stream_')) nStream++
+        if (k.startsWith('_strava_laps_')) nLaps++
+        if (k.includes('activities') || k.includes('acts')) actsChars = v.length
+      }
+      let quota = 'ok'
+      try {
+        localStorage.setItem('_quota_probe', 'x'.repeat(300000))
+        localStorage.removeItem('_quota_probe')
+      } catch { quota = 'FULL (300k write failed)' }
+      const storageLine = `storage≈${(totalChars / 1024).toFixed(0)}KB keys=${nKeys} stream=${nStream} laps=${nLaps} acts≈${(actsChars / 1024).toFixed(0)}KB quota=${quota}`
       const sorted = [...cached].sort((a, b) =>
         String(b.start_date_local || b.start_date).localeCompare(String(a.start_date_local || a.start_date)))
       const rows = sorted.slice(0, 5).map(a => {
@@ -199,6 +216,7 @@ export default function App() {
         `tz=${tz}  cached=${cached.length}`,
         `monday=${monday.toString().slice(0, 24)}`,
         `thisWeekKm=${thisWeekKm(cached).toFixed(1)}  bySport.run=${thisWeekStatsBySport(cached).run.km}`,
+        storageLine,
         `--- newest 5 ---`,
         rows,
       ].join('\n')
