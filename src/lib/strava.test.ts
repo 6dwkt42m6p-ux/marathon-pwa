@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal } from './strava'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -832,6 +832,226 @@ describe('parseStravaLocal (T-162)', () => {
     const parsed = parseStravaLocal(a)
     expect(parsed instanceof Date).toBe(true)
     expect(isNaN(parsed.getTime())).toBe(false)
+  })
+})
+
+// ── T-163: localStorage-Quota management ─────────────────────────────────────
+//
+// Root-cause: _strava_stream_* / _strava_laps_* grow unboundedly and fill iOS ~5 MB,
+// causing saveCachedActivities to silently fail → activities cache frozen → 0 Wochen-km.
+//
+// Helpers needed: capStreamLapsCaches (evict old stream/laps), evictAllStreamLapsCaches,
+// saveCachedActivities (boolean return, evict-then-retry), getStorageWarning/clearStorageWarning.
+
+describe('capStreamLapsCaches (T-163)', () => {
+  beforeEach(() => { localStorage.clear() })
+  afterEach(() => { localStorage.clear() })
+
+  function makeActivities(n: number): StravaActivity[] {
+    return Array.from({ length: n }, (_, i) => ({
+      id: i + 1,
+      name: `Run ${i + 1}`,
+      type: 'Run', sport_type: 'Run',
+      // Newer activities have larger indices: start_date_local descending from today
+      start_date: new Date(Date.now() - (n - i) * 86400 * 1000).toISOString(),
+      start_date_local: new Date(Date.now() - (n - i) * 86400 * 1000).toISOString(),
+      distance: 10000, moving_time: 3600, total_elevation_gain: 0, average_speed: 2.78,
+    }))
+  }
+
+  it('keeps only the N newest stream/laps caches when over cap', () => {
+    const acts = makeActivities(60)
+    // Populate activities cache so capStreamLapsCaches can sort by date
+    localStorage.setItem('strava_activities', JSON.stringify(acts))
+    // Add stream+laps cache for all 60 activities
+    for (const a of acts) {
+      localStorage.setItem(STREAM_CACHE_KEY(a.id), '{"time":[]}')
+      localStorage.setItem(LAPS_CACHE_KEY(a.id), '[]')
+    }
+    capStreamLapsCaches(40)
+    // Count remaining stream keys
+    let streamCount = 0, lapsCount = 0
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || ''
+      if (k.startsWith('_strava_stream_')) streamCount++
+      if (k.startsWith('_strava_laps_')) lapsCount++
+    }
+    expect(streamCount).toBe(40)
+    expect(lapsCount).toBe(40)
+  })
+
+  it('the 40 newest activities (by start_date) remain, oldest 20 are evicted', () => {
+    const acts = makeActivities(60)
+    localStorage.setItem('strava_activities', JSON.stringify(acts))
+    for (const a of acts) {
+      localStorage.setItem(STREAM_CACHE_KEY(a.id), `{"time":[${a.id}]}`)
+    }
+    capStreamLapsCaches(40)
+    // acts[0..19] are oldest (ids 1..20), acts[20..59] are newest (ids 21..60)
+    for (let i = 1; i <= 20; i++) {
+      expect(localStorage.getItem(STREAM_CACHE_KEY(i))).toBeNull()
+    }
+    for (let i = 21; i <= 60; i++) {
+      expect(localStorage.getItem(STREAM_CACHE_KEY(i))).not.toBeNull()
+    }
+  })
+
+  it('does nothing when under cap', () => {
+    const acts = makeActivities(10)
+    localStorage.setItem('strava_activities', JSON.stringify(acts))
+    for (const a of acts) {
+      localStorage.setItem(STREAM_CACHE_KEY(a.id), '{"time":[]}')
+    }
+    capStreamLapsCaches(40)
+    let streamCount = 0
+    for (let i = 0; i < localStorage.length; i++) {
+      if ((localStorage.key(i) || '').startsWith('_strava_stream_')) streamCount++
+    }
+    expect(streamCount).toBe(10)
+  })
+
+  it('STREAM_CACHE_MAX constant is defined and positive', () => {
+    expect(STREAM_CACHE_MAX).toBeGreaterThan(0)
+  })
+})
+
+describe('evictAllStreamLapsCaches (T-163)', () => {
+  beforeEach(() => { localStorage.clear() })
+  afterEach(() => { localStorage.clear() })
+
+  it('removes all _strava_stream_* and _strava_laps_* keys', () => {
+    localStorage.setItem(STREAM_CACHE_KEY(1), '{"time":[]}')
+    localStorage.setItem(STREAM_CACHE_KEY(2), '{"time":[]}')
+    localStorage.setItem(LAPS_CACHE_KEY(1), '[]')
+    localStorage.setItem('strava_activities', '[{"id":1}]')  // should NOT be removed
+    evictAllStreamLapsCaches()
+    expect(localStorage.getItem(STREAM_CACHE_KEY(1))).toBeNull()
+    expect(localStorage.getItem(STREAM_CACHE_KEY(2))).toBeNull()
+    expect(localStorage.getItem(LAPS_CACHE_KEY(1))).toBeNull()
+    expect(localStorage.getItem('strava_activities')).not.toBeNull()
+  })
+})
+
+describe('saveCachedActivities Quota-Fallback (T-163)', () => {
+  // Mock strategy: intercept localStorage.setItem via vi.spyOn.
+  // The spy tracks a `failCount` that starts at the number of stream keys present.
+  // Each call to setItem for ACTS_KEY decrements failCount before deciding to throw.
+  // This simulates: first write fails (storage full), eviction removes stream caches,
+  // second write succeeds (freed space).
+
+  beforeEach(() => { localStorage.clear(); clearStorageWarning() })
+  afterEach(() => { localStorage.clear(); vi.restoreAllMocks() })
+
+  it('evicts stream caches and writes full list on quota error (no 500-trim)', () => {
+    // Seed stream caches
+    for (let i = 1; i <= 5; i++) {
+      localStorage.setItem(STREAM_CACHE_KEY(i), '{"time":[]}')
+    }
+
+    const acts: StravaActivity[] = Array.from({ length: 10 }, (_, i) => ({
+      id: i + 100, name: `A${i}`, type: 'Run', sport_type: 'Run',
+      start_date: new Date(Date.now() - i * 86400000).toISOString(),
+      start_date_local: new Date(Date.now() - i * 86400000).toISOString(),
+      distance: 5000, moving_time: 1800, total_elevation_gain: 0, average_speed: 2.78,
+    }))
+
+    // The spy throws exactly once for ACTS_KEY (simulating quota full on first try,
+    // then succeeds after stream eviction frees space). All other keys pass through.
+    let actsWriteAttempt = 0
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key: string, value: string) {
+      if (key === 'strava_activities') {
+        actsWriteAttempt++
+        if (actsWriteAttempt === 1) {
+          // First attempt fails — simulates quota full with stream caches present
+          const err = new DOMException('QuotaExceededError', 'QuotaExceededError')
+          throw err
+        }
+      }
+      // All other writes (and ACTS_KEY on 2nd+ attempt) go through real storage
+      origSetItem(key, value)
+    })
+
+    const ok = saveCachedActivities(acts)
+    expect(ok).toBe(true)
+
+    // Restore before assertions that call getCachedActivities (which uses getItem, unaffected)
+    vi.restoreAllMocks()
+
+    // Full list persisted (not trimmed to 500)
+    const loaded = getCachedActivities()
+    expect(loaded.length).toBe(10)
+
+    // Stream caches were evicted
+    let streamCount = 0
+    for (let i = 0; i < localStorage.length; i++) {
+      if ((localStorage.key(i) || '').startsWith('_strava_stream_')) streamCount++
+    }
+    expect(streamCount).toBe(0)
+
+    // No storage warning (save succeeded)
+    expect(getStorageWarning()).toBeNull()
+  })
+
+  it('unhealable quota error → returns false, sets STORAGE_WARNING_KEY, does not throw', () => {
+    const acts: StravaActivity[] = [{ id: 1, name: 'A', type: 'Run', sport_type: 'Run',
+      start_date: new Date().toISOString(), start_date_local: new Date().toISOString(),
+      distance: 5000, moving_time: 1800, total_elevation_gain: 0, average_speed: 2.78 }]
+
+    // Always throw for ACTS_KEY — even after eviction — simulating truly full storage.
+    // STORAGE_WARNING_KEY writes are allowed through so the warning is set.
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function(this: Storage, key: string, value: string) {
+      if (key === 'strava_activities') {
+        const err = new DOMException('QuotaExceededError', 'QuotaExceededError')
+        throw err
+      }
+      // All other keys (including STORAGE_WARNING_KEY) write through
+      origSetItem(key, value)
+    })
+
+    let threw = false
+    let result: boolean
+    try {
+      result = saveCachedActivities(acts)
+    } catch {
+      threw = true
+      result = false
+    }
+    vi.restoreAllMocks()
+
+    expect(threw).toBe(false)
+    expect(result!).toBe(false)
+    // Warning flag was set
+    expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
+  })
+
+  it('successful save clears STORAGE_WARNING_KEY', () => {
+    // Pre-set a warning
+    localStorage.setItem(STORAGE_WARNING_KEY, '1')
+
+    const acts: StravaActivity[] = [{ id: 2, name: 'B', type: 'Run', sport_type: 'Run',
+      start_date: new Date().toISOString(), start_date_local: new Date().toISOString(),
+      distance: 5000, moving_time: 1800, total_elevation_gain: 0, average_speed: 2.78 }]
+
+    const ok = saveCachedActivities(acts)
+    expect(ok).toBe(true)
+    expect(getStorageWarning()).toBeNull()
+  })
+})
+
+describe('getStorageWarning / clearStorageWarning (T-163)', () => {
+  beforeEach(() => { clearStorageWarning() })
+  afterEach(() => { clearStorageWarning() })
+
+  it('getStorageWarning returns null when no flag set', () => {
+    expect(getStorageWarning()).toBeNull()
+  })
+
+  it('clearStorageWarning removes the flag', () => {
+    localStorage.setItem(STORAGE_WARNING_KEY, '1')
+    clearStorageWarning()
+    expect(getStorageWarning()).toBeNull()
   })
 })
 
