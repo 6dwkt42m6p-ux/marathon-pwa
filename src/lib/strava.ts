@@ -27,6 +27,11 @@ export const REDIRECT_URI  = import.meta.env.VITE_STRAVA_REDIRECT_URI ||
 const TOKEN_KEY          = 'strava_tokens'
 const ACTS_KEY           = 'strava_activities'
 export const STRAVA_LAST_SYNC_KEY = 'strava_last_sync'
+// T-163: cap on how many activities' stream/laps caches to keep (oldest beyond cap are evicted).
+// iOS localStorage ~5 MB; each stream can be 20–100 KB → 40 activities ≈ safe upper bound.
+export const STREAM_CACHE_MAX = 40
+// T-163: flag key set when all eviction attempts still failed — App shows a storage warning banner.
+export const STORAGE_WARNING_KEY = '_strava_storage_warning'
 // T-117: Cutover auf www.api-v3.strava.com erst ab 4.1.2027 — nur diese Zeile ändern
 const STRAVA_API_BASE    = 'https://www.strava.com/api/v3'
 
@@ -160,13 +165,95 @@ function loadCachedActivities(): StravaActivity[] {
   } catch { return [] }
 }
 
-function saveCachedActivities(acts: StravaActivity[]): void {
-  try { localStorage.setItem(ACTS_KEY, JSON.stringify(acts)) }
-  catch (e) {
-    // LocalStorage might be full — trim older entries and retry
-    const trimmed = acts.slice(-500)
-    try { localStorage.setItem(ACTS_KEY, JSON.stringify(trimmed)) } catch {}
+// T-163: remove all _strava_stream_* and _strava_laps_* keys from localStorage.
+// Streams are always re-fetchable from Strava — safe to evict unconditionally.
+export function evictAllStreamLapsCaches(): void {
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i) || ''
+    if (k.startsWith('_strava_stream_') || k.startsWith('_strava_laps_')) {
+      keysToRemove.push(k)
+    }
   }
+  for (const k of keysToRemove) localStorage.removeItem(k)
+}
+
+// T-163: keep stream/laps caches only for the N most recent activities.
+// Called after the bulk analytics fetch so the cache never grows unboundedly.
+export function capStreamLapsCaches(maxActivities = STREAM_CACHE_MAX): void {
+  // Load activity list to determine recency order
+  let acts: StravaActivity[] = []
+  try {
+    const raw = localStorage.getItem(ACTS_KEY)
+    acts = raw ? JSON.parse(raw) : []
+  } catch { return }
+
+  // Sort descending by start_date (UTC ISO string compare is safe for lexicographic sort)
+  const sorted = [...acts].sort((a, b) =>
+    String(b.start_date).localeCompare(String(a.start_date))
+  )
+  const keepIds = new Set(sorted.slice(0, maxActivities).map(a => String(a.id)))
+
+  const keysToRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i) || ''
+    if (k.startsWith('_strava_stream_') || k.startsWith('_strava_laps_')) {
+      const id = k.replace('_strava_stream_', '').replace('_strava_laps_', '')
+      if (!keepIds.has(id)) keysToRemove.push(k)
+    }
+  }
+  for (const k of keysToRemove) localStorage.removeItem(k)
+}
+
+// T-163: storage warning helpers — exported so App.tsx can read and clear the flag.
+export function getStorageWarning(): string | null {
+  try { return localStorage.getItem(STORAGE_WARNING_KEY) }
+  catch { return null }
+}
+
+export function clearStorageWarning(): void {
+  try { localStorage.removeItem(STORAGE_WARNING_KEY) }
+  catch {}
+}
+
+// T-163: Prioritised save strategy:
+//   1. Try writing the full activity list directly.
+//   2. On quota error: evict ALL stream/laps caches, then retry the full list.
+//   3. Only as last resort (still fails after eviction): trim to 500 and retry.
+//   4. If all three fail: set STORAGE_WARNING_KEY and return false (never throw).
+//   Returns true on success (any path), false only on total failure.
+// Exported as saveCachedActivitiesExported for unit tests; internal callers use the private alias.
+export function saveCachedActivitiesExported(acts: StravaActivity[]): boolean {
+  const payload = JSON.stringify(acts)
+  try {
+    localStorage.setItem(ACTS_KEY, payload)
+    clearStorageWarning()
+    return true
+  } catch {
+    // First fallback: evict stream/laps caches (they are re-fetchable), then retry full list.
+    evictAllStreamLapsCaches()
+    try {
+      localStorage.setItem(ACTS_KEY, payload)
+      clearStorageWarning()
+      return true
+    } catch {
+      // Last resort: trim and retry. Avoids total loss when storage is genuinely full.
+      const trimmed = acts.slice(-500)
+      try {
+        localStorage.setItem(ACTS_KEY, JSON.stringify(trimmed))
+        try { localStorage.setItem(STORAGE_WARNING_KEY, '1') } catch {}
+        return false  // trimmed save counts as failure — caller shows warning
+      } catch {
+        try { localStorage.setItem(STORAGE_WARNING_KEY, '1') } catch {}
+        return false
+      }
+    }
+  }
+}
+
+// Internal alias used by syncActivities — keeps the rest of the file unchanged.
+function saveCachedActivities(acts: StravaActivity[]): void {
+  saveCachedActivitiesExported(acts)
 }
 
 function activityTs(a: StravaActivity): number {
@@ -1157,6 +1244,10 @@ export async function loadAnalyticsStreams(
       }
     }
   }
+
+  // T-163: cap stream/laps caches after bulk fetch to prevent iOS quota exhaustion.
+  // Streams are always re-fetchable; capping here keeps storage within ~5 MB iOS limit.
+  capStreamLapsCaches()
 
   return { strideDataById, workSplits, partial, fetched, total }
 }
