@@ -17,6 +17,8 @@ import {
   type NoteMutation,
 } from './lib/notesSync'
 import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC, type SyncedThreshold } from './lib/strava'
+// TEMP T-162-DEBUG: on-device diagnostic for "Wochen-km = 0" — remove after diagnosis
+import { getCachedActivities, thisWeekKm, thisWeekStatsBySport, mondayOf, parseStravaLocal, isRunType } from './lib/strava'
 import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
 
@@ -178,6 +180,33 @@ export default function App() {
   // VdotPaces shows a hint so a fresh-install user isn't misled by the hardcoded 47.9 default.
   const usingDefaultVdot = !syncedVdot && isUsingDefaultSettings()
 
+  // TEMP T-162-DEBUG: compute on-device diagnostic for "Wochen-km = 0" — remove after diagnosis
+  const debugText = (() => {
+    try {
+      const cached = getCachedActivities()
+      const now = new Date()
+      const monday = mondayOf(now)
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const sorted = [...cached].sort((a, b) =>
+        String(b.start_date_local || b.start_date).localeCompare(String(a.start_date_local || a.start_date)))
+      const rows = sorted.slice(0, 5).map(a => {
+        const d = parseStravaLocal(a)
+        const inWk = isRunType(a) && d >= monday && d <= now
+        return `• ${a.name}\n   raw=${a.start_date_local}\n   type=${a.type}/${a.sport_type} dist=${a.distance}\n   parsed=${isNaN(d.getTime()) ? 'INVALID' : d.toString().slice(0, 24)}\n   isRun=${isRunType(a)} >=Mo=${d >= monday} <=now=${d <= now} => IN=${inWk}`
+      }).join('\n')
+      return [
+        `now=${now.toString().slice(0, 33)}`,
+        `tz=${tz}  cached=${cached.length}`,
+        `monday=${monday.toString().slice(0, 24)}`,
+        `thisWeekKm=${thisWeekKm(cached).toFixed(1)}  bySport.run=${thisWeekStatsBySport(cached).run.km}`,
+        `--- newest 5 ---`,
+        rows,
+      ].join('\n')
+    } catch (e) {
+      return `DEBUG error: ${String(e)}`
+    }
+  })()
+
   return (
     <div className="app">
       <header className="app-header">
@@ -196,6 +225,12 @@ export default function App() {
       )}
 
       <main className="app-main">
+        {/* TEMP T-162-DEBUG: on-device diagnostic — remove after diagnosis */}
+        <pre style={{
+          background: '#1a1a1a', color: '#7CFC7C', border: '1px solid #7CFC7C55',
+          borderRadius: 8, padding: 8, margin: '0 0 10px', fontSize: 10, lineHeight: 1.35,
+          whiteSpace: 'pre-wrap', wordBreak: 'break-all', overflowX: 'auto',
+        }}>{debugText}</pre>
         {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
