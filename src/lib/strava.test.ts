@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -1095,5 +1095,33 @@ describe('thisWeekKm + thisWeekStatsBySport (T-162 regression — Z-suffix bug)'
     const run = makeRecentRun(8000)  // 8 km
     const stats = thisWeekStatsBySport([run])
     expect(stats.run.km).toBeCloseTo(8.0, 1)
+  })
+})
+
+describe('classifyWorkoutStructure — Trabpausen trennen Reps (T-165)', () => {
+  function buildStream(segments: [number, number][], dt = 1): { time: number[]; vel: number[] } {
+    const time: number[] = []; const vel: number[] = []; let tt = 0
+    for (const [speed, dur] of segments) {
+      for (let i = 0; i < Math.round(dur / dt); i++) { time.push(tt); vel.push(speed); tt += dt }
+    }
+    return { time, vel }
+  }
+
+  it('5×1000m mit 80s-Trabpause → 5 getrennte Blöcke (nicht gemergt)', () => {
+    const rep: [number, number] = [4.0, 250]
+    const rec: [number, number] = [2.9, 80]
+    const segs: [number, number][] = [[2.9, 60], rep, rec, rep, rec, rep, rec, rep, rec, rep, [2.9, 60]]
+    const { time, vel } = buildStream(segs)
+    const cls = classifyWorkoutStructure(time, vel, undefined, 45)
+    const nBlocks = cls.tempoBlocks.length + cls.intervalBlocks.length
+    expect(nBlocks).toBe(5)
+  })
+
+  it('durchgehender 20-min-Tempolauf → genau 1 Block (kein Fragmentieren)', () => {
+    const segs: [number, number][] = [[2.9, 60], [4.0, 1200], [2.9, 60]]
+    const { time, vel } = buildStream(segs)
+    const cls = classifyWorkoutStructure(time, vel, undefined, 45)
+    const nBlocks = cls.tempoBlocks.length + cls.intervalBlocks.length
+    expect(nBlocks).toBe(1)
   })
 })

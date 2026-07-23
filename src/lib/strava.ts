@@ -1382,8 +1382,8 @@ export function classifyWorkoutStructure(
   if (inBlock) rawBlocks.push([blkStart, n - 1])
   if (rawBlocks.length === 0) return empty
 
-  // ── Step 5: Gap-Merge (90s) + Merge-Guard (≥45s on one side) ───────────────
-  const MERGE_GAP_S = 90
+  // ── Step 5: Gap-Merge (20s, nur GPS-/Mikro-Lücken) + Merge-Guard (≥45s) ────
+  const MERGE_GAP_S = 20  // bridge only GPS/micro-gaps; real recovery jogs SEPARATE reps (T-165)
   const MERGE_MIN_S = 45
 
   const mergedBlocks: [number, number][] = [rawBlocks[0]]
