@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -1052,6 +1052,62 @@ describe('getStorageWarning / clearStorageWarning (T-163)', () => {
     localStorage.setItem(STORAGE_WARNING_KEY, '1')
     clearStorageWarning()
     expect(getStorageWarning()).toBeNull()
+  })
+})
+
+// ── T-170: saveTokens quota hardening — "schlimmster Fall" (OAuth-Token nicht persistiert) ──
+
+describe('saveTokens quota hardening (T-170)', () => {
+  beforeEach(() => { localStorage.clear() })
+  afterEach(() => { vi.restoreAllMocks(); localStorage.clear() })
+
+  const tokens = { access_token: 'a', refresh_token: 'r', expires_at: Date.now() / 1000 + 3600 }
+
+  it('successful save → true, tokens persisted', () => {
+    expect(saveTokens(tokens)).toBe(true)
+    expect(loadTokens()?.access_token).toBe('a')
+  })
+
+  it('quota exhausted (unhealable) → false, no throw, STORAGE_WARNING_KEY set, tokens NOT persisted', () => {
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'strava_tokens') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      origSetItem(key, value)
+    })
+
+    let threw = false
+    let ok = true
+    try { ok = saveTokens(tokens) } catch { threw = true }
+    vi.restoreAllMocks()
+
+    expect(threw).toBe(false)
+    expect(ok).toBe(false)
+    // Worst case from the ticket: silent OAuth-persist-failure would leave the user
+    // logged out without any signal. A caller ignoring the return value would never know.
+    expect(loadTokens()).toBeNull()
+    expect(getStorageWarning()).not.toBeNull()
+  })
+})
+
+// ── T-170: exchangeCode propagates saveTokens failure instead of pretending success ──
+
+describe('exchangeCode — storage quota propagation (T-170)', () => {
+  beforeEach(() => { localStorage.clear() })
+  afterEach(() => { vi.restoreAllMocks(); vi.unstubAllGlobals(); localStorage.clear() })
+
+  it('quota exhausted during token persist → rejects with storage_quota marker, does not silently succeed', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true, status: 200,
+      json: async () => ({ access_token: 'a', refresh_token: 'r', expires_at: Date.now() / 1000 + 3600 }),
+    })))
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'strava_tokens') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      origSetItem(key, value)
+    })
+
+    await expect(exchangeCode('some-code')).rejects.toThrow(/storage_quota/)
+    expect(loadTokens()).toBeNull()
   })
 })
 

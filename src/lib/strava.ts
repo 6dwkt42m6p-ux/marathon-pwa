@@ -1,5 +1,11 @@
 // Strava OAuth2 + activity sync
 import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor } from './vdot'
+// T-170: STORAGE_WARNING_KEY/getStorageWarning/clearStorageWarning/safeSetItem canonically live
+// in storage.ts now (was duplicated here). Re-exported below so existing imports (App.tsx,
+// strava.test.ts: `from './strava'`) keep working unchanged. storage.ts never imports strava.ts
+// (see storage.ts registerEvictCallback comment) — this one-directional import is cycle-free.
+import { STORAGE_WARNING_KEY, getStorageWarning, clearStorageWarning, safeSetItem, registerEvictCallback } from './storage'
+export { STORAGE_WARNING_KEY, getStorageWarning, clearStorageWarning }
 
 // Thrown by fetchActivitiesAfter (and propagated through syncActivities) when Strava returns
 // HTTP 429. Callers (e.g. StravaSync.tsx) can use `instanceof StravaRateLimitError` to show
@@ -30,8 +36,6 @@ export const STRAVA_LAST_SYNC_KEY = 'strava_last_sync'
 // T-163: cap on how many activities' stream/laps caches to keep (oldest beyond cap are evicted).
 // iOS localStorage ~5 MB; each stream can be 20–100 KB → 40 activities ≈ safe upper bound.
 export const STREAM_CACHE_MAX = 40
-// T-163: flag key set when all eviction attempts still failed — App shows a storage warning banner.
-export const STORAGE_WARNING_KEY = '_strava_storage_warning'
 // T-117: Cutover auf www.api-v3.strava.com erst ab 4.1.2027 — nur diese Zeile ändern
 const STRAVA_API_BASE    = 'https://www.strava.com/api/v3'
 
@@ -82,8 +86,11 @@ export function loadTokens(): StravaTokens | null {
   } catch { return null }
 }
 
-export function saveTokens(t: StravaTokens): void {
-  localStorage.setItem(TOKEN_KEY, JSON.stringify(t))
+// T-170: "schlimmster Fall" aus dem Ticket — ein stiller Quota-Fehler hier persistiert das
+// OAuth-Token nicht, der User ist ausgeloggt ohne jedes Signal. Rückgabewert MUSS ausgewertet
+// werden (siehe refreshTokens/exchangeCode unten).
+export function saveTokens(t: StravaTokens): boolean {
+  return safeSetItem(TOKEN_KEY, JSON.stringify(t))
 }
 
 export function clearTokens(): void {
@@ -130,7 +137,12 @@ async function refreshTokens(refreshToken: string): Promise<StravaTokens> {
   })
   if (!r.ok) throw new Error(`Token refresh failed: ${r.status}`)
   const tokens = await r.json()
-  saveTokens(tokens)
+  if (!saveTokens(tokens)) {
+    // getValidToken()'s caller already treats any refreshTokens() rejection as "not
+    // authenticated" (existing behaviour) — the storage_quota marker lets a future caller
+    // distinguish this from a real auth failure if needed, without changing today's fallback.
+    throw new Error('storage_quota: Token-Refresh erfolgreich, aber Speicher voll — Token nicht gespeichert.')
+  }
   return tokens
 }
 
@@ -154,7 +166,12 @@ export async function exchangeCode(code: string): Promise<StravaTokens> {
   })
   if (!r.ok) throw new Error(`Auth failed: ${r.status} ${await r.text()}`)
   const tokens = await r.json()
-  saveTokens(tokens)
+  if (!saveTokens(tokens)) {
+    // Login succeeded server-side, but the token could not be persisted — without this throw
+    // the caller would show "connected" while isAuthenticated() lies false on next read.
+    // Settings.tsx's exchangeCode().catch() branch surfaces the "storage_quota" marker.
+    throw new Error('storage_quota: Login erfolgreich, aber Speicher voll — Token konnte nicht gespeichert werden.')
+  }
   return tokens
 }
 
@@ -177,6 +194,10 @@ export function evictAllStreamLapsCaches(): void {
   }
   for (const k of keysToRemove) localStorage.removeItem(k)
 }
+
+// T-170: register this module's eviction function as the fallback safeSetItem() uses on quota
+// errors — module-load side effect, see storage.ts registerEvictCallback doc comment.
+registerEvictCallback(evictAllStreamLapsCaches)
 
 // T-163: keep stream/laps caches only for the N most recent activities.
 // Called after the bulk analytics fetch so the cache never grows unboundedly.
@@ -203,17 +224,6 @@ export function capStreamLapsCaches(maxActivities = STREAM_CACHE_MAX): void {
     }
   }
   for (const k of keysToRemove) localStorage.removeItem(k)
-}
-
-// T-163: storage warning helpers — exported so App.tsx can read and clear the flag.
-export function getStorageWarning(): string | null {
-  try { return localStorage.getItem(STORAGE_WARNING_KEY) }
-  catch { return null }
-}
-
-export function clearStorageWarning(): void {
-  try { localStorage.removeItem(STORAGE_WARNING_KEY) }
-  catch {}
 }
 
 // T-163: Prioritised save strategy:

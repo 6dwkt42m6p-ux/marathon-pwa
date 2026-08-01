@@ -1,3 +1,5 @@
+import { safeSetItem } from './storage'
+
 const OWNER = '6dwkt42m6p-ux'
 const REPO   = 'marathon-pwa'
 const PATH   = 'data/sync.json'
@@ -61,7 +63,10 @@ export interface SyncData {
 const TOKEN_KEY = 'github_sync_token'
 
 export function getToken()          { return localStorage.getItem(TOKEN_KEY) ?? '' }
-export function setToken(t: string) { localStorage.setItem(TOKEN_KEY, t) }
+// T-170: boolean return — Settings.tsx surfaces a warning when the token could not be
+// persisted (quota); minimum bucket per ticket, the App-level STORAGE_WARNING_KEY banner
+// (T-163) fires automatically via safeSetItem regardless of whether the caller checks this.
+export function setToken(t: string): boolean { return safeSetItem(TOKEN_KEY, t) }
 export function clearToken()        { localStorage.removeItem(TOKEN_KEY) }
 export function hasToken()          { return !!localStorage.getItem(TOKEN_KEY) }
 

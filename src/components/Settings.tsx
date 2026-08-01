@@ -29,6 +29,10 @@ interface Props {
 export default function Settings({ settings, onUpdate }: Props) {
   const [s, setS] = useState(settings)
   const [saved, setSaved] = useState(false)
+  // T-170: saveSettings() can fail on quota-exhaustion — confirmation must reflect the real
+  // saved state, not the live widget values (project rule: "Confirmation messages read from
+  // saved state, not live widget variables").
+  const [settingsSaveErr, setSettingsSaveErr] = useState<string | null>(null)
 
   // GitHub Sync state
   const [ghToken,    setGhToken]   = useState(getToken())
@@ -163,9 +167,14 @@ export default function Settings({ settings, onUpdate }: Props) {
   }
 
   function handleSaveToken() {
-    setToken(ghToken)
-    setGhMsg('Token gespeichert.')
-    setTimeout(() => setGhMsg(null), 2000)
+    // T-170: setToken can fail on quota-exhaustion — don't claim success it didn't achieve.
+    if (setToken(ghToken)) {
+      setGhErr(null)
+      setGhMsg('Token gespeichert.')
+      setTimeout(() => setGhMsg(null), 2000)
+    } else {
+      setGhErr('Speicher voll — Token konnte nicht gespeichert werden.')
+    }
   }
 
   function handleClearToken() {
@@ -213,7 +222,13 @@ export default function Settings({ settings, onUpdate }: Props) {
         })
         .catch(e => {
           const msg = String(e)
-          if (msg.includes('401'))
+          // T-170: exchangeCode() throws this specific marker when the login succeeded but
+          // the OAuth token could not be persisted (quota) — the "schlimmster Fall" from the
+          // ticket (silent logout). Distinct message so the user knows to free up storage,
+          // not retry the connection.
+          if (msg.includes('storage_quota'))
+            setStravaErr('Login erfolgreich, aber der Speicher ist voll — die Verbindung wurde NICHT gespeichert. Bitte Speicher leeren und erneut verbinden.')
+          else if (msg.includes('401'))
             setStravaErr('Verbindung fehlgeschlagen — Client-Credentials ungültig. GitHub Secrets prüfen.')
           else if (msg.includes('400'))
             setStravaErr('Verbindung fehlgeschlagen — Redirect URI stimmt nicht überein.')
@@ -275,7 +290,11 @@ export default function Settings({ settings, onUpdate }: Props) {
   }
 
   async function handleSave() {
-    saveSettings(s)
+    if (!saveSettings(s)) {
+      setSettingsSaveErr('Speicher voll — Einstellungen konnten nicht gespeichert werden.')
+      return
+    }
+    setSettingsSaveErr(null)
     onUpdate(s)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
@@ -335,7 +354,12 @@ export default function Settings({ settings, onUpdate }: Props) {
     const prev = s.vdot
     const updated = { ...s, vdot: calcVdot }
     setS(updated)
-    saveSettings(updated)
+    if (!saveSettings(updated)) {
+      // T-170: "Übernahmebuttons" pattern (pwa_patterns.md) — a dedicated action button must
+      // not claim success on a failed persist.
+      setRaceErr('Speicher voll — VDOT konnte nicht übernommen werden.')
+      return
+    }
     onUpdate(updated)
     setVdotApplied({ from: prev, to: calcVdot })
     setCalcVdot(null)
@@ -739,6 +763,7 @@ export default function Settings({ settings, onUpdate }: Props) {
       >
         {saved ? '✅ Gespeichert' : 'Speichern'}
       </button>
+      {settingsSaveErr && <div className="error-box">{settingsSaveErr}</div>}
     </div>
   )
 }

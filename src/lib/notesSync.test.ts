@@ -1,7 +1,9 @@
 // T-156: PWA-Notizen-Sync — test-first (rot vor Impl, grün danach)
 // Tests: Mutation-Builder, Pending-Liste, resolveNote, resolvePendingNoteMutation, rebuildFn
+// T-170: appendPendingNoteMutation Rückgabewert bei Quota-Fehler — "Queue darf nicht als
+// geschrieben gelten" (Aufrufer in RunDetail.tsx muss false erkennen).
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   buildSaveNoteMutation,
   buildDeleteNoteMutation,
@@ -15,6 +17,7 @@ import {
   type NotesSyncInfo,
 } from './notesSync'
 import type { ActivityNote } from './storage'
+import { registerEvictCallback, STORAGE_WARNING_KEY } from './storage'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutation-Builder
@@ -71,6 +74,33 @@ describe('pending-note-list', () => {
     expect(result[0]).toEqual(m)
   })
 
+  it('appendPendingNoteMutation returns true on success', () => {
+    expect(appendPendingNoteMutation(buildSaveNoteMutation(1, 'abc', 3))).toBe(true)
+  })
+
+  // T-170: quota exhausted → queue write must NOT silently pretend success.
+  it('appendPendingNoteMutation returns false when quota exhausted, queue stays unwritten, never throws', () => {
+    registerEvictCallback(() => { /* nothing to evict — storage genuinely full */ })
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'pending_note_mutations') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      origSetItem(key, value)
+    })
+
+    let threw = false
+    let ok = true
+    const m = buildSaveNoteMutation(1, 'verloren', 5)
+    try { ok = appendPendingNoteMutation(m) } catch { threw = true }
+    vi.restoreAllMocks()
+
+    expect(threw).toBe(false)
+    expect(ok).toBe(false)
+    // The mutation did NOT make it into the persisted queue — a caller (RunDetail.tsx)
+    // that ignores the return value would believe the sync-mutation was queued.
+    expect(loadPendingNoteMutations()).toHaveLength(0)
+    expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
+  })
+
   it('appendPendingNoteMutation appends to existing list', () => {
     // Hardcoded distinct ts to avoid same-millisecond collision in test runner
     const m1: NoteMutation = { type: 'save', activity_id: 1, text: 'abc', rating: 3, ts: '2026-07-04T10:00:00.001Z' }
@@ -108,6 +138,37 @@ describe('pending-note-list', () => {
     const remaining = loadPendingNoteMutations()
     expect(remaining).toHaveLength(1)
     expect(remaining[0]).toEqual(m2)
+  })
+
+  it('removePendingNoteMutations returns true on success', () => {
+    const m = buildSaveNoteMutation(1, 'abc', 3)
+    appendPendingNoteMutation(m)
+    expect(removePendingNoteMutations([m.ts])).toBe(true)
+  })
+
+  // T-170: quota exhausted mid-write must not throw and must not silently pretend the
+  // already-applied mutations were popped (they would otherwise re-trigger indefinitely).
+  it('removePendingNoteMutations: quota exhausted on partial-remaining write → false, never throws, list unchanged', () => {
+    const m1: NoteMutation = { type: 'save', activity_id: 1, text: 'a', rating: 3, ts: '2026-07-04T10:00:00.005Z' }
+    const m2: NoteMutation = { type: 'delete', activity_id: 2, ts: '2026-07-04T10:00:00.006Z' }
+    appendPendingNoteMutation(m1)
+    appendPendingNoteMutation(m2)
+
+    registerEvictCallback(() => { /* nothing to evict — storage genuinely full */ })
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'pending_note_mutations') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      origSetItem(key, value)
+    })
+
+    let threw = false
+    let ok = true
+    try { ok = removePendingNoteMutations([m1.ts]) } catch { threw = true }
+    vi.restoreAllMocks()
+
+    expect(threw).toBe(false)
+    expect(ok).toBe(false)
+    expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
   })
 })
 

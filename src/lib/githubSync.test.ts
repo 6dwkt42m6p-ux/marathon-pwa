@@ -2,8 +2,9 @@
 // Tests MÜSSEN rot sein vor der Impl (test-first), dann grün nach Impl.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { pushSync } from './githubSync'
+import { pushSync, setToken, getToken } from './githubSync'
 import type { SyncData } from './githubSync'
+import { registerEvictCallback, STORAGE_WARNING_KEY } from './storage'
 
 // Decode the base64-encoded content from a PUT body.
 // pushSync encodes as btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))).
@@ -182,5 +183,34 @@ describe('pushSync — T-151 409-rebuild', () => {
 
     // At least one GET must have happened during the retry
     expect(getCalls).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// ── T-170: setToken quota hardening ──────────────────────────────────────────
+
+describe('setToken quota hardening (T-170)', () => {
+  beforeEach(() => { localStorage.clear(); registerEvictCallback(() => {}) })
+  afterEach(() => { vi.restoreAllMocks(); localStorage.clear() })
+
+  it('successful save → true, token persisted', () => {
+    expect(setToken('ghp_test123')).toBe(true)
+    expect(getToken()).toBe('ghp_test123')
+  })
+
+  it('quota exhausted → false, no throw, STORAGE_WARNING_KEY set', () => {
+    const origSetItem = Storage.prototype.setItem.bind(localStorage)
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
+      if (key === 'github_sync_token') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
+      origSetItem(key, value)
+    })
+
+    let threw = false
+    let ok = true
+    try { ok = setToken('ghp_lost') } catch { threw = true }
+    vi.restoreAllMocks()
+
+    expect(threw).toBe(false)
+    expect(ok).toBe(false)
+    expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
   })
 })

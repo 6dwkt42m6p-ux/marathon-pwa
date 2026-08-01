@@ -511,14 +511,38 @@ export function aggregateStrideTrend(
 // ── injuryRisk ────────────────────────────────────────────────────────────────
 // T-144: Faithful port of coach.injury_risk (T-143).
 // ACWR = 7d-EWMA / 28d-EWMA; CTL-Ramp = 42d-CTL delta over 7 calendar days.
-// SSoT: coach.py constants ACWR_SWEET_LOW/HIGH, ACWR_CAUTION_HIGH, RAMP_SAFE, RAMP_CAUTION, ACWR_MIN_DAYS.
+// SSoT: coach.py constants ACWR_SWEET_LOW/HIGH, ACWR_CAUTION_HIGH, RAMP_DETRAIN, RAMP_SAFE, RAMP_CAUTION, ACWR_MIN_DAYS.
 
 const ACWR_SWEET_LOW    = 0.8
 const ACWR_SWEET_HIGH   = 1.3
 const ACWR_CAUTION_HIGH = 1.5
+const RAMP_DETRAIN      = -3.0
 const RAMP_SAFE         = 5.0
 const RAMP_CAUTION      = 8.0
 const ACWR_MIN_DAYS     = 28
+
+// T-177 Review-Nachtrag: v >= 0 (nicht > 0) — Python f"{ramp:+.1f}" liefert bei ramp===0 "+0.0"
+// (explizites Vorzeichen auch bei exakt Null). Negative Werte, die auf -0.0 runden (z.B. -0.04),
+// erhalten ihr Vorzeichen bereits von toFixed(1) selbst ("-0.0") — kein zusaetzliches "+" davor.
+const rampStr = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(1)
+
+// T-177: isolierter Branch aus injuryRisk (faithful port coach.py:_ramp_zone, T-167).
+// Getrennt exportiert, damit die Gitterpunkte unabhaengig von der EWMA-Berechnung
+// getestet werden koennen. Prueft Ober- UND Untergrenze: eine stark negative Ramp
+// ist Formverlust/Detraining, kein "Aufbau" (vorher faelschlich gruen).
+export function rampZone(rampPerWeek: number | null): { color: string; label: string } {
+  if (rampPerWeek === null) return { color: '#888888', label: '' }
+  if (rampPerWeek <= RAMP_DETRAIN) {
+    return { color: '#3498DB', label: `CTL ${rampStr(rampPerWeek)}/Woche — Formverlust, CTL fällt (Detraining)` }
+  }
+  if (rampPerWeek <= RAMP_SAFE) {
+    return { color: '#2ECC71', label: `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau im sicheren Bereich` }
+  }
+  if (rampPerWeek <= RAMP_CAUTION) {
+    return { color: '#F1C40F', label: `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zügig, Steigerung dämpfen` }
+  }
+  return { color: '#E74C3C', label: `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zu schnell (Verletzungsrisiko)` }
+}
 
 export interface InjuryRiskResult {
   acwr:        number | null
@@ -580,17 +604,7 @@ export function injuryRisk(
   if (ctl42Series.length >= 8) {
     rampPerWeek = Math.round((ctl42Series[ctl42Series.length - 1] - ctl42Series[ctl42Series.length - 8]) * 10) / 10
   }
-  const rampStr = (v: number) => (v > 0 ? '+' : '') + v.toFixed(1)
-  let rampColor: string, rampLabel: string
-  if (rampPerWeek === null) {
-    rampColor = '#888888'; rampLabel = ''
-  } else if (rampPerWeek <= RAMP_SAFE) {
-    rampColor = '#2ECC71'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau im sicheren Bereich`
-  } else if (rampPerWeek <= RAMP_CAUTION) {
-    rampColor = '#F1C40F'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zügig, Steigerung dämpfen`
-  } else {
-    rampColor = '#E74C3C'; rampLabel = `CTL ${rampStr(rampPerWeek)}/Woche — Aufbau zu schnell (Verletzungsrisiko)`
-  }
+  const { color: rampColor, label: rampLabel } = rampZone(rampPerWeek)
 
   // ── Kombiniertes Verdikt (schlechtere Ampel; Unterlast = Hinweis) ──
   const sev: Record<string, number> = { '#2ECC71': 0, '#3498DB': 0, '#F1C40F': 1, '#E74C3C': 2, '#888888': 0 }

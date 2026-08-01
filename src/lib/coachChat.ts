@@ -1,6 +1,7 @@
 // Coach Chat — worker proxy call and localStorage history
 
 import type { AppSettings } from './storage'
+import { safeSetItem } from './storage'
 import type { StravaActivity } from './strava'
 import { trainingPaces, formatPace } from './vdot'
 
@@ -25,14 +26,13 @@ export function loadChatHistory(): ChatMessage[] {
   }
 }
 
+// T-170: safeSetItem never throws and sets STORAGE_WARNING_KEY on unhealable quota failure —
+// minimum bucket per ticket (Chat history is not critical enough for dedicated UI; the
+// App-level storage banner from T-163 already signals the user).
 export function saveChatHistory(messages: ChatMessage[]): void {
   // Persist only the last HISTORY_LIMIT messages
   const trimmed = messages.slice(-HISTORY_LIMIT)
-  try {
-    localStorage.setItem(COACH_HISTORY_KEY, JSON.stringify(trimmed))
-  } catch {
-    // localStorage may be unavailable in some iOS Private Mode scenarios
-  }
+  safeSetItem(COACH_HISTORY_KEY, JSON.stringify(trimmed))
 }
 
 export function clearChatHistory(): void {
