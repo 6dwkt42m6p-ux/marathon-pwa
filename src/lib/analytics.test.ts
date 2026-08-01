@@ -9,6 +9,7 @@ import {
   vdotAdherenceCheck,
   aggregateStrideTrend,
   injuryRisk,
+  rampZone,
   executionQuality,
   sessionExecutionQuality,
   dataQualityScore,
@@ -191,6 +192,72 @@ describe('injuryRisk', () => {
     const r = injuryRisk([])
     expect(r.enoughData).toBe(false)
     expect(r.acwr).toBeNull()
+  })
+
+  // T-177: negative Ramp faelschlich gruen ("Aufbau im sicheren Bereich").
+  // Steiler Lastabfall (90 Tage hohe Last, dann 8 Tage Stopp) -> Ramp deutlich
+  // unter RAMP_DETRAIN (-3.0). Faithful port coach.py test_ramp_zone_detrain_regression_live_bug.
+  it('steep drop (detrain) → ramp blue, combined verdict stays hint not caution/high', () => {
+    const acts: StravaActivity[] = []
+    for (let d = 8; d < 98; d++) acts.push(_act(d, 150, d + 1))
+    // days 0..7: keine Aktivitaet -> Last 0 an diesen Tagen -> CTL faellt steil
+    const r = injuryRisk(acts)
+    expect(r.rampPerWeek).not.toBeNull()
+    expect(r.rampPerWeek!).toBeLessThanOrEqual(-3.0)
+    expect(r.rampColor).toBe('#3498DB')
+    expect(r.rampLabel).not.toContain('Aufbau')
+    expect(r.rampLabel).toContain('Detraining')
+    // Punkt 4 im Ticket: sev-Mapping haelt #3498DB weiterhin bei 0 -> kombiniertes
+    // Verdikt bleibt Hinweis, nicht caution/high, trotz stark negativer Ramp.
+    expect(r.riskLevel).not.toBe('caution')
+    expect(r.riskLevel).not.toBe('high')
+  })
+})
+
+// ── T-177: rampZone grid (isolierter Branch, faithful port coach.py:_ramp_zone) ─
+
+describe('rampZone', () => {
+  it('detrain grid: <= -3.0 → blue, kein "Aufbau"-Wortlaut', () => {
+    for (const ramp of [-9, -5, -3.0]) {
+      const { color, label } = rampZone(ramp)
+      expect(color).toBe('#3498DB')
+      expect(label).not.toContain('Aufbau')
+      expect(label).toContain('Detraining')
+    }
+  })
+
+  it('safe grid: -2.9 .. 5.0 → green', () => {
+    for (const ramp of [-2.9, 0, 3, 5.0]) {
+      const { color, label } = rampZone(ramp)
+      expect(color).toBe('#2ECC71')
+      expect(label).toContain('sicheren Bereich')
+    }
+  })
+
+  // T-177 Review-Nachtrag: Desktop nutzt f"{ramp:+.1f}" (Python) -> "+0.0" bei ramp===0.
+  // v > 0 statt v >= 0 liefert dort "0.0" (fehlendes "+") -> Label nicht zeichengleich.
+  it('zero and near-zero sign formatting matches Python f"{ramp:+.1f}" exactly', () => {
+    // ramp = 0 -> Python "+0.0" (explizites Vorzeichen auch bei exakt Null)
+    expect(rampZone(0).label).toContain('CTL +0.0/Woche')
+    // ramp = -0.04 -> rundet auf -0.0, Python liefert "-0.0" (Vorzeichen bleibt erhalten,
+    // kein zusaetzliches "+" davor). toFixed(1) liefert das Vorzeichen bereits selbst.
+    expect(rampZone(-0.04).label).toContain('CTL -0.0/Woche')
+  })
+
+  it('caution grid: 5.1, 8.0 → yellow', () => {
+    for (const ramp of [5.1, 8.0]) {
+      expect(rampZone(ramp).color).toBe('#F1C40F')
+    }
+  })
+
+  it('high grid: 8.1 → red', () => {
+    expect(rampZone(8.1).color).toBe('#E74C3C')
+  })
+
+  it('null → neutral', () => {
+    const { color, label } = rampZone(null)
+    expect(color).toBe('#888888')
+    expect(label).toBe('')
   })
 })
 

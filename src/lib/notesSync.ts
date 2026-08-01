@@ -3,6 +3,7 @@
 // + exports plan.notes back → PWA resolves display via resolveNote.
 
 import type { ActivityNote } from './storage'
+import { safeSetItem } from './storage'
 
 // Note mutation payload sent to Desktop via sync.json top-level noteMutations queue.
 // activity_id is number in PWA — Desktop normalises to str(activity_id) for notes.json keys.
@@ -55,25 +56,27 @@ export function loadPendingNoteMutations(): NoteMutation[] {
   }
 }
 
-export function appendPendingNoteMutation(m: NoteMutation): void {
-  try {
-    const existing = loadPendingNoteMutations()
-    // ts is the dedupe key — never add the same mutation twice
-    if (existing.some(e => e.ts === m.ts)) return
-    localStorage.setItem(PENDING_KEY, JSON.stringify([...existing, m]))
-  } catch { /* iOS private mode */ }
+// T-170: return value MUST be consumed by the caller (RunDetail.tsx enqueueMutationAndPush) —
+// a `false` means the mutation did NOT make it into the persisted queue. The caller must not
+// treat it as queued (it would silently vanish if the immediate best-effort push also fails).
+export function appendPendingNoteMutation(m: NoteMutation): boolean {
+  const existing = loadPendingNoteMutations()
+  // ts is the dedupe key — never add the same mutation twice
+  if (existing.some(e => e.ts === m.ts)) return true
+  return safeSetItem(PENDING_KEY, JSON.stringify([...existing, m]))
 }
 
-export function removePendingNoteMutations(tsList: string[]): void {
-  try {
-    const tsSet = new Set(tsList)
-    const remaining = loadPendingNoteMutations().filter(m => !tsSet.has(m.ts))
-    if (remaining.length === 0) {
-      localStorage.removeItem(PENDING_KEY)
-    } else {
-      localStorage.setItem(PENDING_KEY, JSON.stringify(remaining))
-    }
-  } catch { /* iOS private mode */ }
+// T-170: `false` means the (now-shorter) queue could not be persisted — the applied mutations
+// stay in the list and will be considered again on the next flush. Not a data-loss path (unlike
+// append), but still must not throw or silently claim success.
+export function removePendingNoteMutations(tsList: string[]): boolean {
+  const tsSet = new Set(tsList)
+  const remaining = loadPendingNoteMutations().filter(m => !tsSet.has(m.ts))
+  if (remaining.length === 0) {
+    try { localStorage.removeItem(PENDING_KEY); return true }
+    catch { return false /* iOS private mode */ }
+  }
+  return safeSetItem(PENDING_KEY, JSON.stringify(remaining))
 }
 
 // ─── resolveNote ─────────────────────────────────────────────────────────────

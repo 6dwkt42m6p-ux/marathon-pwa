@@ -180,15 +180,20 @@ export default function RunDetail({
   const [noteText,   setNoteText]     = useState<string>(effectiveNote?.text ?? '')
   const [noteRating, setNoteRating]   = useState<number>(effectiveNote?.rating ?? 0)
   const [noteSaved,  setNoteSaved]    = useState<ActivityNote | null>(effectiveNote)
+  // T-170: saveNote() can fail on quota-exhaustion — surfaced instead of a false success.
+  const [noteSaveError, setNoteSaveError] = useState<string | null>(null)
 
   // T-156: enqueue note mutation in pending list + best-effort push to GitHub.
   // localStorage write (optimistic) happens first; push errors are silent — mutation
   // stays in the pending list for the next flush (App.tsx startup or Settings sync).
+  // T-170: appendPendingNoteMutation can fail to persist the queue (quota). If so, the
+  // mutation is added to the in-memory payload directly so this immediate push attempt still
+  // carries it — the queue write failing must not silently drop the mutation from this flush.
   async function enqueueMutationAndPush(mutation: ReturnType<typeof buildSaveNoteMutation> | ReturnType<typeof buildDeleteNoteMutation>) {
-    appendPendingNoteMutation(mutation)
+    const queued = appendPendingNoteMutation(mutation)
     try {
       const fresh = await fetchSync(true)
-      const allPending = loadPendingNoteMutations()
+      const allPending = queued ? loadPendingNoteMutations() : [...loadPendingNoteMutations(), mutation]
       // rebuildFn: append ALL local pending mutations to the fresh remote queue, deduped by ts.
       // (T-151 pattern: on 409-retry, re-apply own mutations against the freshly fetched state.)
       const buildPayload = (base: SyncData): SyncData => {
@@ -198,13 +203,21 @@ export default function RunDetail({
       }
       await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
     } catch {
-      // Offline or conflict — mutation stays in pending list for next flush
+      // Offline or conflict — mutation stays in pending list for next flush (if it was queued;
+      // if queuing itself failed above, it is lost until the user re-saves — the App-level
+      // STORAGE_WARNING_KEY banner already fired via safeSetItem).
     }
   }
 
   async function handleSaveNote() {
     if (!noteText.trim() && noteRating === 0) return
-    saveNote(act.id, noteText.trim(), noteRating)
+    const ok = saveNote(act.id, noteText.trim(), noteRating)
+    if (!ok) {
+      // T-170: Kern des Tickets — Rückgabewert auswerten statt Erfolg vortäuschen.
+      setNoteSaveError('Notiz konnte nicht gespeichert werden — Speicher voll.')
+      return
+    }
+    setNoteSaveError(null)
     const saved = loadNote(act.id)!
     setNoteSaved(saved)
     onNoteSaved()
@@ -534,6 +547,11 @@ export default function RunDetail({
             </span>
           )}
         </div>
+        {noteSaveError && (
+          <div style={{ fontSize: '11px', color: '#e53935', marginTop: '6px' }}>
+            ⚠️ {noteSaveError}
+          </div>
+        )}
       </div>
     </>
   )
