@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { generatePlan, weekHasSessionError, isPlanStale } from '../lib/plan'
+import { weekHasSessionError, isPlanStale } from '../lib/plan'
 import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'
 import { fetchSync, type SyncedPlan, type SyncedPlanWeek } from '../lib/githubSync'
 import type { AppSettings } from '../lib/storage'
@@ -28,15 +28,10 @@ function phaseColor(phase: string): string {
 }
 
 export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props) {
-  const raceDate1 = new Date(settings.raceDate1)
-  const raceDate2 = new Date(settings.raceDate2)
-  const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
-
   const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
   const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
   const [planRecomputeRequested, setPlanRecomputeRequested] = useState(false)
   const [syncLoading, setSyncLoading] = useState(true)
-  const [selectedPlan, setSelectedPlan] = useState<'1' | '2'>('2')
 
   // Fetch plan from sync.json on mount
   useEffect(() => {
@@ -111,89 +106,18 @@ export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props)
     )
   }
 
-  // ── No synced plan — show hint and local fallback ───────────────────────────
-  const plan1 = generatePlan(raceDate1, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType1)
-  const plan2 = generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-  const activePlan = selectedPlan === '1' ? plan1 : plan2
-  const currentIdx = activePlan.findIndex(r => r.isCurrent)
-
+  // ── No synced plan — clear empty state, no fabricated numbers (T-169) ───────
+  // The old local Pfitzinger-fork preview produced invalid plans (no taper,
+  // inverted periodization) and was removed. sync.json (Desktop) is the only source.
   return (
     <div className="tab-content">
-      {/* "No plan" hint */}
-      <div style={{
-        background: '#42A5F520',
-        border: '1px solid #42A5F555',
-        borderRadius: '8px',
-        padding: '10px 12px',
-        fontSize: '12px',
-        color: '#42A5F5',
-        marginBottom: '8px',
-        lineHeight: 1.5,
-      }}>
-        Noch kein Plan — am Desktop erstellen (Trainingsplan-Tab öffnen).
-        <br />
-        <span style={{ color: 'var(--text-2)' }}>Vorschau unten: lokale Schätzung (nicht maßgeblich).</span>
-      </div>
-
-      <div className="plan-selector">
-        <button
-          className={`plan-btn ${selectedPlan === '1' ? 'active' : ''}`}
-          onClick={() => setSelectedPlan('1')}
-        >
-          {settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
-          <small>{new Date(settings.raceDate1).toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: '2-digit' })}</small>
-        </button>
-        <button
-          className={`plan-btn ${selectedPlan === '2' ? 'active' : ''}`}
-          onClick={() => setSelectedPlan('2')}
-        >
-          {settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
-          <small>{new Date(settings.raceDate2).toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: '2-digit' })}</small>
-        </button>
-      </div>
-
-      <div className="plan-table">
-        {activePlan.map((row, i) => {
-          const isCurrentWeek = row.isCurrent
-          const isPast = !isCurrentWeek && i < (currentIdx < 0 ? 0 : currentIdx)
-          const dateStr = row.weekStart.toLocaleDateString('de-AT', { day: '2-digit', month: 'short' })
-          const color = phaseColor(row.phase)
-          const weekKey = localISODate(row.weekStart)
-          const actualKm = actualKmMap.get(weekKey)
-          const kmDiffPct = actualKm !== undefined && row.plannedKm > 0
-            ? Math.abs(actualKm - row.plannedKm) / row.plannedKm
-            : 0
-          const plannedColor = actualKm !== undefined && isPast && kmDiffPct > 0.2
-            ? (actualKm < row.plannedKm ? '#FF9800' : '#4CAF50')
-            : color
-
-          return (
-            <div
-              key={row.weekNr}
-              className={`plan-row ${isCurrentWeek ? 'current' : ''} ${isPast ? 'past' : ''}`}
-            >
-              <div className="plan-row-left">
-                <span className="plan-week">W{row.weekNr}</span>
-                <span className="plan-date">{dateStr}</span>
-              </div>
-              <div className="plan-row-center">
-                <div className="plan-phase-badge" style={{ borderLeftColor: color }}>
-                  {row.phase}
-                </div>
-                <div className="plan-workouts">{row.workouts}</div>
-              </div>
-              <div className="plan-row-right">
-                <span className="plan-km" style={{ color: plannedColor }}>{row.plannedKm}</span>
-                <span className="plan-km-unit">km</span>
-                {actualKm !== undefined && (
-                  <span style={{ fontSize: '10px', color: 'var(--text-2)' }}>
-                    {actualKm}
-                  </span>
-                )}
-              </div>
-            </div>
-          )
-        })}
+      <div className="strava-connect" style={{ padding: '32px 0' }}>
+        <div className="strava-logo">📋</div>
+        <h3>Noch kein Trainingsplan</h3>
+        <p>
+          Öffne die Trainingscoach-App am Desktop, erstelle im Trainingsplan-Tab
+          deinen Plan und synchronisiere ihn — er erscheint danach automatisch hier.
+        </p>
       </div>
     </div>
   )

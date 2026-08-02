@@ -37,13 +37,12 @@ import {
   type DurabilitySignalTrend,
 } from '../lib/durability'
 import {
-  generatePlan,
   assessDeviation,
   assessDeviationForRestDay,
   syncedWeekForDate,
   syncedSessionForTag,
   weekHasSessionError,
-  type PlanRow,
+  weeklyPlanStatus,
   type WorkoutSession,
   type PlanDeviation,
 } from '../lib/plan'
@@ -84,16 +83,6 @@ function isoWeek(d: Date): string {
   const dUTC     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
   const week     = Math.floor((dUTC - startUTC) / (7 * 24 * 3600 * 1000)) + 1
   return `KW${week}`
-}
-
-function getPhaseForDate(plan: PlanRow[], date: Date): string {
-  const monday = mondayOf(date)
-  const row = plan.find(r => {
-    const ws = new Date(r.weekStart)
-    ws.setHours(0, 0, 0, 0)
-    return ws.getTime() === monday.getTime()
-  })
-  return row?.phase ?? 'Aufbau'
 }
 
 // Convert SyncedPlanSession to the WorkoutSession shape expected by assessDeviation
@@ -276,42 +265,37 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const last8Weeks   = useMemo(() => weeklyStats.slice(-8), [weeklyStats])
   const last12Weeks  = useMemo(() => weeklyStats.slice(-12), [weeklyStats])
 
-  // Local plan: only compute when no synced plan is available (expensive ~40-week generation)
-  const raceDate2   = new Date(settings.raceDate2)
-  const raceDate1   = new Date(settings.raceDate1)
-  const preRaceDate = settings.preRaceEnabled ? raceDate1 : undefined
-  const localPlan   = syncedPlan
-    ? null
-    : generatePlan(raceDate2, settings.currentWeeklyKm, settings.runsPerWeek, settings.raceType2, preRaceDate)
-
-  // Planned km for "Diese Woche": prefer synced plan, fall back to local
+  // Planned km for "Diese Woche" — sync.json (Desktop) is the only source of truth (T-169).
+  // No synced plan → plannedKm/totalWeeks stay null, UI shows "—" instead of a fabricated number.
   const syncedCurrentMonday = localISODate(mondayOf(new Date()))
   const syncedCurrentW = syncedPlan?.weeks.find(w => w.week_start === syncedCurrentMonday)
     ?? syncedPlan?.weeks.find(w => w.is_current)
     ?? null
   const plannedKmFromSync  = syncedCurrentW?.planned_km ?? null
-  const localCurrentRow    = localPlan?.find(r => r.isCurrent) ?? null
-  const currentPhase       = syncedCurrentW?.phase ?? localCurrentRow?.phase ?? ''
-  const currentWeekNr      = syncedCurrentW?.week_nr ?? localCurrentRow?.weekNr ?? 0
-  const totalWeeks         = syncedPlan?.weeks.length ?? (localPlan?.length ?? 1) - 1
+  const currentPhase       = syncedCurrentW?.phase ?? ''
+  const currentWeekNr      = syncedCurrentW?.week_nr ?? 0
+  const totalWeeks         = syncedPlan?.weeks.length ?? null
 
   const actualKmThisWeek = hasStrava ? weekStats.run.km : 0
-  const plannedKm        = plannedKmFromSync ?? localCurrentRow?.plannedKm ?? 0
-  const progressPct      = plannedKm > 0 ? Math.min(100, (actualKmThisWeek / plannedKm) * 100) : 0
-  const progressColor    = progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935'
+  const plannedKm        = plannedKmFromSync
+  // T-169 follow-up: weeklyPlanStatus() is the single source of truth distinguishing
+  // "no synced plan" from "plan says 0 km" (real injury-break/vacation week, T-131).
+  const planStatus        = weeklyPlanStatus(plannedKm)
+  const hasPlan            = planStatus !== 'no-plan'
+  const hasPlannedKm       = planStatus === 'planned' && plannedKm !== null
+  const progressPct      = hasPlannedKm ? Math.min(100, (actualKmThisWeek / plannedKm) * 100) : 0
+  const progressColor    = hasPlannedKm
+    ? (progressPct >= 80 ? '#4CAF50' : progressPct >= 50 ? '#FFC107' : '#e53935')
+    : undefined
 
-  // Build planned km map per week — prefer synced plan weeks, fall back to local
+  // Build planned km map per week — synced plan only, no local fallback (T-169)
   const planWeekMap = useMemo(() => {
     const map = new Map<string, number>()
     if (syncedPlan) {
       for (const week of syncedPlan.weeks) map.set(week.week_start, week.planned_km)
-    } else {
-      for (const row of localPlan ?? []) map.set(localISODate(row.weekStart), row.plannedKm)
     }
     return map
-  // localPlan reference changes when syncedPlan is null and settings change — deps cover it
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [syncedPlan, localPlan])
+  }, [syncedPlan])
 
   // Max planned km for chart scaling
   const maxChartKm = Math.max(
@@ -359,7 +343,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             <span className="kpi-label">km gelaufen</span>
           </div>
           <div className="kpi-tile">
-            <span className="kpi-value">{plannedKm}</span>
+            <span className="kpi-value">{hasPlan ? plannedKm : '—'}</span>
             <span className="kpi-label">km geplant</span>
           </div>
           <div className="kpi-tile">
@@ -371,15 +355,30 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             <span className="kpi-label">m Höhe</span>
           </div>
         </div>
-        <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
-          {actualKmThisWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
-        </div>
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${progressPct}%`, background: progressColor }}
-          />
-        </div>
+        {hasPlannedKm ? (
+          <>
+            <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
+              {actualKmThisWeek} km von {plannedKm} km ({Math.round(progressPct)}%)
+            </div>
+            <div className="progress-bar">
+              <div
+                className="progress-fill"
+                style={{ width: `${progressPct}%`, background: progressColor }}
+              />
+            </div>
+          </>
+        ) : hasPlan ? (
+          // plannedKm === 0: a real plan decision (injury break / vacation week, T-131),
+          // not a missing sync — show the phase so the user knows WHY 0, no progress bar
+          // (0 von 0 km has no meaningful percentage).
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
+            {currentPhase ? `${currentPhase} — laut Plan 0 km diese Woche.` : 'Laut Plan 0 km diese Woche.'}
+          </div>
+        ) : (
+          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginBottom: '4px' }}>
+            Kein Wochen-Soll — öffne die App am Desktop, um deinen Trainingsplan zu synchronisieren.
+          </div>
+        )}
         {/* Cross-sport row */}
         {(weekStats.ride.count > 0 || weekStats.hike.count > 0 || weekStats.swim.count > 0) && (
           <div style={{ display: 'flex', gap: '14px', marginTop: '8px', flexWrap: 'wrap', fontSize: '12px', color: 'var(--text-2)' }}>
@@ -394,7 +393,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             )}
           </div>
         )}
-        {(syncedCurrentW || localCurrentRow) && (
+        {syncedCurrentW && (
           <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '6px' }}>
             {currentPhase} · Woche {currentWeekNr}/{totalWeeks}
           </div>
@@ -775,11 +774,14 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
         {recentActs.map((act, actIdx) => {
           const isExpanded = expandedId === act.id
 
-          // Planned session: prefer synced plan (SSoT), no fallback to local generator
+          // Planned session: only from synced plan (SSoT) — no local generator fallback (T-169)
           const actTag = DAY_TAGS[act.date.getDay()]
           const syncedWeek = syncedPlan ? syncedWeekForDate(syncedPlan, act.date) : null
-          // Phase from synced week when available; local plan only as fallback
-          const phase          = syncedWeek?.phase ?? getPhaseForDate(localPlan ?? [], act.date)
+          // Phase from synced week only. '—' when no synced week for this date — never invent
+          // a phase (old getPhaseForDate defaulted to 'Aufbau', which was a fabricated claim).
+          // analyzeRun() treats an unmatched basePhase as neutral (no Basis/Taper/Peak-specific
+          // verdict text), so '—' degrades gracefully instead of asserting a wrong phase.
+          const phase          = syncedWeek?.phase ?? '—'
           const syncedSession: SyncedPlanSession | null = syncedWeek
             ? syncedSessionForTag(syncedWeek, actTag)
             : null
@@ -957,6 +959,10 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             <div className="weekly-chart">
               {last8Weeks.map(week => {
                 const key        = localISODate(week.weekStart)
+                // T-169 follow-up: distinguish "week has a synced plan value of 0" (real
+                // rest/injury/vacation week) from "no plan data for this week" — .has()
+                // not the fallback value, otherwise a real 0-km plan week shows "—".
+                const hasPlanW   = planWeekMap.has(key)
                 const plannedW   = planWeekMap.get(key) ?? 0
                 const actualW    = week.actualKm
                 const planBarPct  = Math.min(100, (plannedW / maxChartKm) * 100)
@@ -970,7 +976,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                     </div>
                     <div className="weekly-chart-km">
                       <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{actualW}</span>
-                      <span style={{ color: 'var(--text-2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
+                      <span style={{ color: 'var(--text-2)' }}>/{hasPlanW ? plannedW : '—'}</span>
                     </div>
                   </div>
                 )
@@ -1017,6 +1023,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               <div className="weekly-chart">
                 {last12Weeks.map(week => {
                   const key       = localISODate(week.weekStart)
+                  // T-169 follow-up: same "has plan (maybe 0)" vs "no plan" distinction as the 8-week chart
+                  const hasPlanW  = planWeekMap.has(key)
                   const plannedW  = planWeekMap.get(key) ?? 0
                   const planPct   = Math.min(100, (plannedW / maxChart12Km) * 100)
                   const actPct    = Math.min(100, (week.actualKm / maxChart12Km) * 100)
@@ -1029,7 +1037,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                       </div>
                       <div className="weekly-chart-km">
                         <span style={{ color: 'var(--accent)', fontWeight: 700 }}>{week.actualKm}</span>
-                        <span style={{ color: 'var(--text-2)' }}>/{plannedW > 0 ? plannedW : '—'}</span>
+                        <span style={{ color: 'var(--text-2)' }}>/{hasPlanW ? plannedW : '—'}</span>
                       </div>
                     </div>
                   )

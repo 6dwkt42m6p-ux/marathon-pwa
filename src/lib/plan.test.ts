@@ -2,7 +2,7 @@
 // Test-first: rot zuerst (plannedKm<=0 guard), dann grün nach Impl.
 
 import { describe, it, expect } from 'vitest'
-import { assessDeviation } from './plan'
+import { assessDeviation, weeklyPlanStatus } from './plan'
 import type { WorkoutSession } from './plan'
 import type { ActivitySummary } from './strava'
 
@@ -115,5 +115,25 @@ describe('assessDeviation — regression: plannedKm > 0 unchanged', () => {
     const result = assessDeviation(null, act, null, 5)
     expect(result.badge).toBe('frei')
     expect(result.coachComment).toContain('Kein Plantag')
+  })
+})
+
+describe('weeklyPlanStatus — T-169 follow-up: no-plan vs. plan-says-0-km', () => {
+  // Regression guard for real sync.json data: coach.py T-131 writes planned_km = 0.0
+  // for full injury-break/vacation weeks. That must render differently from "not synced".
+  it('returns "no-plan" when plannedKm is null (no synced week for this date)', () => {
+    expect(weeklyPlanStatus(null)).toBe('no-plan')
+  })
+
+  it('returns "zero-planned" when plannedKm is 0 (injury-break/vacation week, T-131)', () => {
+    expect(weeklyPlanStatus(0)).toBe('zero-planned')
+  })
+
+  it('returns "planned" when plannedKm is a positive number', () => {
+    expect(weeklyPlanStatus(45.2)).toBe('planned')
+  })
+
+  it('never treats 0 and null the same (regression: naive `plannedKm > 0` truthiness check)', () => {
+    expect(weeklyPlanStatus(0)).not.toBe(weeklyPlanStatus(null))
   })
 })
