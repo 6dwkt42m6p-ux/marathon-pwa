@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-02T12:09:53.703460+00:00",
+  "lastModified": "2026-08-02T12:30:50.048885+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-02T12:09:53Z",
+    "generatedAt": "2026-08-02T12:30:49Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "7ad4a714c15b3afcd93093095c27a0fdc0bbe8f6176a7382b322d113a78a929f",
+    "inputHash": "ec60ef970fbcea5e2cfa2e5f25749cad981d8f741bba1656e338597209bc6705",
     "weeks": [
       {
         "week_nr": 1,
@@ -204,8 +204,8 @@
       {
         "week_nr": 4,
         "week_start": "2026-06-29",
-        "phase": "Basis (Entlastung), Wiedereinstieg",
-        "planned_km": 35.0,
+        "phase": "Basis (Entlastung) (Wiedereinstieg)",
+        "planned_km": 28.0,
         "is_current": false,
         "sessions": [
           {
@@ -238,7 +238,7 @@
           {
             "tag": "Do",
             "typ": "Qualit\u00e4t \u2b50",
-            "km": 7.0,
+            "km": 6.0,
             "vorgabe": "2\u00d710 min @ 4:24 /km (T-Pace, Z4)",
             "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d710 min @ 4:24 /km (Z4) \u2014 Pause: 90 Sek. Easy-Jogging \u2192 1 km @ 5:04+ /km auslaufen",
             "dauer": "34\u201336 min",
@@ -256,7 +256,7 @@
           {
             "tag": "So",
             "typ": "Ausdauer",
-            "km": 12.0,
+            "km": 8.0,
             "vorgabe": "5:04 \u2013 5:50 /km (Z2)",
             "struktur": "Durchgehend locker @ 5:04\u20135:50 /km (Z2). Erste H\u00e4lfte am unteren Ende, zweite H\u00e4lfte darf etwas flotter sein.",
             "dauer": "66\u201378 min",
