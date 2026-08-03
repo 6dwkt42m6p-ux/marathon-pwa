@@ -256,8 +256,10 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
       trend ? { delta: trend.delta, insufficientEffortRuns: trend.insufficientEffortRuns } : null,
       settings.maxHr, settings.restHr, 8, 0.3,
       efTrend ? { deltaPct: efTrend.deltaPct ?? undefined, noHrData: efTrend.noHrData } : undefined,
+      // T-168: Kohärenz-Guard — injuryRisk-ACWR-Zone unterdrückt Cause B bei "underload".
+      injury?.acwrZone,
     ) : null,
-    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr],
+    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr, injury],
   )
   // T-124-fix: use local bulk-fetched state; props serve as optional external override.
   const workSplits     = localWorkSplits     ?? workSplitsProp     ?? null
