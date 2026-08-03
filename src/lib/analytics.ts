@@ -173,10 +173,17 @@ export function intensityDistribution(
 // Ports coach.py stagnation_check() faithfully.
 // trendInfo only needs { delta, insufficientEffortRuns } — the subset used here.
 
+// T-168: below this weekly-km baseline a Cause-B %-jump is a rounding artifact of a
+// comeback after a break, not an overload signal (mirrors coach.py
+// STAGNATION_VOL_MIN_BASELINE_KM_WK). Triple-digit %-jumps are capped for display —
+// always a calculation artifact in a coaching context, never a meaningful statement.
+const STAGNATION_VOL_MIN_BASELINE_KM_WK = 15.0
+const STAGNATION_VOL_DISPLAY_CAP_PCT = 100
+
 export interface StagnationCause {
   label:    string
   detail:   string
-  severity: 'warn' | 'error'
+  severity: 'info' | 'warn' | 'error'
 }
 
 export interface StagnationResult {
@@ -196,6 +203,10 @@ export function stagnationCheck(
   weeks  = 8,
   stagnationThreshold = 0.3,
   efTrend?: { deltaPct?: number; noHrData?: boolean } | null,
+  // T-168: ACWR zone from injuryRisk(). When "underload", Cause B (volume spike) is
+  // suppressed even above the baseline floor — a simultaneous "overload" + "underload"
+  // verdict would be incoherent. Default undefined preserves pre-T-168 behaviour.
+  acwrZone?: 'underload' | 'sweet' | 'caution' | 'high' | null,
 ): StagnationResult | null {
   if (trendInfo === null) return null
 
@@ -243,11 +254,29 @@ export function stagnationCheck(
       const newKmWk = newWindow.reduce((s, r) => s + r.distanceKm, 0) / 3
       if (oldKmWk > 0 && (newKmWk - oldKmWk) / oldKmWk >= 0.20) {
         const jumpPct = Math.round((newKmWk - oldKmWk) / oldKmWk * 100)
-        causes.push({
-          label:    'Volumen zu schnell gestiegen',
-          detail:   `Wöchentliches Laufvolumen +${jumpPct}% in den letzten 3 Wochen — Ermüdung kann VDOT-Fortschritt kurzfristig dämpfen.`,
-          severity: 'warn',
-        })
+        if (oldKmWk < STAGNATION_VOL_MIN_BASELINE_KM_WK) {
+          // T-168: Baseline zu winzig, um einen %-Sprung als Überlastung zu deuten —
+          // das ist ein normaler Wiedereinstieg nach Pause, kein Übertrainings-Signal.
+          // NIE als Warnung ausgeben.
+          causes.push({
+            label:    'Wiedereinstieg nach Trainingspause',
+            detail:   `Wochenvolumen wächst von einer niedrigen Basis (${oldKmWk.toFixed(1)} km/Woche) — das ist ein normaler Wiedereinstieg, kein Übertrainings-Signal. Der VDOT-Stillstand ist hier erwartungsgemäß und kein Warnzeichen.`,
+            severity: 'info',
+          })
+        } else if (acwrZone === 'underload') {
+          // T-168 Kohärenz-Guard: injuryRisk meldet gleichzeitig Unterlast — eine
+          // Überlastungs-Warnung wäre hier ein Widerspruch im selben Atemzug.
+          // Unterdrücken statt zwei sich widersprechende Signale zeigen.
+        } else {
+          const pctDisplay = jumpPct > STAGNATION_VOL_DISPLAY_CAP_PCT
+            ? `> ${STAGNATION_VOL_DISPLAY_CAP_PCT} %`
+            : `+${jumpPct}%`
+          causes.push({
+            label:    'Volumen zu schnell gestiegen',
+            detail:   `Wöchentliches Laufvolumen ${pctDisplay} in den letzten 3 Wochen — Ermüdung kann VDOT-Fortschritt kurzfristig dämpfen.`,
+            severity: 'warn',
+          })
+        }
       }
     }
   } catch { /* ignore */ }
@@ -280,6 +309,7 @@ export function stagnationCheck(
     if (c.label === 'Zu wenig Qualitätseinheiten') return 'Füge eine gezielte Qualitätseinheit pro Woche ein (z.B. 5×1000 m Intervall oder 20 min Schwellenlauf).'
     if (c.label === 'Easy-Anteil zu niedrig') return 'Erhöhe den Easy-Anteil auf ≥80% — harte Einheiten auf 1–2 pro Woche begrenzen.'
     if (c.label === 'Volumen zu schnell gestiegen') return 'Reduziere das Volumen für 1 Woche auf ~80% des aktuellen Niveaus (Deload-Woche).'
+    if (c.label === 'Wiedereinstieg nach Trainingspause') return 'Kein Handlungsbedarf — Volumen langsam weiter aufbauen, die Fitness holt den Rückstand in den nächsten Wochen von selbst auf.'
     if (c.label === 'Aerobe Effizienz sinkt (EF)') return 'Fokus auf echte Easy-Läufe (Z1–Z2): Pace senken bis HR stabil <70% HRR. 1–2 Wochen Deload wenn Übermüdung möglich.'
     return 'Variiere den Trainingsreiz — füge eine Qualitätseinheit hinzu oder plane eine Deload-Woche ein.'
   })

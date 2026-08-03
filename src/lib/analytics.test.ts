@@ -291,6 +291,10 @@ function weeksAgo(n: number): Date {
   return new Date(Date.now() - n * 7 * 24 * 3600 * 1000)
 }
 
+function daysAgo(n: number): Date {
+  return new Date(Date.now() - n * 24 * 3600 * 1000)
+}
+
 // ── intensityDistribution ────────────────────────────────────────────────────
 
 describe('intensityDistribution', () => {
@@ -396,15 +400,20 @@ describe('stagnationCheck', () => {
 
   it('detects volume spike cause (>20% increase last 3w vs prior 3w)', () => {
     // prior 3w: 30km/week average; recent 3w: 40km/week average → +33% spike
-    const prior = Array.from({ length: 9 }, (_, i) => makeRun({
-      date: weeksAgo(4 + Math.floor(i / 3)),
-      distanceKm: 10,
-      durationSec: 3600,
-    }))
+    // T-168: dates deliberately kept AWAY from the 21d/42d window boundaries —
+    // stagnationCheck() computes its own Date.now() cutoffs independently from
+    // this fixture, so a boundary-exact date (weeksAgo(3) / weeksAgo(6)) flips
+    // sides on ms drift between fixture build and the function call. A >=2-day
+    // margin absorbs any realistic drift (was flaky ~1/4 runs before this fix).
+    const prior = [
+      makeRun({ date: daysAgo(28), distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(33), distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(38), distanceKm: 30, durationSec: 10800 }),
+    ]
     const recent = [
-      makeRun({ date: weeksAgo(1), distanceKm: 40, durationSec: 14400 }),
-      makeRun({ date: weeksAgo(2), distanceKm: 40, durationSec: 14400 }),
-      makeRun({ date: weeksAgo(3), distanceKm: 40, durationSec: 14400 }),
+      makeRun({ date: daysAgo(7),  distanceKm: 40, durationSec: 14400 }),
+      makeRun({ date: daysAgo(12), distanceKm: 40, durationSec: 14400 }),
+      makeRun({ date: daysAgo(19), distanceKm: 40, durationSec: 14400 }),
     ]
     const result = stagnationCheck([...prior, ...recent], { delta: 0.0, insufficientEffortRuns: false }, 190, 50)
     expect(result!.stagnating).toBe(true)
@@ -417,6 +426,78 @@ describe('stagnationCheck', () => {
     const result = stagnationCheck([], { delta: 0.0, insufficientEffortRuns: false }, 190, 50)
     expect(result!.stagnating).toBe(true)
     expect(result!.causes.length).toBeGreaterThanOrEqual(1)
+  })
+
+  // ── T-168: baseline floor, ACWR coherence-guard, %-display cap ──────────────
+
+  it('T-168: below-baseline old volume → info cause "Wiedereinstieg nach Trainingspause", not a warning', () => {
+    // oldKmWk = 2/3 ≈ 0.67 km/wk (< STAGNATION_VOL_MIN_BASELINE_KM_WK=15)
+    const prior = [makeRun({ date: daysAgo(35), distanceKm: 2, durationSec: 900 })]
+    const recent = [
+      makeRun({ date: daysAgo(14), distanceKm: 20, durationSec: 7200 }),
+      makeRun({ date: daysAgo(7),  distanceKm: 20, durationSec: 7200 }),
+    ]
+    const result = stagnationCheck([...prior, ...recent], { delta: 0.0, insufficientEffortRuns: false }, 190, 50)
+    expect(result!.stagnating).toBe(true)
+    const reentry = result!.causes.find(c => c.label === 'Wiedereinstieg nach Trainingspause')
+    expect(reentry).toBeDefined()
+    expect(reentry!.severity).toBe('info')
+    expect(result!.causes.find(c => c.label === 'Volumen zu schnell gestiegen')).toBeUndefined()
+  })
+
+  it('T-168: acwrZone="underload" suppresses Cause B above baseline (no overload+underload contradiction)', () => {
+    // oldKmWk = 60/3 = 20 km/wk (>= baseline), newKmWk = 90/3 = 30 km/wk → jump +50%
+    const prior = [
+      makeRun({ date: daysAgo(28), distanceKm: 20, durationSec: 7200 }),
+      makeRun({ date: daysAgo(35), distanceKm: 20, durationSec: 7200 }),
+      makeRun({ date: daysAgo(40), distanceKm: 20, durationSec: 7200 }),
+    ]
+    const recent = [
+      makeRun({ date: daysAgo(7),  distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(14), distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(19), distanceKm: 30, durationSec: 10800 }),
+    ]
+    const result = stagnationCheck(
+      [...prior, ...recent], { delta: 0.0, insufficientEffortRuns: false }, 190, 50, 8, 0.3, undefined, 'underload',
+    )
+    expect(result!.stagnating).toBe(true)
+    expect(result!.causes.find(c => c.label.includes('Volumen'))).toBeUndefined()
+    expect(result!.causes.find(c => c.label === 'Wiedereinstieg nach Trainingspause')).toBeUndefined()
+  })
+
+  it('T-168: without acwrZone (default), the same above-baseline jump still warns (pre-T-168 behaviour preserved)', () => {
+    const prior = [
+      makeRun({ date: daysAgo(28), distanceKm: 20, durationSec: 7200 }),
+      makeRun({ date: daysAgo(35), distanceKm: 20, durationSec: 7200 }),
+      makeRun({ date: daysAgo(40), distanceKm: 20, durationSec: 7200 }),
+    ]
+    const recent = [
+      makeRun({ date: daysAgo(7),  distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(14), distanceKm: 30, durationSec: 10800 }),
+      makeRun({ date: daysAgo(19), distanceKm: 30, durationSec: 10800 }),
+    ]
+    const result = stagnationCheck([...prior, ...recent], { delta: 0.0, insufficientEffortRuns: false }, 190, 50)
+    expect(result!.stagnating).toBe(true)
+    expect(result!.causes.find(c => c.label === 'Volumen zu schnell gestiegen')).toBeDefined()
+  })
+
+  it('T-168: triple-digit percentage jump caps display at "> 100 %"', () => {
+    // oldKmWk = 50/3 ≈ 16.67 km/wk (>= baseline); newKmWk = 150/3 = 50 km/wk → jump ≈ +200%
+    const prior = [
+      makeRun({ date: daysAgo(28), distanceKm: 17, durationSec: 6000 }),
+      makeRun({ date: daysAgo(33), distanceKm: 17, durationSec: 6000 }),
+      makeRun({ date: daysAgo(38), distanceKm: 16, durationSec: 6000 }),
+    ]
+    const recent = [
+      makeRun({ date: daysAgo(7),  distanceKm: 50, durationSec: 18000 }),
+      makeRun({ date: daysAgo(12), distanceKm: 50, durationSec: 18000 }),
+      makeRun({ date: daysAgo(19), distanceKm: 50, durationSec: 18000 }),
+    ]
+    const result = stagnationCheck([...prior, ...recent], { delta: 0.0, insufficientEffortRuns: false }, 190, 50)
+    expect(result!.stagnating).toBe(true)
+    const volumeCause = result!.causes.find(c => c.label === 'Volumen zu schnell gestiegen')
+    expect(volumeCause).toBeDefined()
+    expect(volumeCause!.detail).toContain('> 100 %')
   })
 })
 
