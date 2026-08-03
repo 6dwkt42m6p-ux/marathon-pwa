@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-02T17:15:31.834216+00:00",
+  "lastModified": "2026-08-03T04:28:58.644140+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-02T17:15:31Z",
+    "generatedAt": "2026-08-03T04:28:58Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "01fa7d4ca397b53b6b71f3b84d1ec91b102ecfa2080ec457746c1b850da1ec47",
+    "inputHash": "62f9138407e59e63f3635ea1370cf4f29fbe62ef465f320cf206ee492ed451ad",
     "weeks": [
       {
         "week_nr": 1,
@@ -431,7 +431,7 @@
         "week_start": "2026-07-27",
         "phase": "Basis (Entlastung)",
         "planned_km": 49.5,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
@@ -494,7 +494,7 @@
         "week_start": "2026-08-03",
         "phase": "Basis",
         "planned_km": 62.9,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
