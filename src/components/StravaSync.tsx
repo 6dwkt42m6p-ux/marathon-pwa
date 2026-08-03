@@ -2,10 +2,9 @@ import { useState, useEffect } from 'react'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
   syncActivities, getCachedActivities, parseRuns, loadTokens,
-  StravaRateLimitError,
+  StravaRateLimitError, bestVdotFromActivities,
   type RunSummary,
 } from '../lib/strava'
-import { vdotFromRace } from '../lib/vdot'
 
 interface Props {
   onVdotUpdate?: (vdot: number) => void
@@ -76,18 +75,13 @@ export default function StravaSync({ onVdotUpdate }: Props) {
   }, [])
 
   function computeBestVdot(runList: RunSummary[]) {
-    const now = new Date()
-    const cutoff = new Date(now.getTime() - 12 * 7 * 24 * 3600 * 1000)
-    let best: typeof bestVdot = null
-    for (const r of runList) {
-      if (r.distanceKm < 3 || r.date < cutoff || r.durationSec <= 0) continue
-      try {
-        const v = vdotFromRace(r.distanceKm * 1000, r.durationSec)
-        if (v > 20 && v < 85 && (!best || v > best.vdot)) {
-          best = { vdot: Math.round(v * 10) / 10, name: r.name, distKm: r.distanceKm, pace: r.paceFmt }
-        }
-      } catch {}
-    }
+    // T-186: GAP/Hitze-normalisiert — faithful port of coach.py:best_vdot_from_activities,
+    // same normalized path as vdotTrendFromActivities/efficiencyFactorTrend. Do not
+    // reimplement the raw-time calculation here.
+    const result = bestVdotFromActivities(runList)
+    const best = result
+      ? { vdot: result.vdot, name: result.name, distKm: result.distanceKm, pace: result.paceFmt }
+      : null
     setBestVdot(best)
     if (best && onVdotUpdate) onVdotUpdate(best.vdot)
   }
