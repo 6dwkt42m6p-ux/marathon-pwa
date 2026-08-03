@@ -58,6 +58,10 @@ export interface SyncData {
   noteMutations?:         import('./notesSync').NoteMutation[]       // T-156: PWA→Desktop queue
   lastModified?:          string
   lastDevice?:            'pwa' | 'streamlit'
+  // T-184: Desktop-resolved per-activity weather (id-as-string → °C), same rolling 52-week
+  // window as the activity cache. Read-only for the PWA — never re-derive weather here
+  // (D-031 coordinate-rounding privacy guarantee stays in exactly one place: Desktop).
+  activityTemps?:         Record<string, number>
 }
 
 const TOKEN_KEY = 'github_sync_token'

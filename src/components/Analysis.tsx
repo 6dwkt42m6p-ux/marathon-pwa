@@ -125,6 +125,10 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
   const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
+  // T-184: sync.json-derived per-activity °C (id-as-string → value). Explicit state (not a
+  // hidden module store) so it participates in the useMemo deps below — otherwise a sync that
+  // resolves after the first render would be invisible to React (coordinator fix-loop finding).
+  const [syncedActivityTemps, setSyncedActivityTemps] = useState<Record<string, number> | undefined>(undefined)
   const [syncLoading, setSyncLoading] = useState(true)
   // T-124-fix: bulk-fetched stream/lap analytics — loaded once per mount when Strava is connected.
   const [localWorkSplits, setLocalWorkSplits]       = useState<Record<string, number[]> | null>(workSplitsProp ?? null)
@@ -152,7 +156,11 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   useEffect(() => {
     let mounted = true
     fetchSync()
-      .then(result => { if (mounted && result) setSyncedPlan(result.data.plan ?? null) })
+      .then(result => {
+        if (!mounted || !result) return
+        setSyncedPlan(result.data.plan ?? null)
+        setSyncedActivityTemps(result.data.activityTemps)
+      })
       .catch(() => { /* offline — keep null */ })
       .finally(() => { if (mounted) setSyncLoading(false) })
     return () => { mounted = false }
@@ -172,7 +180,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
     async function bulkFetch() {
       setAnalyticsLoading(true)
       try {
-        const runs = parseRuns(cached)
+        const runs = parseRuns(cached, syncedActivityTemps)
         // Quality runs: workout_type==3, identified by checking cached raw activities
         const qualityIds = new Set(
           cached
@@ -198,13 +206,15 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
 
     bulkFetch()
     return () => { mounted = false }
-  // effectiveVdot change = new VDOT from sync → re-run to recalculate adherence thresholds
+  // effectiveVdot change = new VDOT from sync → re-run to recalculate adherence thresholds.
+  // syncedActivityTemps (T-184): a resolved sync must re-run durability signals with °C.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasStrava, cached, effectiveVdot])
+  }, [hasStrava, cached, effectiveVdot, syncedActivityTemps])
 
-  // Expensive parse/aggregate — only recompute when cached activities change
-  const runs       = useMemo(() => parseRuns(cached), [cached])
-  const allActs    = useMemo(() => parseAllActivities(cached), [cached])
+  // Expensive parse/aggregate — recompute when cached activities change OR when a resolved
+  // sync brings freshly-fetched activityTemps (T-184 — must be an explicit dep, see comment above).
+  const runs       = useMemo(() => parseRuns(cached, syncedActivityTemps), [cached, syncedActivityTemps])
+  const allActs    = useMemo(() => parseAllActivities(cached, syncedActivityTemps), [cached, syncedActivityTemps])
   const recentActs = useMemo(() => allActs.slice(0, 14), [allActs])
   const weeklyStats  = useMemo(() => computeWeeklyStats(runs), [runs])
   const sportWeekly  = useMemo(() => computeWeeklyStatsBySport(cached), [cached])

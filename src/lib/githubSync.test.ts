@@ -2,7 +2,7 @@
 // Tests MÜSSEN rot sein vor der Impl (test-first), dann grün nach Impl.
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { pushSync, setToken, getToken } from './githubSync'
+import { pushSync, setToken, getToken, fetchSync } from './githubSync'
 import type { SyncData } from './githubSync'
 import { registerEvictCallback, STORAGE_WARNING_KEY } from './storage'
 
@@ -212,5 +212,51 @@ describe('setToken quota hardening (T-170)', () => {
     expect(threw).toBe(false)
     expect(ok).toBe(false)
     expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
+  })
+})
+
+// ── T-184: fetchSync roundtrips the activityTemps field ──────────────────────────────────
+// Fix-loop (coordinator review): the earlier version had _doFetchSync forward this map into a
+// hidden strava.ts module store — invisible to React's useMemo([cached]) dependency arrays,
+// so the UI never re-parsed after an async sync resolved. Fixed by removing the store entirely:
+// callers now read `result.data.activityTemps` directly off the fetchSync() result (same pattern
+// already used for `result.data.plan`/`result.data.settings` elsewhere in this file) and hold it
+// in their own component state, explicit in their useMemo deps. Nothing left to test at the
+// githubSync.ts boundary except that the base64/JSON roundtrip preserves the field faithfully.
+describe('fetchSync — activityTemps field roundtrip (T-184)', () => {
+  beforeEach(() => {
+    localStorage.setItem('github_sync_token', 'test-token-xyz')
+    vi.resetAllMocks()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('activityTemps present in sync.json → present on fetchSync() result.data', async () => {
+    const data: SyncData = { settings: {}, activityTemps: { '123': 22.4 } }
+    vi.stubGlobal('fetch', vi.fn(async () => getResponse(data, 'sha-1')))
+
+    const result = await fetchSync(true)
+
+    expect(result?.data.activityTemps).toEqual({ '123': 22.4 })
+  })
+
+  it('activityTemps absent from sync.json → result.data.activityTemps is undefined, no throw', async () => {
+    const data: SyncData = { settings: {} }
+    vi.stubGlobal('fetch', vi.fn(async () => getResponse(data, 'sha-2')))
+
+    const result = await fetchSync(true)
+
+    expect(result?.data.activityTemps).toBeUndefined()
+  })
+
+  it('no sync.json at all (404) → fetchSync resolves null, no throw', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 })))
+
+    const result = await fetchSync(true)
+
+    expect(result).toBeNull()
   })
 })
