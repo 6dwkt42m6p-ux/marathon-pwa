@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor } from './vdot'
 
@@ -1179,5 +1179,88 @@ describe('classifyWorkoutStructure — Trabpausen trennen Reps (T-165)', () => {
     const cls = classifyWorkoutStructure(time, vel, undefined, 45)
     const nBlocks = cls.tempoBlocks.length + cls.intervalBlocks.length
     expect(nBlocks).toBe(1)
+  })
+})
+
+// ── T-184: activityTemps enrichment from sync.json ──────────────────────────
+// Desktop (T-183) resolves real weather per-activity and ships it via the
+// sync.json top-level key `activityTemps` (id-as-string → °C). The PWA must
+// NOT re-implement the weather lookup (D-031 rounding stays in one place) —
+// it only enriches its own fetched activities when Strava's own
+// `average_temp` field (device-recorded) is absent.
+//
+// Falle (per Ticket): `average_temp ?? activityTemps[String(id)]` MUST use a
+// nullish-check, not truthiness — otherwise a real 0 °C reading is treated as
+// "missing" (identical bug class to plannedKm === 0 in T-169).
+describe('parseAllActivities / parseRuns — activityTemps enrichment (T-184)', () => {
+  it('average_temp present on the activity → used as-is, activityTemps ignored', () => {
+    const activityTemps = { '1': 99 }  // deliberately wrong value — must NOT win
+    const a = makeActivity({ id: 1, average_temp: 22.4 })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBe(22.4)
+    expect(parseRuns([a], activityTemps)[0].tempC).toBe(22.4)
+  })
+
+  it('average_temp absent → falls back to activityTemps[String(id)]', () => {
+    const activityTemps = { '1': 31.8 }
+    const a = makeActivity({ id: 1, average_temp: undefined })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBe(31.8)
+    expect(parseRuns([a], activityTemps)[0].tempC).toBe(31.8)
+  })
+
+  it('0 °C on average_temp survives (falsy-but-defined must not be overridden)', () => {
+    const activityTemps = { '1': 99 }  // would win if truthiness (0 is falsy) were used
+    const a = makeActivity({ id: 1, average_temp: 0 })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBe(0)
+    expect(parseRuns([a], activityTemps)[0].tempC).toBe(0)
+  })
+
+  it('0 °C in activityTemps survives when average_temp is absent (falsy-zero fallback value)', () => {
+    const activityTemps = { '1': 0 }
+    const a = makeActivity({ id: 1, average_temp: undefined })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBe(0)
+    expect(parseRuns([a], activityTemps)[0].tempC).toBe(0)
+  })
+
+  it('missing key for this activity id → tempC stays undefined, no error', () => {
+    const activityTemps = { '999': 15 }  // some other activity, not this one
+    const a = makeActivity({ id: 1, average_temp: undefined })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBeUndefined()
+    expect(parseRuns([a], activityTemps)[0].tempC).toBeUndefined()
+  })
+
+  it('no sync ever happened (activityTemps argument omitted) → tempC stays undefined, no error', () => {
+    const a = makeActivity({ id: 1, average_temp: undefined })
+    expect(parseAllActivities([a])[0].tempC).toBeUndefined()
+    expect(parseRuns([a])[0].tempC).toBeUndefined()
+  })
+
+  it('numeric activity id resolves against string-keyed activityTemps map (JSON object keys)', () => {
+    const activityTemps = { '15331702246': 22.4 }
+    const a = makeActivity({ id: 15331702246, average_temp: undefined })
+    expect(parseAllActivities([a], activityTemps)[0].tempC).toBe(22.4)
+  })
+
+  // Coordinator review (T-184 fix-loop): components memoize parseRuns/parseAllActivities on
+  // `[cached]` only (React useMemo). A hidden module-level store mutated by setActivityTemps()
+  // AFTER the first render is invisible to that dependency array — the component never
+  // re-parses, so tempC stays missing until `cached` itself changes on the next Strava sync.
+  // This test models the real sequence: parse once ("first render", sync not yet resolved),
+  // THEN the sync arrives, THEN the value the component actually uses must contain the temp.
+  // Because the fix removes the hidden store entirely and makes activityTemps an explicit
+  // second argument, `cached` alone can no longer be the correct memoization key — callers must
+  // include the temps map itself in their deps. This assertion is the contract that proves it.
+  it('activityTemps must be an explicit input the caller (and its useMemo deps) can see — not a hidden global mutated after first parse', () => {
+    const a = makeActivity({ id: 1, average_temp: undefined })
+
+    // "First render": sync.json has not resolved yet, so the caller passes an empty map.
+    const beforeSync = parseRuns([a], {})[0]?.tempC
+    expect(beforeSync).toBeUndefined()
+
+    // "Sync resolves": the caller now has the fetched activityTemps map and re-invokes with
+    // the SAME `cached`/`a` but the new map as an explicit argument — exactly what a
+    // `useMemo(() => parseRuns(cached, syncedActivityTemps), [cached, syncedActivityTemps])`
+    // recomputes to once `syncedActivityTemps` state changes.
+    const afterSync = parseRuns([a], { '1': 31.5 })[0]?.tempC
+    expect(afterSync).toBe(31.5)
   })
 })

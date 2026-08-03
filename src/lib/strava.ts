@@ -370,6 +370,26 @@ function isHikeType(a: StravaActivity): boolean {
 
 export const DAY_TAGS: Record<number, string> = { 0: 'So', 1: 'Mo', 2: 'Di', 3: 'Mi', 4: 'Do', 5: 'Fr', 6: 'Sa' }
 
+// T-184: Desktop (T-183) resolves real per-activity weather (Open-Meteo) and ships it via
+// sync.json's top-level `activityTemps` map (id-as-string → °C). The PWA deliberately does
+// NOT re-implement the weather lookup here — the privacy-sensitive coordinate rounding (D-031)
+// stays in exactly one place (Desktop).
+//
+// Fix-loop (coordinator review): an earlier version of this held `activityTemps` as a hidden
+// module-level store, mutated by a `setActivityTemps()` side effect once sync.json arrived.
+// Components memoize parseAllActivities/parseRuns on `useMemo(..., [cached])` — a mutation to
+// a store outside that dependency array is invisible to React, so the UI kept showing
+// temperature-less values until the NEXT unrelated Strava sync bumped `cached`. Fix: no hidden
+// state — activityTemps is an explicit parameter. Callers (Analysis.tsx, TrainingPlan.tsx,
+// TodayWorkout.tsx) hold the fetched map in component state and include it in their useMemo
+// deps, so a resolved sync now correctly triggers a re-parse.
+//
+// Nullish-coalescing (not `||`): a real 0 °C reading on either source must survive.
+// Same falsy-zero trap as `plannedKm === 0` in T-169.
+function resolveTempC(a: StravaActivity, activityTemps: Record<string, number>): number | undefined {
+  return a.average_temp ?? activityTemps[String(a.id)]
+}
+
 // Strava sends start_date_local as LOCAL wallclock time with a misleading 'Z' (or +HH:MM) suffix.
 // Stripping the TZ designator makes JS parse the string as local time → correct week bucketing.
 // Falls back to start_date (true UTC) when start_date_local is absent.
@@ -378,7 +398,10 @@ export function parseStravaLocal(a: StravaActivity): Date {
   return new Date(s.replace(/(Z|[+-]\d{2}:?\d{2})$/, ''))
 }
 
-export function parseAllActivities(activities: StravaActivity[]): ActivitySummary[] {
+// activityTemps (T-184): sync.json-derived °C map (id-as-string → value), defaults to `{}`
+// when no sync has happened yet — callers pass this explicitly so it can participate in their
+// own memoization (see comment on resolveTempC above for why this must not be a hidden store).
+export function parseAllActivities(activities: StravaActivity[], activityTemps: Record<string, number> = {}): ActivitySummary[] {
   return activities
     .filter(a => isRunType(a) || isRideType(a) || isHikeType(a))
     .map(a => {
@@ -401,7 +424,7 @@ export function parseAllActivities(activities: StravaActivity[]): ActivitySummar
         avgHr:       a.average_heartrate,
         maxHr:       a.max_heartrate,
         elevationM:  Math.round(a.total_elevation_gain || 0),
-        tempC:       a.average_temp,
+        tempC:       resolveTempC(a, activityTemps),
         actType,
         isTrail,
         workoutType: a.workout_type,
@@ -1021,7 +1044,7 @@ export function thisWeekKm(activities: StravaActivity[]): number {
     .reduce((sum, a) => sum + (a.distance || 0) / 1000, 0)
 }
 
-export function parseRuns(activities: StravaActivity[]): RunSummary[] {
+export function parseRuns(activities: StravaActivity[], activityTemps: Record<string, number> = {}): RunSummary[] {
   return activities
     .filter(isRunType)
     .map(a => {
@@ -1041,7 +1064,7 @@ export function parseRuns(activities: StravaActivity[]): RunSummary[] {
         avgHr:       a.average_heartrate,
         maxHr:       a.max_heartrate,
         elevationM:  Math.round(a.total_elevation_gain || 0),
-        tempC:       a.average_temp,
+        tempC:       resolveTempC(a, activityTemps),
       }
     })
     .sort((a, b) => b.date.getTime() - a.date.getTime())

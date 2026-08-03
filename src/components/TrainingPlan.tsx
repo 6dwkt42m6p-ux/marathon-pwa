@@ -32,6 +32,10 @@ export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props)
   const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
   const [planRecomputeRequested, setPlanRecomputeRequested] = useState(false)
   const [syncLoading, setSyncLoading] = useState(true)
+  // T-184: sync.json-derived per-activity °C (id-as-string → value). Explicit state (not a
+  // hidden module store) so it participates in the useMemo deps below — otherwise a sync that
+  // resolves after the first render would be invisible to React (coordinator fix-loop finding).
+  const [syncedActivityTemps, setSyncedActivityTemps] = useState<Record<string, number> | undefined>(undefined)
 
   // Fetch plan from sync.json on mount
   useEffect(() => {
@@ -42,6 +46,7 @@ export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props)
           setSyncedPlan(result.data.plan ?? null)
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
+          setSyncedActivityTemps(result.data.activityTemps)
         }
       })
       .catch(() => { /* offline — keep null, show fallback */ })
@@ -52,7 +57,7 @@ export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props)
   // Re-read cache when App signals a fresh Strava sync (activitiesVersion bump).
   // No longer tied to syncedPlan (Mac-push timing).
   const cached = useMemo(() => getCachedActivities(), [activitiesVersion])  // eslint-disable-line react-hooks/exhaustive-deps
-  const runs   = useMemo(() => parseRuns(cached), [cached])
+  const runs   = useMemo(() => parseRuns(cached, syncedActivityTemps), [cached, syncedActivityTemps])
   const weeklyStats = useMemo(() => computeWeeklyStats(runs), [runs])
   const actualKmMap = useMemo(() => {
     const map = new Map<string, number>()

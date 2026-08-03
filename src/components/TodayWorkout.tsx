@@ -62,6 +62,10 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
   const [planRecomputeRequested, setPlanRecomputeRequested] = useState(false)
   const [syncLoading, setSyncLoading] = useState(true)
+  // T-184: sync.json-derived per-activity °C (id-as-string → value). Explicit state (not a
+  // hidden module store) so it participates in the useMemo deps below — otherwise a sync that
+  // resolves after the first render would be invisible to React (coordinator fix-loop finding).
+  const [syncedActivityTemps, setSyncedActivityTemps] = useState<Record<string, number> | undefined>(undefined)
 
   // Track previous settings fingerprint to detect plan-relevant changes
   const prevFingerprintRef = useRef<string | null>(null)
@@ -74,6 +78,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
           setSyncedPlan(result.data.plan ?? null)
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
+          setSyncedActivityTemps(result.data.activityTemps)
         }
       })
       .catch(() => { /* offline — keep null, show hint screen */ })
@@ -120,7 +125,9 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // or when effectiveVdot changes (pace table downstream depends on it).
   // activitiesVersion replaces the old syncedPlan dep — no longer tied to Mac-push timing.
   const cached = useMemo(() => getCachedActivities(), [activitiesVersion, effectiveVdot])  // eslint-disable-line react-hooks/exhaustive-deps
-  const allActs      = useMemo(() => parseAllActivities(cached), [cached])
+  // T-184: syncedActivityTemps must be an explicit dep — a sync resolving after first render
+  // is otherwise invisible to this memo (coordinator fix-loop finding).
+  const allActs      = useMemo(() => parseAllActivities(cached, syncedActivityTemps), [cached, syncedActivityTemps])
   // T-138: syncedThreshold enables rTSS/hrTSS for Runs (like syncedFtp enables bike-TSS)
   const tsbData      = useMemo(() => cached.length > 0 ? computeAtlCtl(cached, syncedFtp ?? undefined, syncedThreshold ?? undefined) : null, [cached, syncedFtp, syncedThreshold])
   const tsb           = tsbData?.tsb ?? 0
