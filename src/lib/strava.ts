@@ -618,6 +618,66 @@ export function vdotTrendFromActivities(
   return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, easyHrTrend }
 }
 
+export interface BestVdotResult {
+  vdot:       number
+  name:       string
+  distanceKm: number
+  paceFmt:    string
+  date:       Date
+}
+
+/**
+ * Best-effort VDOT estimate — faithful port of coach.py:best_vdot_from_activities (T-186).
+ * Before T-186, StravaSync.tsx computed the displayed VDOT on raw, uncorrected times
+ * (no GAP/Hitze), diverging from the Desktop by up to 1.6 points and even picking a
+ * different "best" run.
+ *
+ * Window: 12 weeks. Min distance 3 km. Raw pace guard 180–420 s/km (data-quality bound
+ * on pace_sec_km, mirrors coach.py's DataFrame filter — excludes GPS/sensor artifacts
+ * before normalization even runs). Normalize FIRST (durationSec / effortNormalizationFactor),
+ * THEN compute VDOT — order matters (T-186 AC). Plausibility 20 < VDOT < 85.
+ * Robust estimate = median of the top-3 normalized VDOTs (guards against a one-off outlier
+ * inflating the number); the displayed run/pace/date come from the single highest-VDOT
+ * effort (coach.py: `best_row = efforts[0][1]`), so the shown workout is the most
+ * representative one even though the number itself is a median.
+ */
+export function bestVdotFromActivities(runs: RunSummary[]): BestVdotResult | null {
+  const cutoff = new Date(Date.now() - 12 * 7 * 24 * 3600 * 1000)
+  const candidates = runs.filter(r =>
+    r.date >= cutoff && r.distanceKm >= 3.0 && r.durationSec > 0 &&
+    Number.isFinite(r.paceSec) && r.paceSec > 180 && r.paceSec < 420
+  )
+  if (candidates.length === 0) return null
+
+  const efforts: { v: number; r: RunSummary }[] = []
+  for (const r of candidates) {
+    try {
+      const factor  = effortNormalizationFactor(r.distanceKm, r.elevationM, r.tempC)
+      const normDur = r.durationSec / factor   // flach+kühl-äquivalent (schneller)
+      const v = _vdotFromRace(r.distanceKm * 1000, normDur)
+      if (v > 20 && v < 85) efforts.push({ v, r })
+    } catch { /* malformed row — skip, mirrors coach.py's except Exception: continue */ }
+  }
+  if (efforts.length === 0) return null
+
+  efforts.sort((a, b) => b.v - a.v)
+  const top3   = efforts.slice(0, 3).map(e => e.v)
+  const sorted = [...top3].sort((a, b) => a - b)
+  const mid    = Math.floor(sorted.length / 2)
+  const medianV = sorted.length % 2 === 1
+    ? sorted[mid]
+    : (sorted[mid - 1] + sorted[mid]) / 2
+
+  const best = efforts[0].r
+  return {
+    vdot:       Math.round(medianV * 10) / 10,
+    name:       best.name,
+    distanceKm: best.distanceKm,
+    paceFmt:    best.paceFmt,
+    date:       best.date,
+  }
+}
+
 // ── Efficiency Factor trend (Friel EF) — faithful port of coach.py:392 ───────
 
 export interface EfWeeklyPoint {

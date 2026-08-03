@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns } from './strava'
+import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns, bestVdotFromActivities } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
-import { effortNormalizationFactor, tempAdjFactor } from './vdot'
+import { effortNormalizationFactor, tempAdjFactor, vdotFromRace } from './vdot'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
 // Root cause: using latestTs directly as "after" permanently skips any activity
@@ -746,6 +746,56 @@ describe('GAP/Hitze in vdotTrendFromActivities (T-140)', () => {
     expect(flat).not.toBeNull()
     expect(hilly).not.toBeNull()
     expect(hilly!.recent).toBeGreaterThan(flat!.recent)
+  })
+})
+
+// ── T-186: bestVdotFromActivities — faithful port of coach.py:best_vdot_from_activities.
+// Before this fix, StravaSync.tsx computed the displayed VDOT on raw (uncorrected) times,
+// diverging from the Desktop by up to 1.6 VDOT points and even picking a different "best" run.
+
+function _bestVdotRun(name: string, distanceKm: number, durationSec: number, elevationM: number, tempC?: number): RunSummary {
+  return {
+    id: Math.random(),
+    name,
+    date: new Date(Date.now() - 7 * 24 * 3600 * 1000),  // 1 week ago — well inside the 12-week window
+    distanceKm,
+    durationSec,
+    paceSec: durationSec / distanceKm,
+    paceFmt: '',
+    elevationM,
+    tempC,
+  } as RunSummary
+}
+
+describe('bestVdotFromActivities — GAP/Hitze-Normalisierung (T-186)', () => {
+  it('heißerer Lauf ergibt nach Korrektur den besseren (höheren) VDOT als derselbe rohe Lauf ohne Hitze', () => {
+    // Identical raw distance/time/elevation — only tempC differs.
+    const cool = _bestVdotRun('Cool Run', 10, 2400, 20, 12)  // 12°C: neutral zone → heat factor 0
+    const hot  = _bestVdotRun('Hot Run',  10, 2400, 20, 30)  // 30°C: heat factor > 0 → shorter normalized duration → higher VDOT
+
+    const result = bestVdotFromActivities([cool, hot])
+    expect(result).not.toBeNull()
+
+    // Naive (pre-fix) raw VDOT — identical for both runs since raw time/distance match.
+    const rawVdot = Math.round(vdotFromRace(10 * 1000, 2400) * 10) / 10
+
+    // The hot run's corrected VDOT is higher → it becomes the displayed (metadata) run.
+    expect(result!.name).toBe('Hot Run')
+    // Median of {cool's raw VDOT, hot's corrected/higher VDOT} must exceed the raw baseline.
+    expect(result!.vdot).toBeGreaterThan(rawVdot)
+  })
+
+  it('ohne Temperaturdaten (tempC undefined) + flaches Terrain → Verhalten unverändert (Backward-Compat)', () => {
+    // No weather sync yet (tempC undefined) and negligible elevation (<1% grade) → factor stays
+    // exactly 1.0, so the result must match the pre-T-186 raw calculation — users without a
+    // Strava/weather sync must not see their VDOT break or shift.
+    const flat = _bestVdotRun('Flat Run', 10, 2400, 5, undefined)  // 0.05% grade → below GAP floor
+    const result = bestVdotFromActivities([flat])
+    expect(result).not.toBeNull()
+
+    const rawVdot = Math.round(vdotFromRace(10 * 1000, 2400) * 10) / 10
+    expect(result!.vdot).toBe(rawVdot)
+    expect(result!.name).toBe('Flat Run')
   })
 })
 
