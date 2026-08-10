@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-04T14:57:26.254452+00:00",
+  "lastModified": "2026-08-10T19:35:14.673049+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-04T14:57:25Z",
+    "generatedAt": "2026-08-10T19:35:14Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "d34b376d7adcd1bf827b02438a218fc2e0c49c57cd2fcd35164315ad6e013deb",
+    "inputHash": "1707fdb476b64a1cb3adff41309b09422e84ddd6dcc8b782e3d023c26b3c0be1",
     "weeks": [
       {
         "week_nr": 1,
@@ -494,7 +494,7 @@
         "week_start": "2026-08-03",
         "phase": "Aufbau",
         "planned_km": 68.6,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
@@ -557,7 +557,7 @@
         "week_start": "2026-08-10",
         "phase": "Aufbau",
         "planned_km": 69.2,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
@@ -2831,11 +2831,6 @@
     }
   },
   "activityTemps": {
-    "15367984351": 20.8,
-    "15378396129": 8.9,
-    "15386903593": 3.2,
-    "15394559890": 2.0,
-    "15417104988": 24.7,
     "15440436045": 25.7,
     "15463088934": 19.1,
     "15485014503": 9.5,
@@ -3061,6 +3056,7 @@
     "19531748243": 31.1,
     "19545264687": 32.8,
     "19558564714": 29.0,
-    "19566110258": 21.1
+    "19566110258": 21.1,
+    "19586311364": 31.0
   }
 }
