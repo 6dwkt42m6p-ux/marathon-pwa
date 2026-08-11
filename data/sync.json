@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-10T19:35:14.673049+00:00",
+  "lastModified": "2026-08-11T20:53:00.282916+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-10T19:35:14Z",
+    "generatedAt": "2026-08-11T20:52:59Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "1707fdb476b64a1cb3adff41309b09422e84ddd6dcc8b782e3d023c26b3c0be1",
+    "inputHash": "1d0e74dce4c23c44b6ab3e27b3a61e0f069ad8ec1f415946fdcd6057d73c8c52",
     "weeks": [
       {
         "week_nr": 1,
@@ -2816,7 +2816,7 @@
       }
     ],
     "threshold": {
-      "lthr": 175,
+      "lthr": 171,
       "threshold_pace_sec": 276.6,
       "rest_hr": 45,
       "is_fallback": false,
