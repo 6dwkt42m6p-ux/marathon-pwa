@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-14T05:03:09.540457+00:00",
+  "lastModified": "2026-08-15T20:05:05.571346+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-14T05:03:08Z",
+    "generatedAt": "2026-08-15T20:05:05Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "f370a6286bd7a1b79300ddaa41a6c11b0ba12188247fdb854d7047c7d60c47f1",
+    "inputHash": "e155e3bd746687799116e2a034e1ba1e56bf93b30ccd2e0d9be29c6f3ba026b5",
     "weeks": [
       {
         "week_nr": 1,
@@ -562,10 +562,10 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 13.0,
+            "km": 11.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "13 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "78\u201385 min",
+            "struktur": "11 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "66\u201372 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -588,12 +588,12 @@
           },
           {
             "tag": "Do",
-            "typ": "Test \ud83c\udfaf",
-            "km": 8.0,
-            "vorgabe": "5 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 5 km maximal \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "~36 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 10.0,
+            "vorgabe": "5\u00d71000m @ 4:08 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 5:04 /km einlaufen (15\u201318 min) \u2192 5\u00d71000m @ 4:08 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 5:04+ /km (~90 Sek.) \u2192 2 km @ 5:04+ /km auslaufen (sehr locker)",
+            "dauer": "45\u201352 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:08 /km \u00b15 Sek/km."
           },
           {
             "tag": "Sa",
