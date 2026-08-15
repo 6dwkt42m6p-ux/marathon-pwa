@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-15T20:05:15.204557+00:00",
+  "lastModified": "2026-08-15T20:14:55.920871+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-15T20:05:14Z",
+    "generatedAt": "2026-08-15T20:14:55Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "d7832fd9bdc0ee686878518019fe364b6d0f180197a340baef16cb2405e1f026",
+    "inputHash": "0f408c5d4bfd217dec79c5c43137159856ae52a0b8635a188fec6068ae41bdb3",
     "weeks": [
       {
         "week_nr": 1,
@@ -310,20 +310,20 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 12.0,
+            "km": 10.0,
             "vorgabe": "5:04+ /km + 6\u00d7100m Strides @ 3:49 /km",
-            "struktur": "12 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "72\u201378 min",
+            "struktur": "10 km @ 5:04+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:49 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "60\u201365 min",
             "hinweis": "Speed-Drills halten die Lauffrequenz aktiv ohne Erholung zu st\u00f6ren."
           },
           {
             "tag": "Di",
-            "typ": "Test \ud83c\udfaf",
-            "km": 8.0,
-            "vorgabe": "5 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 5 km maximal \u2192 1 km @ 5:04+ /km auslaufen",
-            "dauer": "~36 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 10.8,
+            "vorgabe": "2\u00d715 min @ 4:24 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 5:04 /km einlaufen (10\u201312 min) \u2192 2\u00d715 min @ 4:24 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 5:04+ /km auslaufen (sehr locker)",
+            "dauer": "52\u201359 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
           },
           {
             "tag": "Mi",
@@ -337,10 +337,10 @@
           {
             "tag": "Do",
             "typ": "Regeneration",
-            "km": 12.0,
+            "km": 11.0,
             "vorgabe": "5:04+ /km (Z1\u2013Z2)",
-            "struktur": "12 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "72\u201384 min",
+            "struktur": "11 km locker @ 5:04+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "66\u201377 min",
             "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
           },
           {
