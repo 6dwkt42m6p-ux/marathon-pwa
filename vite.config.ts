@@ -10,6 +10,19 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     include: ['src/**/*.test.ts'],
+    // T-171: deterministische Test-Umgebung. `TOKEN_PROXY` wird in strava.ts auf
+    // MODULEBENE aus import.meta.env gelesen, ist zur Laufzeit also nicht mehr
+    // stubbar. Ohne diesen Wert zog der Test seine Konfiguration aus der lokalen,
+    // gitignorierten .env — er war deshalb lokal gruen und faellt in der CI mit
+    // "VITE_STRAVA_TOKEN_PROXY not configured" durch (aufgedeckt, als vitest zum
+    // ersten Mal ueberhaupt in der CI lief). Ein Unit-Test ueber Storage-Quota darf
+    // nicht an einem Deployment-Secret haengen; fetch ist im Test ohnehin gestubbt,
+    // der Wert wird nie kontaktiert.
+    env: {
+      VITE_STRAVA_TOKEN_PROXY: 'https://token-proxy.invalid',
+      VITE_STRAVA_CLIENT_ID: '0',
+      VITE_STRAVA_REDIRECT_URI: 'https://app.invalid/callback',
+    },
   },
   plugins: [
     react(),
