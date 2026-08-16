@@ -1252,7 +1252,7 @@ async function _fetchLaps429(id: number, token: string): Promise<FetchLapsResult
 export interface StrideDataEntry {
   strideCount:     number
   strides:         { peakPaceSec: number }[]
-  avgPeakPaceSec?: number
+  avgPeakPaceSec?: number | null
 }
 
 export interface BulkAnalyticsResult {
@@ -1548,8 +1548,16 @@ export function classifyWorkoutStructure(
           const avgFirst  = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length
           const avgSecond = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length
           if (avgFirst > 0 && avgSecond > 0) {
-            const pFirst  = 1000 / avgFirst
-            const pSecond = 1000 / avgSecond
+            // T-171: streams.py rundet die beiden Haelften-Paces auf GANZE SEKUNDEN,
+            // bevor es die Prozentdifferenz bildet. Ohne dieses Zwischenrunden lieferten
+            // die Ports auf denselben Streams unterschiedliche Drift-Werte (gemessen an
+            // 5×1000m: 3.3/-2.6/0.6 hier gegen 3.6/-2.7/0.4 dort). Python ist die
+            // Referenz, also wird hier angeglichen — dass das Zwischenrunden bei ~259 s/km
+            // rund 0.4 % Quantisierung einbaut und damit in derselben Groessenordnung wie
+            // die gemeldete Drift liegt, ist ein eigener Befund (siehe T-171-Notiz), aber
+            // eine Aenderung BEIDER Seiten und deshalb nicht Teil dieses Tickets.
+            const pFirst  = Math.round(1000 / avgFirst)
+            const pSecond = Math.round(1000 / avgSecond)
             paceDeviation = Math.round((pSecond - pFirst) / pFirst * 100 * 10) / 10
           }
         }
@@ -1589,8 +1597,8 @@ export interface StrideSegment {
 export interface StrideAnalysis {
   strides:           StrideSegment[]
   strideCount:       number
-  avgPeakPaceSec:    number
-  fastestPaceSec:    number
+  avgPeakPaceSec:    number | null   // T-171: null = keine Strides (wie streams.py)
+  fastestPaceSec:    number | null   // T-171: dito
   thresholdMs:       number
   avgRecoverySec:    number | null   // avg recovery gap between strides
 }
@@ -1603,7 +1611,7 @@ export function detectStrides(
   const { time, velocity_smooth, heartrate } = streams
   const n = velocity_smooth.length
   if (n < 10) {
-    return { strides: [], strideCount: 0, avgPeakPaceSec: 0, fastestPaceSec: 0, thresholdMs: 0, avgRecoverySec: null }
+    return { strides: [], strideCount: 0, avgPeakPaceSec: null, fastestPaceSec: null, thresholdMs: 0, avgRecoverySec: null }
   }
 
   const avgSpeedMs = avgPaceSec > 0 ? 1000 / avgPaceSec : 0
@@ -1704,10 +1712,14 @@ export function detectStrides(
   const avgRecoverySec = recoveryGaps.length > 0
     ? Math.round(recoveryGaps.reduce((a, b) => a + b, 0) / recoveryGaps.length) : null
 
+  // T-171: ohne Strides ist das KEINE Pace 0, sondern "nicht anwendbar" -> null (wie
+  // streams.py). Die 0 war nicht bloss kosmetisch: aggregateStrideTrend nutzt
+  // `sd.avgPeakPaceSec ?? <Fallback>`, und 0 ist nicht nullish — die 0 rutschte also
+  // durch den Fallback hindurch und landete als 0:00/km im Strides-Trend.
   const avgPeakPaceSec = strides.length > 0
-    ? Math.round(strides.reduce((s, st) => s + st.peakPaceSec, 0) / strides.length) : 0
+    ? Math.round(strides.reduce((s, st) => s + st.peakPaceSec, 0) / strides.length) : null
   const fastestPaceSec = strides.length > 0
-    ? Math.min(...strides.map(st => st.peakPaceSec)) : 0
+    ? Math.min(...strides.map(st => st.peakPaceSec)) : null
 
   return { strides, strideCount: strides.length, avgPeakPaceSec, fastestPaceSec, thresholdMs: peakThreshold, avgRecoverySec }
 }
