@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-16T12:00:00+00:00",
+  "lastModified": "2026-09-16T12:00:00+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-16T12:00:00Z",
+    "generatedAt": "2026-09-16T12:00:00Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "0f408c5d4bfd217dec79c5c43137159856ae52a0b8635a188fec6068ae41bdb3",
+    "inputHash": "74f2cddfb2fb8aced96e763e6cf8f7efcd27f938135b0f3a3ccad308778c7d25",
     "weeks": [
       {
         "week_nr": 1,
@@ -557,7 +557,7 @@
         "week_start": "2026-08-10",
         "phase": "Aufbau",
         "planned_km": 69.2,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
@@ -872,7 +872,7 @@
         "week_start": "2026-09-14",
         "phase": "Aufbau",
         "planned_km": 64.3,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
@@ -2817,10 +2817,10 @@
     ],
     "threshold": {
       "lthr": 171,
-      "threshold_pace_sec": 276.6,
+      "threshold_pace_sec": 279.4,
       "rest_hr": 45,
       "is_fallback": false,
-      "source": "activity:Afternoon Run"
+      "source": "activity:2x15min Tempol\u00e4ufe"
     },
     "notes": {
       "18820788688": {
@@ -2831,28 +2831,6 @@
     }
   },
   "activityTemps": {
-    "15498809171": 21.9,
-    "15515994898": 23.4,
-    "15538679744": 17.1,
-    "15545761016": 19.6,
-    "15555004991": 15.2,
-    "15573466212": 19.8,
-    "15595881133": 25.3,
-    "15607989267": 22.5,
-    "15618662281": 19.5,
-    "15628826647": 21.0,
-    "15639211919": 19.2,
-    "15652428841": 23.2,
-    "15678946413": 0.9,
-    "15690737064": 7.1,
-    "15716472475": 3.7,
-    "15754874164": 17.2,
-    "15765260525": 7.2,
-    "15776116910": 0.2,
-    "15782640953": -2.9,
-    "15792752922": 0.1,
-    "15804962842": 1.6,
-    "15804962539": -3.3,
     "15886562867": 19.9,
     "15934340802": 8.5,
     "15956878057": 8.4,
