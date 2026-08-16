@@ -4,7 +4,9 @@
     "target": "es2023",
     "lib": ["ES2023", "DOM"],
     "module": "esnext",
-    "types": ["vite/client"],
+    // "node" fuer Tests, die Fixture-Dateien lesen (T-171 Parity-Gate: node:fs/path/
+    // url/crypto in src/lib/parity.test.ts). @types/node ist ohnehin devDependency.
+    "types": ["vite/client", "node"],
     "skipLibCheck": true,
 
     /* Bundler mode */

@@ -478,7 +478,7 @@ export interface StrideTrendRow {
 export interface StrideDataEntry {
   strideCount:     number
   strides:         { peakPaceSec: number }[]
-  avgPeakPaceSec?: number
+  avgPeakPaceSec?: number | null
 }
 
 export function aggregateStrideTrend(

@@ -1,0 +1,46 @@
+{
+ "description": "Leere Streams — darf nicht crashen",
+ "expected": {
+  "classify_workout_structure": {
+   "interval_blocks": [],
+   "strides": [],
+   "tempo_blocks": [],
+   "workout_type": "easy"
+  },
+  "data_quality_score": {
+   "color": "#E74C3C",
+   "flags": [
+    "Keine HF-Daten",
+    "Keine Pace-Daten"
+   ],
+   "frozen_pct": 0.0,
+   "has_hr": false,
+   "has_velocity": false,
+   "reliability": "unzuverlässig",
+   "score": 50.0
+  },
+  "detect_strides": {
+   "avg_peak_pace_sec": null,
+   "avg_recovery_sec": null,
+   "fastest_pace_sec": null,
+   "stride_count": 0,
+   "strides": []
+  },
+  "durability_signals": null,
+  "session_execution_quality": null
+ },
+ "input": {
+  "avg_pace_sec": 300.0,
+  "distance_km": 0.0,
+  "streams": {
+   "altitude": [],
+   "distance": [],
+   "heartrate": [],
+   "time": [],
+   "velocity_smooth": []
+  },
+  "vdot": 47.9
+ },
+ "name": "edge_empty",
+ "source": "synthetisch"
+}
