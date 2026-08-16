@@ -1,14 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, lazy, Suspense } from 'react'
 import { loadSettings, saveSettings, isUsingDefaultSettings } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
 import VdotPaces from './components/VdotPaces'
-import Analysis from './components/Analysis'
-import Settings from './components/Settings'
+// T-173: Analysis/Settings/CoachChat lazy-split — dickste Bundle-Brocken (Analysis 1197 Z.,
+// Settings 744 Z.) und CoachChat (per COACH_TAB_ENABLED deaktiviert, aber sonst totes
+// Bundle-Gewicht). Gemeinsamer <Suspense> in der Tab-Render-Sektion unten.
+const Analysis = lazy(() => import('./components/Analysis'))
+const Settings = lazy(() => import('./components/Settings'))
 // CoachChat import kept intentionally — deaktiviert via COACH_TAB_ENABLED (separate Anthropic-API-Kosten).
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
-import CoachChat from './components/CoachChat'
+const CoachChat = lazy(() => import('./components/CoachChat'))
 import { hasToken, fetchSync, pushSync, type SyncData } from './lib/githubSync'
 import {
   loadPendingNoteMutations,
@@ -213,11 +216,13 @@ export default function App() {
 
       <main className="app-main">
         {tab === 'today'    && <TodayWorkout settings={settings} activitiesVersion={activitiesVersion} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
-        {tab === 'analyse'  && <Analysis     settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
         {tab === 'plan'     && <TrainingPlan settings={settings} activitiesVersion={activitiesVersion} />}
         {tab === 'paces'    && <VdotPaces    settings={settings} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} usingDefaultVdot={usingDefaultVdot} />}
-        {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
-        {tab === 'settings' && <Settings     settings={settings} onUpdate={handleSettingsUpdate} />}
+        <Suspense fallback={<div className="tab-loading">Lädt…</div>}>
+          {tab === 'analyse'  && <Analysis settings={settings} onGoToSettings={() => setTab('settings')} effectiveVdot={effectiveVdot} syncedFtp={syncedFtp} syncedThreshold={syncedThreshold} />}
+          {tab === 'coach'    && COACH_TAB_ENABLED && <CoachChat settings={settings} online={online} />}
+          {tab === 'settings' && <Settings settings={settings} onUpdate={handleSettingsUpdate} />}
+        </Suspense>
       </main>
 
       <nav className="bottom-nav">

@@ -1,5 +1,11 @@
 // Strava OAuth2 + activity sync
-import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor } from './vdot'
+import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor, analyzeWorkoutLaps } from './vdot'
+// T-173: was a dynamic import (INEFFECTIVE_DYNAMIC_IMPORT — durability.ts was already statically
+// pulled in by Analysis.tsx/VdotPaces.tsx, so it never split into its own chunk). Static import
+// closes a genuine module cycle (durability.ts imports localISODate from strava.ts) — safe
+// because neither module calls the other's exports at top-level/import time, only inside
+// functions invoked later (ESM live bindings resolve correctly; verified via `npm run build`).
+import { durabilityRecordForRun, upsertDurability } from './durability'
 // T-170: STORAGE_WARNING_KEY/getStorageWarning/clearStorageWarning/safeSetItem canonically live
 // in storage.ts now (was duplicated here). Re-exported below so existing imports (App.tsx,
 // strava.test.ts: `from './strava'`) keep working unchanged. storage.ts never imports strava.ts
@@ -1279,11 +1285,6 @@ export async function loadAnalyticsStreams(
   qualityRuns:  RunSummary[],
   vdot:         number,
 ): Promise<BulkAnalyticsResult> {
-  // analyzeWorkoutLaps is in vdot.ts (no circular dep: vdot.ts imports from strava.ts types only).
-  const { analyzeWorkoutLaps } = await import('./vdot')
-  // durability.ts is a separate module (no circular dep: imports types only from strava.ts).
-  const { durabilityRecordForRun, upsertDurability } = await import('./durability')
-
   const strideDataById: Record<string, StrideDataEntry> = {}
   const workSplits:     Record<string, number[]>        = {}
   let partial  = false
