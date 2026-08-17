@@ -84,6 +84,60 @@ const DEFAULTS: AppSettings = {
 
 const KEY = 'coach_settings'
 
+// T-182 Phase B: `preRaceEnabled` used to be an orphaned local toggle (saved, shown, never
+// evaluated — B4 in T-182). It is now desktop-controlled: Streamlit writes it into the
+// sync.json `settings` block (T-182 Phase A) whenever Event 1 (the prep race) is
+// enabled/disabled. Resolution order: sync value wins when the block is present AND carries
+// a boolean `preRaceEnabled` key; otherwise the local value applies unchanged — this keeps
+// older sync.json snapshots (written before Phase A) from regressing the UI.
+export function resolvePreRaceEnabled(
+  localValue: boolean,
+  syncSettings: Record<string, unknown> | null,
+): boolean {
+  if (syncSettings && typeof syncSettings['preRaceEnabled'] === 'boolean') {
+    return syncSettings['preRaceEnabled']
+  }
+  return localValue
+}
+
+// T-182 Phase B review fix (Bug 1): `handleSave()` in Settings.tsx used to push the entire
+// local `s` state as a full replacement for the sync `settings` block — a stale local
+// preRaceEnabled could silently overwrite a fresh Desktop `false`. Desktop is the SSoT for
+// preRaceEnabled (the checkbox is disabled/read-only in the UI); every OTHER settings key is
+// still PWA-user-editable (raceDate1/raceDate2 render as enabled date pickers in Settings.tsx —
+// only the preRaceEnabled checkbox is disabled) so those must come from the local edit, not get
+// frozen to whatever the Desktop last wrote. Pure so the merge semantics are unit-testable
+// without mounting Settings.tsx (this repo has no .tsx component tests — lib-level only).
+export function mergeSettingsForPush(
+  local: AppSettings,
+  baseSettings: Record<string, unknown> | null | undefined,
+): Record<string, unknown> {
+  return {
+    ...(baseSettings ?? {}),
+    ...local,
+    preRaceEnabled: resolvePreRaceEnabled(local.preRaceEnabled, baseSettings ?? null),
+  }
+}
+
+// T-182 Phase B review fix (Bug 2): the App.tsx startup merge used to blindly spread
+// `data.settings` (untyped JSON from sync.json) over the local AppSettings and cast the
+// result — `raceDate1: null` (Event 1 disabled on the Desktop, T-182 Phase A) landed unchanged
+// in the non-nullable `AppSettings.raceDate1: string` and got persisted to localStorage, which
+// then fed `new Date(null)` = epoch in VdotPaces.tsx. Root-cause fix: strip null/undefined
+// values from the remote object before merging, generically for ANY key — no AppSettings field
+// is nullable by schema, so a `null` from the Desktop means "no opinion, keep the local value",
+// never "erase it".
+export function mergeRemoteSettings(
+  local: AppSettings,
+  remote: Record<string, unknown> | null | undefined,
+): AppSettings {
+  if (!remote) return local
+  const cleaned = Object.fromEntries(
+    Object.entries(remote).filter(([, v]) => v !== null && v !== undefined)
+  )
+  return { ...local, ...cleaned } as AppSettings
+}
+
 export function loadSettings(): AppSettings {
   try {
     const raw = localStorage.getItem(KEY)

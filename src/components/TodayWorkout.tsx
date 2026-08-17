@@ -11,6 +11,7 @@ import {
   type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
+import { resolvePreRaceEnabled } from '../lib/storage'
 import {
   hasToken, fetchSync, pushSync,
   type SyncData, type SyncedPlan, type SyncedPlanSession,
@@ -139,6 +140,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   const stale = syncedPlan
     ? isPlanStale(syncedPlan, settings.vdot, settings.raceDate1, settings.raceDate2, syncSettings)
     : false
+  // T-182 Phase B: Event 1 (prep race) is desktop-controlled via the sync `settings` block.
+  const preRaceActive = resolvePreRaceEnabled(settings.preRaceEnabled, syncSettings)
 
   // Derive PlanDeviation for the most recent activity against the synced plan
   let latestDeviation: PlanDeviation | null = null
@@ -254,6 +257,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
         cached={cached}
         paces={paces}
         effectiveVdot={effectiveVdot}
+        preRaceActive={preRaceActive}
       />
     )
   }
@@ -497,11 +501,13 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
       {/* Race countdowns */}
       <div className="section-title">Renntermine</div>
       <div className="race-list">
-        <RaceCountdownCard
-          name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
-          badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
-          date={raceDate1}
-        />
+        {preRaceActive && (
+          <RaceCountdownCard
+            name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
+            badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
+            date={raceDate1}
+          />
+        )}
         <RaceCountdownCard
           name={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
           badge={settings.raceType2 === 'marathon' ? 'M' : 'HM'}
@@ -527,9 +533,10 @@ interface FallbackProps {
   cached:        ReturnType<typeof getCachedActivities>
   paces:         ReturnType<typeof buildPaceTable>
   effectiveVdot: number
+  preRaceActive: boolean
 }
 
-function FallbackTodayWorkout({ settings, cached, paces, effectiveVdot }: FallbackProps) {
+function FallbackTodayWorkout({ settings, cached, paces, effectiveVdot, preRaceActive }: FallbackProps) {
   const raceDate2     = new Date(settings.raceDate2)
   const raceDate1     = new Date(settings.raceDate1)
 
@@ -576,11 +583,13 @@ function FallbackTodayWorkout({ settings, cached, paces, effectiveVdot }: Fallba
 
       <div className="section-title">Renntermine</div>
       <div className="race-list">
-        <RaceCountdownCard
-          name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
-          badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
-          date={raceDate1}
-        />
+        {preRaceActive && (
+          <RaceCountdownCard
+            name={settings.raceType1 === 'hm' ? 'Halbmarathon' : 'Marathon'}
+            badge={settings.raceType1 === 'hm' ? 'HM' : 'M'}
+            date={raceDate1}
+          />
+        )}
         <RaceCountdownCard
           name={settings.raceType2 === 'marathon' ? 'Marathon' : 'Halbmarathon'}
           badge={settings.raceType2 === 'marathon' ? 'M' : 'HM'}

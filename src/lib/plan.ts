@@ -80,10 +80,16 @@ export function isPlanStale(
     }
   }
 
-  // Race date mismatch via sync.json settings keys raceDate1/raceDate2 (written by Streamlit)
+  // Race date mismatch via sync.json settings keys raceDate1/raceDate2.
+  // T-182 Phase A actually writes this block now (it was dead before — B3 in T-182: neither
+  // Streamlit nor the PWA ever wrote `settings`, so this branch never fired in practice).
+  // raceDate1 is `null` when Event 1 (the prep race) is disabled on the Desktop — the `d1 &&`
+  // guard already treats that as "no signal" and skips the comparison, which is correct: a
+  // disabled Event 1 has no date to be stale against. Covered by a dedicated test below so a
+  // future cleanup pass doesn't "simplify" this into a false-positive staleness check.
   if (syncSettings) {
-    const d1 = syncSettings['raceDate1'] as string | undefined
-    const d2 = syncSettings['raceDate2'] as string | undefined
+    const d1 = syncSettings['raceDate1'] as string | null | undefined
+    const d2 = syncSettings['raceDate2'] as string | null | undefined
     if (d1 && d1 !== localRaceDate1) return true
     if (d2 && d2 !== localRaceDate2) return true
   }

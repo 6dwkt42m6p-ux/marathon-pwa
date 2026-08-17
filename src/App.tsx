@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { loadSettings, saveSettings, isUsingDefaultSettings } from './lib/storage'
+import { loadSettings, saveSettings, isUsingDefaultSettings, mergeRemoteSettings } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
@@ -135,9 +135,12 @@ export default function App() {
       // T-138: capture threshold from synced plan for rTSS/hrTSS in PWA
       if (data.plan?.threshold) setSyncedThreshold(data.plan.threshold as SyncedThreshold)
       else setSyncedThreshold(null)
-      // Apply remote settings if they exist (remote wins on first load)
+      // Apply remote settings if they exist (remote wins on first load).
+      // T-182 Phase B review fix (Bug 2): mergeRemoteSettings strips null/undefined remote
+      // values before merging — a blind spread let `raceDate1: null` (Event 1 disabled on the
+      // Desktop) land in the non-nullable AppSettings.raceDate1 and corrupt VdotPaces.tsx.
       if (data.settings) {
-        const merged = { ...loadSettings(), ...data.settings } as AppSettings
+        const merged = mergeRemoteSettings(loadSettings(), data.settings)
         saveSettings(merged)
         setSettings(merged)
       }
