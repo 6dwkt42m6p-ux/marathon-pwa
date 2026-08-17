@@ -1,7 +1,10 @@
+import { useState, useEffect } from 'react'
 import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, racePredictor, type RacePredictorResult } from '../lib/vdot'
 import { getCachedActivities, computeAtlCtl, ctlRising, type SyncedThreshold } from '../lib/strava'
 import { durabilityTrend, loadAllDurability } from '../lib/durability'
 import type { AppSettings } from '../lib/storage'
+import { resolvePreRaceEnabled } from '../lib/storage'
+import { fetchSync } from '../lib/githubSync'
 
 interface Props {
   settings: AppSettings
@@ -16,6 +19,21 @@ interface Props {
 export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedThreshold, usingDefaultVdot = false }: Props) {
   const vdot = effectiveVdot
   const paces = buildPaceTable(vdot)
+
+  // T-182 Phase B review fix (Bug 2): Event 1 (the prep race) can be disabled on the Desktop
+  // (preRaceEnabled: false). mergeRemoteSettings (storage.ts) already stops a `null`
+  // raceDate1 from corrupting settings.raceDate1 into an epoch date — but even with a valid
+  // leftover local raceDate1, showing a countdown for a race the Desktop says no longer exists
+  // is misleading. Own fetchSync() call, same pattern as TodayWorkout.tsx/Settings.tsx; the
+  // module-level 60s cache in githubSync.ts means this is not an extra network round-trip.
+  const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
+  useEffect(() => {
+    let mounted = true
+    fetchSync().then(result => { if (mounted && result) setSyncSettings(result.data.settings ?? null) })
+      .catch(() => { /* best-effort, same pattern as other components */ })
+    return () => { mounted = false }
+  }, [])
+  const preRaceActive = resolvePreRaceEnabled(settings.preRaceEnabled, syncSettings)
 
   // Target VDOTs
   const vdotHmSub130 = vdotFromRace(21097, 89 * 60 + 59)
@@ -80,15 +98,19 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
       <div className="section-title">Zielbewertung</div>
 
       <div className="feasibility-list">
-        <FeasCard
-          title="Sub 1:30h Halbmarathon"
-          date={hmDate}
-          weeks={hmWeeks}
-          currentVdot={vdot}
-          targetVdot={vdotHmSub130}
-          feas={hmFeas}
-        />
-        <PredictorCard title="Prognose Halbmarathon" pred={hmPred} />
+        {preRaceActive && (
+          <>
+            <FeasCard
+              title="Sub 1:30h Halbmarathon"
+              date={hmDate}
+              weeks={hmWeeks}
+              currentVdot={vdot}
+              targetVdot={vdotHmSub130}
+              feas={hmFeas}
+            />
+            <PredictorCard title="Prognose Halbmarathon" pred={hmPred} />
+          </>
+        )}
         <FeasCard
           title="Sub 3:00h Marathon"
           date={marDate}

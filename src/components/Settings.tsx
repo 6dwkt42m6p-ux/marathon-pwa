@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import type { AppSettings } from '../lib/storage'
-import { saveSettings } from '../lib/storage'
+import { saveSettings, resolvePreRaceEnabled, mergeSettingsForPush } from '../lib/storage'
 import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
@@ -52,11 +52,15 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [injErr,      setInjErr]      = useState<string | null>(null)
   const [injMsg,      setInjMsg]      = useState<string | null>(null)
 
+  // T-182 Phase B: preRaceEnabled is now desktop-controlled via the sync `settings` block.
+  const [syncSettings, setSyncSettings] = useState<Record<string, unknown> | null>(null)
+
   useEffect(() => {
     if (!hasToken()) return
     let mounted = true
     fetchSync().then(result => {
       if (!mounted || !result) return
+      setSyncSettings(result.data.settings ?? null)
       const breaks = (result.data.plan?.injury_breaks ?? []) as RawInjuryBreak[]
       setInjuryBreaks(breaks)
       const pending = loadPendingMutation()
@@ -303,9 +307,12 @@ export default function Settings({ settings, onUpdate }: Props) {
         const current = await fetchSync(true)  // force: need fresh sha before push
         // rebuildFn: spread fresh remote state, then overwrite only the settings field.
         // Preserves plan, injuryBreakMutations etc. from any concurrent Desktop write.
+        // T-182 Phase B review fix (Bug 1): settings itself must be MERGED, not replaced —
+        // a stale local preRaceEnabled must never overwrite a fresh Desktop value. See
+        // mergeSettingsForPush (storage.ts) for the exact merge semantics.
         const buildPayload = (base: SyncData): SyncData => ({
           ...base,
-          settings: s as unknown as Record<string, unknown>,
+          settings: mergeSettingsForPush(s, base.settings),
         })
         await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
         setGhSha(null)
@@ -747,13 +754,16 @@ export default function Settings({ settings, onUpdate }: Props) {
           />
         </label>
 
+        {/* T-182 Phase B: read-only — the Desktop is the SSoT for whether Event 1 (the prep
+            race) is active. Falls back to the local value when the sync `settings` block is
+            absent (older sync.json, no Phase A push yet) — see resolvePreRaceEnabled. */}
         <label className="setting-label toggle-label">
           <input
             type="checkbox"
-            checked={s.preRaceEnabled}
-            onChange={e => update('preRaceEnabled', e.target.checked)}
+            checked={resolvePreRaceEnabled(s.preRaceEnabled, syncSettings)}
+            disabled
           />
-          Rennen 1 als Vorbereitung für Rennen 2 (HM-Tapering)
+          Vorbereitungsrennen (vom Desktop gesteuert)
         </label>
       </div>
 

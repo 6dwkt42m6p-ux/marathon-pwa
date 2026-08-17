@@ -2,8 +2,8 @@
 // Test-first: rot zuerst (plannedKm<=0 guard), dann grün nach Impl.
 
 import { describe, it, expect } from 'vitest'
-import { assessDeviation, weeklyPlanStatus } from './plan'
-import type { WorkoutSession } from './plan'
+import { assessDeviation, weeklyPlanStatus, isPlanStale } from './plan'
+import type { WorkoutSession, SyncedPlan } from './plan'
 import type { ActivitySummary } from './strava'
 
 function makeSession(overrides: Partial<WorkoutSession> = {}): WorkoutSession {
@@ -135,5 +135,64 @@ describe('weeklyPlanStatus — T-169 follow-up: no-plan vs. plan-says-0-km', () 
 
   it('never treats 0 and null the same (regression: naive `plannedKm > 0` truthiness check)', () => {
     expect(weeklyPlanStatus(0)).not.toBe(weeklyPlanStatus(null))
+  })
+})
+
+// ── isPlanStale — T-182 Phase B: the sync `settings` block is now actually written by the
+// Desktop (T-182 Phase A). Before that, this raceDate1/raceDate2 branch was structurally dead
+// (B3 in T-182) — no test ever exercised it. These tests pin the now-real behaviour, in
+// particular that a disabled Event 1 (raceDate1: null) must NOT be misread as a mismatch.
+describe('isPlanStale — race-date branch via sync settings block (T-182)', () => {
+  function makePlan(overrides: Partial<SyncedPlan> = {}): SyncedPlan {
+    return {
+      schemaVersion: 1,
+      generatedAt:   new Date().toISOString(),  // fresh — avoid the age-based staleness branch
+      generatedBy:   'streamlit',
+      vdot:          50,
+      paces:         { E_high: '5:00', E_low: '5:30', M: '4:30', T: '4:00', I: '3:40', R: '1:30' },
+      inputHash:     'abc',
+      weeks:         [],
+      ...overrides,
+    }
+  }
+
+  const LOCAL_D1 = '2026-10-11'
+  const LOCAL_D2 = '2027-04-25'
+
+  it('no settings block at all (older sync.json, pre T-182) → not stale (regression guard)', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, null)).toBe(false)
+  })
+
+  it('settings block present but raceDate1/raceDate2 keys absent → not stale', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, {})).toBe(false)
+  })
+
+  it('raceDate1 matches local → not stale', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: LOCAL_D2 })).toBe(false)
+  })
+
+  it('raceDate1 diverges from local → stale', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: '2026-11-01', raceDate2: LOCAL_D2 })).toBe(true)
+  })
+
+  it('raceDate2 diverges from local → stale', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: '2027-05-01' })).toBe(true)
+  })
+
+  it('raceDate1: null (Event 1 / prep race disabled on Desktop) → NOT stale, not a mismatch', () => {
+    // Guards against a future "cleanup" turning `d1 &&` into a strict `d1 !== undefined` check,
+    // which would misread "disabled" as "diverges from local" and show a false staleness banner.
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: LOCAL_D2 })).toBe(false)
+  })
+
+  it('raceDate1: null with raceDate2 still diverging → stale (raceDate2 branch independent)', () => {
+    const plan = makePlan()
+    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: '2027-06-01' })).toBe(true)
   })
 })
