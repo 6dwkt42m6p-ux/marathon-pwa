@@ -6,7 +6,7 @@
     "currentWeeklyKm": 50,
     "runsPerWeek": 5,
     "raceType1": "hm",
-    "raceDate1": "2026-10-11",
+    "raceDate1": "2027-04-25",
     "raceType2": "marathon",
     "raceDate2": "2027-04-25",
     "preRaceEnabled": true,
@@ -22,11 +22,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-16T05:10:44.519471+00:00",
+  "lastModified": "2026-08-17T18:48:39.244837+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-16T05:10:44Z",
+    "generatedAt": "2026-08-17T18:48:38Z",
     "generatedBy": "streamlit",
     "vdot": 47.9,
     "paces": {
@@ -37,7 +37,7 @@
       "I": "4:08",
       "R": "3:49"
     },
-    "inputHash": "0f408c5d4bfd217dec79c5c43137159856ae52a0b8635a188fec6068ae41bdb3",
+    "inputHash": "74d5f216121ada8b50712d45befe260578095c5617a9f91503614a53f461f5f0",
     "weeks": [
       {
         "week_nr": 1,
@@ -557,7 +557,7 @@
         "week_start": "2026-08-10",
         "phase": "Aufbau",
         "planned_km": 69.2,
-        "is_current": true,
+        "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
@@ -620,7 +620,7 @@
         "week_start": "2026-08-17",
         "phase": "Aufbau",
         "planned_km": 62.2,
-        "is_current": false,
+        "is_current": true,
         "sessions": [
           {
             "tag": "Mo",
@@ -2831,7 +2831,6 @@
     }
   },
   "activityTemps": {
-    "15498809171": 21.9,
     "15515994898": 23.4,
     "15538679744": 17.1,
     "15545761016": 19.6,
