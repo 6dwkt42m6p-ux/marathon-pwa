@@ -30,22 +30,22 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-18T18:55:40.375341+00:00",
+  "lastModified": "2026-08-18T19:51:11.953916+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-18T18:55:39Z",
+    "generatedAt": "2026-08-18T19:51:11Z",
     "generatedBy": "streamlit",
-    "vdot": 45.9,
+    "vdot": 49.0,
     "paces": {
-      "E_low": "6:02",
-      "E_high": "5:14",
-      "M": "4:52",
-      "T": "4:33",
-      "I": "4:17",
-      "R": "3:57"
+      "E_low": "5:44",
+      "E_high": "4:58",
+      "M": "4:37",
+      "T": "4:19",
+      "I": "4:04",
+      "R": "3:45"
     },
-    "inputHash": "64532702ae89bc3fcfc5cd6ccfac561f2063095c6b4d61e906607b40d8d78a35",
+    "inputHash": "90c7fecab77367eb662136f35d98c500ee542e0ce4cf1d6d54cf210713b4e6cb",
     "weeks": [
       {
         "week_nr": 1,
