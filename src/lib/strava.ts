@@ -623,9 +623,16 @@ export function vdotTrendFromActivities(
     return xs.length % 2 === 0 ? (xs[mid - 1] + xs[mid]) / 2 : xs[mid]
   }
 
-  const recent = Math.round(medianVdot(recentEffort) * 10) / 10
-  const early  = Math.round(medianVdot(earlyEffort) * 10) / 10
-  const delta  = Math.round((recent - early) * 10) / 10
+  // T-194-Nachzug: delta MUSS aus den UNGERUNDETEN Medianen kommen. Vorher wurde
+  // es aus `recent - early` gebildet, also aus bereits auf 0.1 gerundeten Werten —
+  // das wich in bis zu 0.1 VDOT von coach.vdot_trend ab (dort: erst Differenz,
+  // dann runden). Betroffen war ausgerechnet die Zahl im Trend-Badge. Gefunden
+  // von den erweiterten Golden-Faellen, nicht vom urspruenglichen Einzelpaar.
+  const recentRaw = medianVdot(recentEffort)
+  const earlyRaw  = medianVdot(earlyEffort)
+  const recent = Math.round(recentRaw * 10) / 10
+  const early  = Math.round(earlyRaw * 10) / 10
+  const delta  = Math.round((recentRaw - earlyRaw) * 10) / 10
 
   const fromTraining           = earlyEffort.filter(r => r.computedVdot >= threshold).length < 2 ||
                                   recentEffort.filter(r => r.computedVdot >= threshold).length < 2
