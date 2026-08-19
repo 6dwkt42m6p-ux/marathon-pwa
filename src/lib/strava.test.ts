@@ -75,44 +75,45 @@ function makeRun(daysAgo: number, distanceKm: number, paceSec: number, avgHr?: n
   }
 }
 
-describe('vdotTrendFromActivities — VDOT aggregation = mean (T-120)', () => {
-  // Build effort runs (pace ~4:30/km = 270 s/km → M-zone for VDOT ~45, so isEffortRun via pace)
-  // Two early runs (6-7 weeks ago) and two recent runs (1-2 weeks ago) with different VDOTs.
-  // With mean aggregation: early mean ≈ mean of two early computed VDOTs,
-  //                        recent mean ≈ mean of two recent computed VDOTs.
-  // We'll use high-HR effort runs (avg_hr = 160 for maxHr=190, restHr=50 → ~79% HRR ≥ 65%).
+describe('vdotTrendFromActivities — VDOT aggregation = median (T-120, T-194)', () => {
+  // Effort runs (avg_hr = 160 for maxHr=190, restHr=50 → ~79% HRR ≥ 65%).
+  // T-194: mindestens MIN_TREND_EFFORT_RUNS (3) Läufe JE Hälfte, sonst wird kein
+  // Trend gemeldet — deshalb 3 statt der früheren 2 pro Hälfte. Aggregat ist seit
+  // T-194 der Median je Hälfte (vorher Mittelwert), formgleich coach.vdot_trend.
 
   const maxHr = 190
   const restHr = 50
   const currentVdot = 45
 
   // 10km @ ~4:00/km (240 s/km) → decent effort VDOT
-  const earlyRun1 = makeRun(7 * 7, 10, 240, 160)   // 7 weeks ago
-  const earlyRun2 = makeRun(6 * 7, 10, 245, 160)   // 6 weeks ago
-  // Recent runs slightly faster → higher VDOT
-  const recentRun1 = makeRun(2 * 7, 10, 235, 162)  // 2 weeks ago
-  const recentRun2 = makeRun(1 * 7, 10, 230, 162)  // 1 week ago
+  const earlyRuns = [
+    makeRun(7 * 7, 10, 240, 160),
+    makeRun(6 * 7, 10, 245, 160),
+    makeRun(5 * 7, 10, 243, 160),
+  ]
+  // Recent runs faster → higher VDOT
+  const recentRuns = [
+    makeRun(3 * 7, 10, 235, 162),
+    makeRun(2 * 7, 10, 232, 162),
+    makeRun(1 * 7, 10, 230, 162),
+  ]
 
-  const runs = [earlyRun1, earlyRun2, recentRun1, recentRun2]
+  const runs = [...earlyRuns, ...recentRuns]
 
-  it('uses mean of all effort VDOTs per half (not bestVdot top-3)', () => {
+  it('uses median of all effort VDOTs per half (not bestVdot top-3)', () => {
     const result = vdotTrendFromActivities(runs, currentVdot, maxHr, restHr)
     expect(result).not.toBeNull()
-    // With mean: early = mean(vdot(240s, 10km), vdot(245s, 10km))
-    //            recent = mean(vdot(235s, 10km), vdot(230s, 10km))
-    // Recent runs are faster → recent VDOT > early VDOT → direction ↑
     expect(result!.direction).toBe('↑')
-    // The early/recent values must be means (not max/top-3)
-    // Specifically: early should be lower than recent
     expect(result!.recent).toBeGreaterThan(result!.early)
     expect(result!.delta).toBeGreaterThan(0)
   })
 
   it('stable trend returns → when early and recent are nearly equal', () => {
-    // Same pace for all runs → mean is identical → delta ≈ 0 → →
     const stableRuns = [
       makeRun(7 * 7, 10, 240, 160),
       makeRun(6 * 7, 10, 240, 160),
+      makeRun(5 * 7, 10, 240, 160),
+      makeRun(3 * 7, 10, 240, 160),
       makeRun(2 * 7, 10, 240, 160),
       makeRun(1 * 7, 10, 240, 160),
     ]
@@ -120,6 +121,43 @@ describe('vdotTrendFromActivities — VDOT aggregation = mean (T-120)', () => {
     expect(result).not.toBeNull()
     expect(result!.direction).toBe('→')
     expect(Math.abs(result!.delta)).toBeLessThan(0.3)
+  })
+
+  // ── T-194: Paritaet zu tests/test_coach.py::test_t194_* ───────────────────
+
+  it('meldet keinen Trend bei weniger als 3 Effort-Laeufen je Haelfte', () => {
+    const tooFew = [
+      makeRun(7 * 7, 10, 240, 160),
+      makeRun(6 * 7, 10, 245, 160),          // nur 2 frueh
+      makeRun(3 * 7, 10, 235, 162),
+      makeRun(2 * 7, 10, 232, 162),
+      makeRun(1 * 7, 10, 230, 162),
+    ]
+    const result = vdotTrendFromActivities(tooFew, currentVdot, maxHr, restHr)
+    expect(result === null || result.insufficientEffortRuns).toBeTruthy()
+  })
+
+  it('ein einzelner Ausreisser kippt das Verdikt nicht (Median)', () => {
+    const withOutlier = [
+      makeRun(7 * 7, 10, 240, 160),
+      makeRun(6 * 7, 10, 240, 160),
+      makeRun(5 * 7, 10, 240, 160),
+      makeRun(4.5 * 7, 10, 400, 160),        // deutlich langsamer -> Ausreisser
+      makeRun(3 * 7, 10, 240, 162),
+      makeRun(2 * 7, 10, 240, 162),
+      makeRun(1 * 7, 10, 240, 162),
+    ]
+    const result = vdotTrendFromActivities(withOutlier, currentVdot, maxHr, restHr)
+    expect(result).not.toBeNull()
+    expect(result!.insufficientEffortRuns).toBe(false)
+    expect(Math.abs(result!.delta)).toBeLessThan(0.3)
+    expect(result!.direction).toBe('→')
+  })
+
+  it('liefert die Stichprobengroessen fuer die UI', () => {
+    const result = vdotTrendFromActivities(runs, currentVdot, maxHr, restHr)
+    expect(result!.nEarly).toBe(3)
+    expect(result!.nRecent).toBe(3)
   })
 })
 
@@ -726,10 +764,12 @@ describe('GAP/Hitze in efficiencyFactorTrend (T-140)', () => {
 describe('GAP/Hitze in vdotTrendFromActivities (T-140)', () => {
   function _makeEffortRuns(elevationM: number): RunSummary[] {
     const now = Date.now()
+    // T-194: 3 Laeufe je Fensterhaelfte (Grenze bei 28 Tagen) — darunter meldet
+    // vdotTrendFromActivities keinen Trend mehr (MIN_TREND_EFFORT_RUNS).
     return Array.from({ length: 6 }, (_, i) => ({
       id: i,
       name: `Effort ${i}`,
-      date: new Date(now - (4 + i * 5) * 24 * 3600 * 1000),
+      date: new Date(now - (i < 3 ? 4 + i * 5 : 32 + (i - 3) * 5) * 24 * 3600 * 1000),
       distanceKm: 10,
       durationSec: 2400,  // 240 s/km = M-pace for VDOT ~45
       paceSec: 240,
@@ -1370,5 +1410,37 @@ describe('detectStrides — T-052-Invariante: Nenner == Anzahl gueltiger Peak-Pa
     }, 0)
     for (const s of r.strides) expect(s.peakPaceSec).toBeGreaterThan(0)
     expect(r.avgPeakPaceSec === null || r.avgPeakPaceSec > 0).toBe(true)
+  })
+})
+
+// ── T-194 Golden-Parität: Desktop ↔ PWA ──────────────────────────────────────
+// Zwilling zu tests/test_coach.py::test_t194_golden_parity_values_desktop_side.
+// `vdotTrendFromActivities` passt nicht ins Stream-Fixture-Harness aus T-171
+// (gleitendes Zeitfenster statt zeitunabhängiger Streams), deshalb dieses
+// hand­gepflegte Wertepaar: DIESELBE Eingabe, DIESELBEN Erwartungswerte.
+// Python ist die Referenz (CLAUDE.md). Weicht diese Seite ab, weicht die PWA ab.
+// Auslöser: T-139 normalisierte Gelände/Hitze nur im Desktop-`best_vdot`, T-140
+// zusätzlich im PWA-Trend — der Desktop-Trend blieb roh. Ergebnis: +1.9 vs +2.8
+// für identische Aktivitäten.
+
+describe('vdotTrendFromActivities — T-194 Golden-Parität zu coach.vdot_trend', () => {
+  const GOLDEN: [number, number][] = [
+    [49, 240], [42, 245], [35, 243],   // frühe Hälfte
+    [21, 235], [14, 232], [7, 230],    // aktuelle Hälfte
+  ]
+
+  it('liefert dieselben early/recent/delta wie die Python-Referenz', () => {
+    const runs = GOLDEN.map(([daysAgo, paceSec]) => ({
+      ...makeRun(daysAgo, 10, paceSec, 160),
+      elevationM: 0,
+      tempC: undefined,
+    }))
+    const res = vdotTrendFromActivities(runs, 45, 190, 50)
+    expect(res).not.toBeNull()
+    expect(res!.early).toBeCloseTo(51.2, 1)
+    expect(res!.recent).toBeCloseTo(54.0, 1)
+    expect(res!.delta).toBeCloseTo(2.8, 1)
+    expect(res!.direction).toBe('↑')
+    expect([res!.nEarly, res!.nRecent]).toEqual([3, 3])
   })
 })
