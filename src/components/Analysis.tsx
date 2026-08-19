@@ -8,6 +8,7 @@ import {
   computeWeeklyStats,
   computeWeeklyStatsBySport,
   vdotTrendFromActivities,
+  MIN_TREND_EFFORT_RUNS,
   efficiencyFactorTrend,
   thisWeekStatsBySport,
   computeAtlCtl,
@@ -509,17 +510,22 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
           {/* VDOT trend — only shown when effort runs are available */}
           {trend && (!trend.insufficientEffortRuns ? (
             <div className="activity-card" style={{ padding: '12px' }}>
-              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT AUS TEMPOLÄUFEN</div>
+              {/* T-194: Überschrift war "VDOT AUS TEMPOLÄUFEN" — irreführend, das
+                  65-%-HRR-Gate lässt auch zügige Dauerläufe passieren (am Realdatensatz
+                  10 von 14 Läufen). */}
+              <div style={{ fontSize: '11px', color: 'var(--text-2)', marginBottom: '4px', fontWeight: 600, letterSpacing: '0.04em' }}>VDOT-TREND (8 WOCHEN)</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                 <div className="trend-badge" style={{ background: `${trend.color}22`, color: trend.color }}>
                   <span>{trend.direction}</span>
                   <span>{trend.label}</span>
                 </div>
               </div>
-              <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
-                <span>Früher: {trend.early}</span>
-                <span>Aktuell: {trend.recent}</span>
-                <span style={{ color: trend.color }}>Δ {trend.delta > 0 ? '+' : ''}{trend.delta}</span>
+              {/* T-194: KEINE absoluten VDOT-Zahlen mehr. "Aktuell: 43.0" stand hier
+                  direkt neben dem Hero-VDOT (45.6) und las sich als Widerspruch,
+                  obwohl es ein anderer Schätzer über ein anderes Fenster ist.
+                  Stattdessen die Stichprobengröße als Vertrauensangabe. */}
+              <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '8px' }}>
+                {trend.nEarly + trend.nRecent} Effort-Läufe ({trend.nEarly} → {trend.nRecent}), Median je 4-Wochen-Hälfte
               </div>
               {trend.fromTraining && (
                 <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
@@ -529,7 +535,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             </div>
           ) : (
             <div className="activity-card" style={{ padding: '10px 12px', fontSize: '12px', color: 'var(--text-2)' }}>
-              VDOT-Trend folgt ab der Aufbauphase — wird aus Tempo- und Intervallläufen berechnet, nicht aus Easy-Läufen.
+              VDOT-Trend braucht mindestens {MIN_TREND_EFFORT_RUNS} Effort-Läufe in jeder der beiden
+              4-Wochen-Hälften — darunter zeigt er die Zusammensetzung der Stichprobe statt der Form.
             </div>
           ))}
 

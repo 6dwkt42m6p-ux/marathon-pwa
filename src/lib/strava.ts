@@ -523,8 +523,14 @@ export interface VdotTrend {
   color:       string
   fromTraining:           boolean
   insufficientEffortRuns: boolean  // true when VDOT numbers are based on easy runs (unreliable)
+  nEarly:                 number   // T-194: Stichprobengroessen — die UI zeigt sie
+  nRecent:                number   //        statt der absoluten VDOT-Werte
   easyHrTrend?:           EasyHrTrend
 }
+
+// T-194: Mindestzahl an Effort-Laeufen JE Fensterhaelfte. Spiegelt
+// coach.MIN_TREND_EFFORT_RUNS — Python ist die Referenz (CLAUDE.md).
+export const MIN_TREND_EFFORT_RUNS = 3
 
 export function vdotTrendFromActivities(
   runs: RunSummary[],
@@ -588,40 +594,49 @@ export function vdotTrendFromActivities(
 
   const earlyEffort  = withVdot.filter(r => r.date < fourWeeksAgo)
   const recentEffort = withVdot.filter(r => r.date >= fourWeeksAgo)
+  const nEarly  = earlyEffort.length
+  const nRecent = recentEffort.length
 
-  // Not enough effort runs — return early HR trend only (or null)
-  if (withVdot.length < 2 || recentEffort.length === 0) {
+  // T-194: Mindeststichprobe JE Haelfte (vorher genuegte EIN Lauf pro Haelfte).
+  // Am Realdatensatz verschob ein einzelner Lauf das Verdikt um bis zu 3.1
+  // VDOT-Punkte — gemeldet wurde die Zusammensetzung der Stichprobe, nicht die
+  // Form. Spiegelt coach.vdot_trend.
+  if (nEarly < MIN_TREND_EFFORT_RUNS || nRecent < MIN_TREND_EFFORT_RUNS) {
     if (!easyHrTrend) return null
     return {
       delta: 0, early: 0, recent: 0,
       direction: easyHrTrend.direction, label: easyHrTrend.label, color: easyHrTrend.color,
-      fromTraining: true, insufficientEffortRuns: true, easyHrTrend,
+      fromTraining: true, insufficientEffortRuns: true, nEarly, nRecent, easyHrTrend,
     }
   }
 
-  // T-120: Use mean of ALL effort VDOTs per half — mirrors coach.py:365-366 (.mean()).
-  // Previous bestVdot() used threshold-filtered top-3, giving different early/recent/delta
-  // for the same activities. SSoT is coach.py → PWA must match.
+  // T-194: Median je Haelfte statt Mittelwert (T-120 hatte den Mittelwert von
+  // coach.py gespiegelt; coach.py nutzt jetzt den Median). Effort-Laeufe sind
+  // kein homogener Typ — Intervalle, Tempolaeufe und zuegige Dauerlaeufe
+  // passieren dasselbe HR-Gate, weshalb Einzelwerte weit abliegen.
+  // SSoT bleibt coach.py → PWA zieht nach.
   const threshold = currentVdot * 0.82
-  const meanVdot = (list: typeof withVdot): number => {
+  const medianVdot = (list: typeof withVdot): number => {
     if (!list.length) return 0
-    return list.reduce((s, r) => s + r.computedVdot, 0) / list.length
+    const xs = list.map(r => r.computedVdot).sort((a, b) => a - b)
+    const mid = Math.floor(xs.length / 2)
+    return xs.length % 2 === 0 ? (xs[mid - 1] + xs[mid]) / 2 : xs[mid]
   }
 
-  const recent = Math.round(meanVdot(recentEffort) * 10) / 10
-  const early  = earlyEffort.length >= 1 ? Math.round(meanVdot(earlyEffort) * 10) / 10 : recent
+  const recent = Math.round(medianVdot(recentEffort) * 10) / 10
+  const early  = Math.round(medianVdot(earlyEffort) * 10) / 10
   const delta  = Math.round((recent - early) * 10) / 10
 
   const fromTraining           = earlyEffort.filter(r => r.computedVdot >= threshold).length < 2 ||
                                   recentEffort.filter(r => r.computedVdot >= threshold).length < 2
-  const insufficientEffortRuns = earlyEffort.length < 1
+  const insufficientEffortRuns = false
 
   let direction: '↑' | '↓' | '→', label: string, color: string
   if (delta >= 0.3)       { direction = '↑'; label = `+${delta} VDOT`;      color = '#4CAF50' }
   else if (delta <= -0.3) { direction = '↓'; label = `${delta} VDOT`;       color = '#e53935' }
   else                    { direction = '→'; label = 'Stabiler VDOT-Trend'; color = '#FFC107' }
 
-  return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, easyHrTrend }
+  return { delta, early, recent, direction, label, color, fromTraining, insufficientEffortRuns, nEarly, nRecent, easyHrTrend }
 }
 
 export interface BestVdotResult {
