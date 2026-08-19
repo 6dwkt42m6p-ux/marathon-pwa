@@ -10,7 +10,7 @@ import {
 import { analyzeRun, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
 import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
 import type { WorkoutSession, PlanDeviation } from '../lib/plan'
-import { sessionExecutionQuality, dataQualityScore } from '../lib/analytics'
+import { sessionExecutionQuality, executionBadgeParts, dataQualityScore } from '../lib/analytics'
 import { fetchSync, pushSync, type SyncData } from '../lib/githubSync'
 import {
   buildSaveNoteMutation, buildDeleteNoteMutation,
@@ -359,12 +359,18 @@ export default function RunDetail({
       {classification && <WorkoutBadge classification={classification} />}
 
       {classification && (() => {
-        const exq = sessionExecutionQuality(classification, vdot, act.distanceKm, streams)
-        return exq ? (
+        const exq = executionBadgeParts(sessionExecutionQuality(classification, vdot, act.distanceKm, streams))
+        if (!exq) return null
+        // T-193/D-040: bei n_reps==1 sind Fade/CV Formel-Artefakte (keine Messwerte) — nicht
+        // als irreführende "0%" zeigen, Einstufung dann erkennbar nur auf die Pace-Treffer stützen.
+        const detail = exq.showFadeCv
+          ? `Zeit im Ziel ${exq.timeInTargetPct}% · Fade ${exq.repFadePct}% · CV ${exq.splitCvPct}%`
+          : `Zeit im Ziel ${exq.timeInTargetPct}% (Einzelmessung — Fade/CV nicht ermittelbar)`
+        return (
           <div style={{ marginTop: 8, fontSize: 13, color: exq.color, fontWeight: 600 }}>
-            {'🎯'} {exq.label} — Zeit im Ziel {exq.timeInTargetPct}% · Fade {exq.repFadePct}% · CV {exq.splitCvPct}%
+            {'🎯'} {exq.label} — {detail}
           </div>
-        ) : null
+        )
       })()}
 
       {streams && (() => {

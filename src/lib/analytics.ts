@@ -2,7 +2,8 @@
 // Functions: intensityDistribution, stagnationCheck, vdotAdherenceCheck, aggregateStrideTrend.
 // T-144: injuryRisk added — faithful port of coach.injury_risk (ACWR + CTL-Ramp).
 // T-148: executionQuality, sessionExecutionQuality, dataQualityScore — faithful port of T-147.
-//   Port-Anpassung: PWA IntervalBlock/TempoBlock haben kein zone-Feld → Zone aus workoutType (intervals→I, tempo→T).
+// T-193/D-040: asymmetrische Toleranz + Zielzone aus Block-`zone` (jetzt in strava.ts
+//   IntervalBlock/TempoBlock ergaenzt, faithful port von streams._pace_zone) statt workoutType.
 // Cross-app guardrail: coach.py is SSoT. Any change to coach.py thresholds must be mirrored here.
 
 import { trainingPaces, formatPace } from './vdot'
@@ -648,19 +649,43 @@ export function injuryRisk(
   return { acwr, acwrZone, acwrLabel, acwrColor, rampPerWeek, rampLabel, rampColor, riskLevel, riskEmoji, enoughData: true }
 }
 
-// ── T-148: Execution Quality + Data Quality ───────────────────────────────────
+// ── T-148/T-193: Execution Quality + Data Quality ─────────────────────────────
 // Faithful port of coach.execution_quality, streams.session_execution_quality, streams.data_quality_score.
-// Port-Anpassung: PWA IntervalBlock/TempoBlock kein zone-Feld → Zone aus workoutType (intervals→I, tempo→T).
+// T-193/D-040: Toleranz asymmetrisch (schneller als Ziel zaehlt immer als getroffen), Zielzone
+// aus der tatsaechlichen Blockintensitaet (IntervalBlock/TempoBlock.zone, T-193 auch in strava.ts
+// ergaenzt) statt aus workoutType, n=1 liefert Fade/CV weiter als 0.0 (Formel-Artefakt) --
+// executionBadgeParts() unten macht das UI-seitig ehrlich sichtbar statt als Messwert "0%".
 
 const EXEC_CLEAN_INTARGET = 70, EXEC_CLEAN_FADE = 3, EXEC_CLEAN_CV = 4
 const EXEC_FAIL_INTARGET = 40, EXEC_FAIL_FADE = 8
 const EXEC_TOL_I = 12, EXEC_TOL_T = 20, EXEC_TOL_M = 25
+const EXEC_TOL_BY_ZONE: Record<'I' | 'T' | 'M', number> = { I: EXEC_TOL_I, T: EXEC_TOL_T, M: EXEC_TOL_M }
+const ZONE_SPEED_RANK: Record<'I' | 'T' | 'M', number> = { I: 3, T: 2, M: 1 }
 const EXEC_LONGRUN_MIN_KM = 25, EXEC_FF_FASTER_PCT = 4
 const DQ_FROZEN_S = 30, DQ_EARLY_S = 120, DQ_EARLY_BPM = 12, DQ_SPIKE_MS = 8
 
 export interface ExecutionQualityResult {
   repFadePct: number; splitCvPct: number; timeInTargetPct: number
   nReps: number; verdict: 'sauber' | 'leicht abgebaut' | 'verfehlt'; label: string; color: string
+}
+
+export interface ExecutionBadgeParts {
+  label: string; color: string; verdict: ExecutionQualityResult['verdict']
+  timeInTargetPct: number; showFadeCv: boolean
+  repFadePct: number; splitCvPct: number
+}
+
+/** T-193/D-040 Task 4: Bei n_reps==1 sind repFadePct/splitCvPct Formel-Artefakte (kein
+ * Messwert -- es gibt nichts, wovon ein Fade oder eine Streuung abgeleitet werden koennte),
+ * duerfen im UI daher NICHT als irrefuehrende "0%" gezeigt werden. Faithful port von
+ * coach.execution_badge_parts. */
+export function executionBadgeParts(exq: ExecutionQualityResult | SessionExecutionResult | null): ExecutionBadgeParts | null {
+  if (!exq) return null
+  return {
+    label: exq.label, color: exq.color, verdict: exq.verdict,
+    timeInTargetPct: exq.timeInTargetPct, showFadeCv: exq.nReps > 1,
+    repFadePct: exq.repFadePct, splitCvPct: exq.splitCvPct,
+  }
 }
 
 export interface SessionExecutionResult extends ExecutionQualityResult {
@@ -689,7 +714,10 @@ export function executionQuality(repPaces: number[], targetPaceSec: number, tole
     const variance = paces.reduce((a, p) => a + (p - mean) ** 2, 0) / n
     splitCvPct = Math.round(Math.sqrt(variance) / mean * 1000) / 10
   }
-  const inTarget = paces.filter(p => Math.abs(p - targetPaceSec) <= toleranceSec).length
+  // T-193/D-040: asymmetrisch -- schneller als das Ziel (p < target) ergibt eine negative
+  // Differenz und ist damit IMMER <= der (positiven) Toleranz -> zaehlt immer als "im Ziel".
+  // Nur ein Ueberschreiten der Zielpace um mehr als die Toleranz gilt als verfehlt.
+  const inTarget = paces.filter(p => (p - targetPaceSec) <= toleranceSec).length
   const timeInTargetPct = Math.round(inTarget / n * 1000) / 10
   let verdict: ExecutionQualityResult['verdict'], color: string, label: string
   if (timeInTargetPct >= EXEC_CLEAN_INTARGET && repFadePct <= EXEC_CLEAN_FADE && splitCvPct <= EXEC_CLEAN_CV) {
@@ -719,23 +747,44 @@ function _fastFinishReps(streams: ActivityStreams | null | undefined, distanceKm
   return null
 }
 
+/** T-193/D-040 Task 2: haeufigste `zone` unter den Bloecken einer Schluesseleinheit; bei
+ * Gleichstand konservativ die LANGSAMERE Zone (min() ueber ZONE_SPEED_RANK). null bei
+ * leerer/zonenloser Blockliste -- Aufrufer faellt dann auf die alte workoutType-Zuordnung
+ * zurueck (Rueckwaertskompatibilitaet fuer Bloecke ohne `zone`-Feld, z.B. handgebaute Test-
+ * Objekte). Faithful port von streams._majority_block_zone. */
+function _majorityBlockZone(blocks: { zone?: 'I' | 'T' | 'M' }[]): 'I' | 'T' | 'M' | null {
+  const zones = (blocks || []).map(b => b.zone).filter((z): z is 'I' | 'T' | 'M' => z !== undefined)
+  if (!zones.length) return null
+  const counts: Record<string, number> = {}
+  for (const z of zones) counts[z] = (counts[z] ?? 0) + 1
+  const top = Math.max(...Object.values(counts))
+  const tied = (Object.keys(counts) as ('I' | 'T' | 'M')[]).filter(z => counts[z] === top)
+  return tied.reduce((a, b) => (ZONE_SPEED_RANK[b] < ZONE_SPEED_RANK[a] ? b : a))
+}
+
 export function sessionExecutionQuality(cls: WorkoutClassification | null, vdot: number | null, distanceKm?: number | null, streams?: ActivityStreams | null): SessionExecutionResult | null {
   if (!cls || !Number.isFinite(vdot as number) || (vdot as number) <= 0) return null
   const paces = trainingPaces(vdot as number)
   let reps: number[] = [], zone: 'I' | 'T' | 'M' | null = null
-  let sessionType: SessionExecutionResult['sessionType'] | null = null, tolerance = 0
+  let sessionType: SessionExecutionResult['sessionType'] | null = null
+  // T-193/D-040 Task 2: Zielzone kommt aus der tatsaechlich gelaufenen Blockintensitaet
+  // (Mehrheit der Block-`zone`-Felder, bei Gleichstand die langsamere), nicht mehr hart aus
+  // workoutType. Ein einzelner Block >=180s wurde sonst stur als "tempo"/Zone T eingestuft,
+  // selbst wenn er faktisch auf Intervall-Tempo (Zone I) gelaufen wurde (Realfall 18.08.).
   if (cls.workoutType === 'intervals') {
     reps = cls.intervalBlocks.map(b => b.avgPaceSec).filter(p => Number.isFinite(p) && p > 0)
-    zone = 'I'; sessionType = 'intervals'; tolerance = EXEC_TOL_I
+    zone = _majorityBlockZone(cls.intervalBlocks) ?? 'I'; sessionType = 'intervals'
   } else if (cls.workoutType === 'tempo') {
     reps = cls.tempoBlocks.map(b => b.avgPaceSec).filter(p => Number.isFinite(p) && p > 0)
-    zone = 'T'; sessionType = 'tempo'; tolerance = EXEC_TOL_T
+    zone = _majorityBlockZone(cls.tempoBlocks) ?? 'T'; sessionType = 'tempo'
   } else {
-    // Fast-Finish-Longrun check (also on easy/mixed)
+    // Fast-Finish-Longrun check (also on easy/mixed) -- kein Block-`zone`-Feld (ff sind reine
+    // Paces), Zone bleibt "M" wie bisher.
     const ff = _fastFinishReps(streams, distanceKm)
-    if (ff) { reps = ff; zone = 'M'; sessionType = 'longrun_ff'; tolerance = EXEC_TOL_M }
+    if (ff) { reps = ff; zone = 'M'; sessionType = 'longrun_ff' }
   }
   if (!reps.length || !zone || !sessionType) return null
+  const tolerance = EXEC_TOL_BY_ZONE[zone]
   const target = paces[zone as keyof typeof paces]
   if (!Number.isFinite(target)) return null
   const res = executionQuality(reps, target, tolerance)

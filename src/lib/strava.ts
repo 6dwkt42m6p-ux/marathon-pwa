@@ -1382,6 +1382,10 @@ export interface IntervalBlock {
   durationSec: number
   avgPaceSec: number   // sec/km
   avgHr?:     number
+  // T-193: aus _paceZone(avgMs, baseSpeed), fasst tatsaechliche Blockintensitaet. Optional
+  // (nicht `?? "I"` erzwungen), damit handgebaute WorkoutClassification-Objekte ohne Streams
+  // (z.B. Tests) weiter kompilieren -- sessionExecutionQuality faellt dann auf workoutType zurueck.
+  zone?:      'I' | 'T' | 'M'
 }
 
 export interface TempoBlock {
@@ -1389,6 +1393,17 @@ export interface TempoBlock {
   durationSec:  number
   avgPaceSec:   number   // sec/km
   paceDeviation: number  // drift %, end vs start
+  zone?:        'I' | 'T' | 'M'   // T-193: dito
+}
+
+// T-193: Zone-Label relativ zur Easy-Baseline des Laufs (faithful port von streams._pace_zone).
+// >=20% schneller als Baseline -> I, >=10% -> T, sonst M.
+function _paceZone(avgMs: number, baseSpeed: number): 'I' | 'T' | 'M' {
+  if (baseSpeed <= 0 || avgMs <= 0) return 'M'
+  const ratio = avgMs / baseSpeed
+  if (ratio >= 1.20) return 'I'
+  if (ratio >= 1.10) return 'T'
+  return 'M'
 }
 
 export interface WorkoutClassification {
@@ -1535,7 +1550,7 @@ export function classifyWorkoutStructure(
     } else if (segT < MIN_TEMPO_S) {
       // 45s–179s → interval block
       if (paceSec > 0) {
-        intervalBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, avgHr })
+        intervalBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, avgHr, zone: _paceZone(avgMs, baseSpeed) })
       }
     } else {
       // ≥ 180s → tempo block (pace drift: intra-block, first vs second half)
@@ -1562,7 +1577,7 @@ export function classifyWorkoutStructure(
             paceDeviation = Math.round((pSecond - pFirst) / pFirst * 100 * 10) / 10
           }
         }
-        tempoBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, paceDeviation })
+        tempoBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, paceDeviation, zone: _paceZone(avgMs, baseSpeed) })
       }
     }
   }
@@ -1689,7 +1704,12 @@ export function detectStrides(
     if (dur < MIN_STRIDE_DUR || dur > 60) continue
 
     const seg    = smoothed.slice(startIdx, endIdx + 1)
-    const peakMs = Math.max(...seg)
+    // Parity (T-171): Python nimmt die geglaettete Geschwindigkeit AM erkannten Peak-Index
+    // (streams.py `peak_ms = smoothed[peak]`), nicht das Maximum ueber das gesamte getracete
+    // Fenster. Das Fenster laeuft bis zur Baseline-Kreuzung und kann ein spaeteres, hoeheres
+    // lokales Maximum enthalten -- `Math.max(...seg)` lieferte dadurch systematisch eine zu
+    // schnelle Peak-Pace (4-15 s/km) gegenueber der Referenz.
+    const peakMs = smoothed[peakIdx]
     const avgMs  = seg.reduce((s, v) => s + v, 0) / seg.length
     const distM  = Math.round(avgMs * dur)
     if (distM < 30 || distM > 250) continue
