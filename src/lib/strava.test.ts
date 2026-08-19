@@ -1444,3 +1444,61 @@ describe('vdotTrendFromActivities — T-194 Golden-Parität zu coach.vdot_trend'
     expect([res!.nEarly, res!.nRecent]).toEqual([3, 3])
   })
 })
+
+// ── T-194-Nachzug: Golden-Parität auf mehrere Fälle verbreitert ──────────────
+// Zwilling zu tests/test_coach.py::test_t194_golden_parity_extended_cases.
+// Ein einzelnes Wertepaar schützt nur den Pfad, den es berührt: eine Änderung an
+// der GAP-Formel für steile Anstiege oder an der Median-Randbehandlung bei gerader
+// Stichprobengröße könnte eine neue Divergenz einführen, ohne rot zu werden —
+// strukturell dieselbe Lücke, die T-139/T-140 sieben Wochen unentdeckt ließ.
+// Erwartungswerte stammen aus der Python-Referenz (CLAUDE.md).
+
+describe('vdotTrendFromActivities — T-194 Golden-Parität, erweiterte Fälle', () => {
+  type Spec = [daysAgo: number, paceSec: number, elevationM: number, tempC: number | undefined]
+
+  function trendFor(spec: Spec[]) {
+    const runs = spec.map(([daysAgo, paceSec, elevationM, tempC]) => ({
+      ...makeRun(daysAgo, 10, paceSec, 160),
+      elevationM,
+      tempC,
+    }))
+    return vdotTrendFromActivities(runs, 45, 190, 50)
+  }
+
+  const CASES: Record<string, {
+    spec: Spec[]; early: number; recent: number; delta: number
+    direction: string; counts: [number, number]
+  }> = {
+    // Gelände UND Hitze gleichzeitig: 600 Hm/10 km = 6 % → GAP am 12-%-Cap, 28 °C → Hitze
+    hilly_hot: {
+      spec: [[49, 260, 600, 28], [42, 262, 600, 28], [35, 258, 600, 28],
+             [21, 255, 600, 28], [14, 253, 600, 28], [7, 250, 600, 28]],
+      early: 56.9, recent: 58.8, delta: 1.8, direction: '↑', counts: [3, 3],
+    },
+    // Gerade Stichprobengröße → Median mittelt die beiden mittleren Werte
+    even_sample: {
+      spec: [[52, 250, 0, undefined], [45, 255, 0, undefined], [38, 245, 0, undefined],
+             [31, 260, 0, undefined], [24, 240, 0, undefined], [17, 248, 0, undefined],
+             [10, 238, 0, undefined], [3, 244, 0, undefined]],
+      early: 49.0, recent: 51.4, delta: 2.5, direction: '↑', counts: [4, 4],
+    },
+    // Abwärtstrend — die Richtungslogik war nicht symmetrisch abgesichert
+    declining: {
+      spec: [[49, 235, 0, undefined], [42, 233, 0, undefined], [35, 237, 0, undefined],
+             [21, 265, 0, undefined], [14, 268, 0, undefined], [7, 263, 0, undefined]],
+      early: 53.2, recent: 46.3, delta: -7.0, direction: '↓', counts: [3, 3],
+    },
+  }
+
+  for (const [name, c] of Object.entries(CASES)) {
+    it(`${name} — identisch zur Python-Referenz`, () => {
+      const res = trendFor(c.spec)
+      expect(res).not.toBeNull()
+      expect(res!.early).toBeCloseTo(c.early, 1)
+      expect(res!.recent).toBeCloseTo(c.recent, 1)
+      expect(res!.delta).toBeCloseTo(c.delta, 1)
+      expect(res!.direction).toBe(c.direction)
+      expect([res!.nEarly, res!.nRecent]).toEqual(c.counts)
+    })
+  }
+})
