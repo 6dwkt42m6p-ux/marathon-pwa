@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns, bestVdotFromActivities } from './strava'
+import { detectStrides, syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns, bestVdotFromActivities } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
 import { effortNormalizationFactor, tempAdjFactor, vdotFromRace } from './vdot'
 
@@ -1312,5 +1312,63 @@ describe('parseAllActivities / parseRuns — activityTemps enrichment (T-184)', 
     // recomputes to once `syncedActivityTemps` state changes.
     const afterSync = parseRuns([a], { '1': 31.5 })[0]?.tempC
     expect(afterSync).toBe(31.5)
+  })
+})
+
+// ── T-052 Nachzug (19.08.2026) ────────────────────────────────────────────────
+// T-052 hat den Ø-Peak-Pace-Nenner in `streams.detect_strides` gefixt (Nenner =
+// Anzahl GUELTIGER peak_pace_sec statt len(strides)). Die PWA wurde damals als
+// "strukturell bug-frei" abgehakt — mit zwei Begruendungen, die inzwischen
+// erodiert sind: (1) "peakMs = Math.max(...seg), also immer > 0" — genau diese
+// Zeile wurde in T-193 auf `smoothed[peakIdx]` geaendert; (2) "detectStrides hat
+// keine Call-Site, Parity-Thema inaktiv" — es hat laengst eine (`loadAnalyticsStreams`).
+// Die Invariante haelt weiterhin, aber sie lebte nur als Prosa im Review-File.
+// Diese Tests nageln sie fest, damit der naechste Eingriff in die Peak-Ermittlung
+// sie nicht still bricht.
+describe('detectStrides — T-052-Invariante: Nenner == Anzahl gueltiger Peak-Paces', () => {
+  // Easy-Basis 3.0 m/s (= 5:33/km) mit zwei klar abgesetzten Stride-Plateaus bei
+  // 5.0 m/s. Kein vdot uebergeben -> _vdotAnchor liefert null -> refSpeed = avgSpeed.
+  function makeStrideStream() {
+    const v: number[] = []
+    const push = (val: number, secs: number) => { for (let i = 0; i < secs; i++) v.push(val) }
+    push(3.0, 30); push(5.0, 14); push(3.0, 30); push(5.0, 14); push(3.0, 30)
+    return {
+      time: v.map((_, i) => i),
+      velocity_smooth: v,
+      heartrate: v.map(() => 150),
+      altitude: v.map(() => 100),
+    }
+  }
+
+  it('erkennt Strides und liefert ausschliesslich positive Peak-Paces', () => {
+    const r = detectStrides(makeStrideStream(), 333)
+    expect(r.strideCount).toBeGreaterThan(0)
+    // Kern der Invariante: der `: 0`-Fallback in `peakPaceSec` ist unerreichbar.
+    for (const s of r.strides) expect(s.peakPaceSec).toBeGreaterThan(0)
+  })
+
+  it('mittelt ueber genau die erfassten Strides (Nenner == strides.length)', () => {
+    const r = detectStrides(makeStrideStream(), 333)
+    // Erwartungswert aus der Formel gerechnet, nicht geraten (Projektregel).
+    const expected = Math.round(r.strides.reduce((s, st) => s + st.peakPaceSec, 0) / r.strides.length)
+    expect(r.avgPeakPaceSec).toBe(expected)
+    // Solange kein peakPaceSec 0/None sein kann, ist strides.length identisch zum
+    // Python-Nenner len(_valid_paces) — das ist die eigentliche T-052-Aussage.
+    const valid = r.strides.filter(s => s.peakPaceSec > 0)
+    expect(valid.length).toBe(r.strides.length)
+  })
+
+  it('erzeugt auch im entarteten Fall (refSpeed 0) keinen Stride mit Peak-Pace 0', () => {
+    // avgPaceSec = 0 und kein vdot -> refSpeed = 0 -> peakThreshold = 0. Die
+    // Peak-Bedingung ist `>=`, ein 0-Plateau erfuellt sie also formal. Ein 0-Peak
+    // hat aber zwingend 0-Nachbarn -> das Trace-Fenster kollabiert -> Dauer- und
+    // Distanzfilter werfen ihn raus, bevor `peakPaceSec` gebildet wird.
+    const v = [0, 0, 0, 0, 0, 3.0, 5.0, 5.0, 5.0, 3.0, 0, 0, 0, 0, 0]
+    const r = detectStrides({
+      time: v.map((_, i) => i), velocity_smooth: v,
+      heartrate: v.map(() => 150), altitude: v.map(() => 100),
+    }, 0)
+    for (const s of r.strides) expect(s.peakPaceSec).toBeGreaterThan(0)
+    expect(r.avgPeakPaceSec === null || r.avgPeakPaceSec > 0).toBe(true)
   })
 })
