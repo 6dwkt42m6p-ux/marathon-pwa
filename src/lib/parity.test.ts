@@ -39,10 +39,6 @@ const FLOAT_TOL = 1e-6
 // gemeinsamen Feld — solche wurden beim ersten Lauf dieses Gates gefunden und sofort
 // behoben (pace_deviation-Rundung, 0-statt-null bei leeren Strides).
 const KNOWN_DIVERGENCES: Record<string, string> = {
-  'classify_workout_structure.tempo_blocks[].zone':
-    'Nur Python: `zone` aus _pace_zone(). Die PWA zeigt die Zone am Tempoblock nicht an.',
-  'classify_workout_structure.interval_blocks[].zone':
-    'Nur Python: dito fuer Intervallbloecke.',
   'classify_workout_structure.strides[].avg_speed_ms':
     'Nur Python: Durchschnittsgeschwindigkeit je Stride. Die PWA fuehrt am ' +
     'Workout-Stride nur peak_speed_ms (im Ticket T-171 explizit als bekannte Divergenz ' +

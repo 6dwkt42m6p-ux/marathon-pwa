@@ -1,6 +1,7 @@
 {
  "fixtures": {
   "edge_empty.json": "ff6762abd919804ba16cb8a0a9123fb15be1e6d1bf344fc2e198ef153a2d21de",
+  "real_5km_test_zone_bug.json": "00b87e18f9b2128c8021bcccc912684b32bb5fd10a9c9b138c8fb6b1cc4cb0fc",
   "real_intervals_5x1000.json": "d35cdb30eaf07fbcc8328ab21807fa01915fdadc6209609d32aac52da32231dd",
   "real_longrun_18km.json": "891577543c81579700722281a9275de6a33209554e71082378e14744d36f7f97",
   "real_tempo_2x10min.json": "4e819864c8da5b175af83c8e67df4b613525c5c7efbcb44cf68d4c17be8e005b",
