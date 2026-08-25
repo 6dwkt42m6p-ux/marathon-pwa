@@ -62,6 +62,12 @@ export interface SyncData {
   // window as the activity cache. Read-only for the PWA — never re-derive weather here
   // (D-031 coordinate-rounding privacy guarantee stays in exactly one place: Desktop).
   activityTemps?:         Record<string, number>
+  // T-196/D-047: Desktop-resolved test-run results (id-as-string → result), Weg B. Read-only
+  // for the PWA — presence of the key IS the test-run marker (no separate isTestRun flag).
+  // `text` is display-ready (rendered by coach.test_run_badge_text on the Desktop) — the PWA
+  // renders it verbatim and formats nothing itself (D-040: a test run has no target pace, so
+  // an execution verdict there is meaningless — exactly one formatter, no twin).
+  testRuns?:              Record<string, { vdot: number; reliable: boolean; text: string }>
 }
 
 const TOKEN_KEY = 'github_sync_token'
