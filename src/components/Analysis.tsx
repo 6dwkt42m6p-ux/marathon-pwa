@@ -49,7 +49,7 @@ import {
 } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 import { loadNote } from '../lib/storage'
-import { fetchSync, type SyncedPlan, type SyncedPlanSession } from '../lib/githubSync'
+import { fetchSync, type SyncedPlan, type SyncedPlanSession, type SyncData } from '../lib/githubSync'
 import RunDetail from './RunDetail'
 import { resolveNote } from '../lib/notesSync'
 
@@ -130,6 +130,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   // hidden module store) so it participates in the useMemo deps below — otherwise a sync that
   // resolves after the first render would be invisible to React (coordinator fix-loop finding).
   const [syncedActivityTemps, setSyncedActivityTemps] = useState<Record<string, number> | undefined>(undefined)
+  // T-196/D-047: Desktop-resolved test-run results (sync.json `testRuns`), same fetchSync
+  // roundtrip as syncedActivityTemps/syncedPlan — read-only, passed through to RunDetail.
+  const [syncedTestRuns, setSyncedTestRuns] = useState<SyncData['testRuns']>(undefined)
   const [syncLoading, setSyncLoading] = useState(true)
   // T-124-fix: bulk-fetched stream/lap analytics — loaded once per mount when Strava is connected.
   const [localWorkSplits, setLocalWorkSplits]       = useState<Record<string, number[]> | null>(workSplitsProp ?? null)
@@ -161,6 +164,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
         if (!mounted || !result) return
         setSyncedPlan(result.data.plan ?? null)
         setSyncedActivityTemps(result.data.activityTemps)
+        setSyncedTestRuns(result.data.testRuns)
       })
       .catch(() => { /* offline — keep null */ })
       .finally(() => { if (mounted) setSyncLoading(false) })
@@ -944,6 +948,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                       vdot={effectiveVdot}
                       onNoteSaved={onNoteSaved}
                       syncedNotes={syncedPlan?.notes}
+                      testRuns={syncedTestRuns}
                     />
                   ) : act.actType === 'ride' ? (
                     <RideDetail analysis={analysis as ReturnType<typeof analyzeRide>} act={act} />

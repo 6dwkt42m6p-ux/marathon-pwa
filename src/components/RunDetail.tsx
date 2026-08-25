@@ -68,6 +68,36 @@ function planCheck(planned: WorkoutSession, act: ActivitySummary, classification
   return checks
 }
 
+// T-196/D-047: a test-run activity has no target pace — an execution verdict there is
+// meaningless (D-040), so it is suppressed entirely and replaced by the Desktop-formatted
+// test result. Extracted as a pure function (independent of DOM/hooks) so the branching +
+// text composition is directly unit-testable without mounting the component.
+export type TestRunResult = { vdot: number; reliable: boolean; text: string }
+export type ExecutionSlot =
+  | { kind: 'testRun'; text: string }
+  | { kind: 'execution'; label: string; detail: string; color: string }
+  | null
+
+export function executionSlot(
+  classification: WorkoutClassification | null,
+  testRuns: Record<string, TestRunResult> | undefined,
+  act: ActivitySummary,
+  vdot: number,
+  streams: ActivityStreams | null,
+): ExecutionSlot {
+  if (!classification) return null
+  const testRun = testRuns?.[String(act.id)]
+  if (testRun) return { kind: 'testRun', text: testRun.text }
+  const exq = executionBadgeParts(sessionExecutionQuality(classification, vdot, act.distanceKm, streams))
+  if (!exq) return null
+  // T-193/D-040: bei n_reps==1 sind Fade/CV Formel-Artefakte (keine Messwerte) — nicht
+  // als irreführende "0%" zeigen, Einstufung dann erkennbar nur auf die Pace-Treffer stützen.
+  const detail = exq.showFadeCv
+    ? `Zeit im Ziel ${exq.timeInTargetPct}% · Fade ${exq.repFadePct}% · CV ${exq.splitCvPct}%`
+    : `Zeit im Ziel ${exq.timeInTargetPct}% (Einzelmessung — Fade/CV nicht ermittelbar)`
+  return { kind: 'execution', label: exq.label, detail, color: exq.color }
+}
+
 function WorkoutBadge({ classification }: { classification: WorkoutClassification }) {
   const { workoutType, strides, intervalBlocks, tempoBlocks } = classification
 
@@ -153,6 +183,8 @@ interface RunDetailProps {
   onNoteSaved: () => void
   // T-156: Desktop→PWA synced notes (plan.notes), for display merge via resolveNote
   syncedNotes?: Record<string, SyncedNote>
+  // T-196/D-047: Desktop-resolved test-run results (sync.json `testRuns`), read-only.
+  testRuns?: Record<string, TestRunResult>
 }
 
 export default function RunDetail({
@@ -164,6 +196,7 @@ export default function RunDetail({
   vdot,
   onNoteSaved,
   syncedNotes,
+  testRuns,
 }: RunDetailProps) {
   const [classification, setClassification] = useState<WorkoutClassification | null>(null)
   const [streams,        setStreams]        = useState<ActivityStreams | null>(null)
@@ -358,17 +391,19 @@ export default function RunDetail({
 
       {classification && <WorkoutBadge classification={classification} />}
 
-      {classification && (() => {
-        const exq = executionBadgeParts(sessionExecutionQuality(classification, vdot, act.distanceKm, streams))
-        if (!exq) return null
-        // T-193/D-040: bei n_reps==1 sind Fade/CV Formel-Artefakte (keine Messwerte) — nicht
-        // als irreführende "0%" zeigen, Einstufung dann erkennbar nur auf die Pace-Treffer stützen.
-        const detail = exq.showFadeCv
-          ? `Zeit im Ziel ${exq.timeInTargetPct}% · Fade ${exq.repFadePct}% · CV ${exq.splitCvPct}%`
-          : `Zeit im Ziel ${exq.timeInTargetPct}% (Einzelmessung — Fade/CV nicht ermittelbar)`
+      {(() => {
+        const slot = executionSlot(classification, testRuns, act, vdot, streams)
+        if (!slot) return null
+        if (slot.kind === 'testRun') {
+          return (
+            <div style={{ marginTop: 8, fontSize: 13, color: '#3498DB', fontWeight: 600 }}>
+              {'🏁'} Testlauf — {slot.text}
+            </div>
+          )
+        }
         return (
-          <div style={{ marginTop: 8, fontSize: 13, color: exq.color, fontWeight: 600 }}>
-            {'🎯'} {exq.label} — {detail}
+          <div style={{ marginTop: 8, fontSize: 13, color: slot.color, fontWeight: 600 }}>
+            {'🎯'} {slot.label} — {slot.detail}
           </div>
         )
       })()}
