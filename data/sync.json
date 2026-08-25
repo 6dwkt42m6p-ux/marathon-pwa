@@ -30,11 +30,11 @@
       "So": "Fr"
     }
   },
-  "lastModified": "2026-08-25T16:53:29.906386+00:00",
+  "lastModified": "2026-08-25T16:53:36.167949+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 1,
-    "generatedAt": "2026-08-25T16:53:29Z",
+    "generatedAt": "2026-08-25T16:53:35Z",
     "generatedBy": "streamlit",
     "vdot": 49.0,
     "paces": {
@@ -45,7 +45,7 @@
       "I": "4:04",
       "R": "3:45"
     },
-    "inputHash": "05e0d2108ec90b6e7d54381fb53c91b3a5bf0b2b6816d3881eef2d3130532d0b",
+    "inputHash": "cc01266344b15a5ed55570331141f88df9a1a85dd9087355d6266753448c8651",
     "weeks": [
       {
         "week_nr": 1,
@@ -752,237 +752,39 @@
       {
         "week_nr": 13,
         "week_start": "2026-08-31",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 18.2,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 14,
-        "week_start": "2026-09-07",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 18.5,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 15,
-        "week_start": "2026-09-14",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 18.7,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 16,
-        "week_start": "2026-09-21",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 18.9,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 17,
-        "week_start": "2026-09-28",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 19.1,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 18,
-        "week_start": "2026-10-05",
-        "phase": "Urlaub \ud83c\udfdd\ufe0f",
-        "planned_km": 19.4,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mi",
-            "typ": "Easy",
-            "km": 8.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "8 km sehr locker @ 4:58+ /km \u2014 nur wenn Energie und Terrain es erlauben.",
-            "dauer": "48\u201356 min",
-            "hinweis": "Hochtouren = hochintensive Ausdauerbelastung. Laufen ist optional. An Gipfeltagen kein Lauftraining einplanen."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3 (kein Pace-Druck)",
-            "struktur": "Mehrst\u00fcndige Bergeinheit in Z2\u2013Z3. H\u00f6henmeter und Dauer z\u00e4hlen. Jede Tour >3h mit 800m+ H\u00f6henmetern entspricht aerob einem langen DL.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Ruhetage nach gro\u00dfen Touren konsequent einhalten \u2014 H\u00f6henausdauer belastet Muskulatur st\u00e4rker als Laufen auf gleicher Distanz."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer (aktiv)",
-            "km": null,
-            "vorgabe": "Hochtour-Tempo \u2014 Z2\u2013Z3",
-            "struktur": "Bergsteigen: Ausdauerbelastung, Fokus auf H\u00f6henmeter. Keine Pace-Vorgabe.",
-            "dauer": "3\u20138 h",
-            "hinweis": "Aktiver Erholungstag wenn keine Tour geplant. Dehnen, Mobilit\u00e4t."
-          }
-        ]
-      },
-      {
-        "week_nr": 19,
-        "week_start": "2026-10-12",
         "phase": "Aufbau (Wiedereinstieg)",
-        "planned_km": 54.8,
+        "planned_km": 56.9,
         "is_current": false,
         "sessions": [
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 7.0,
+            "km": 9.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "7 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "42\u201345 min",
-            "hinweis": "Speed-Drills halten Lauffrequenz aktiv."
+            "struktur": "9 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "54\u201358 min",
+            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
             "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 10.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "10 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "55\u201360 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
             "typ": "Qualit\u00e4t \u2b50\u2b50",
             "km": 9.0,
             "vorgabe": "4\u00d71000m @ 4:04 /km (I-Pace, Z5)",
@@ -991,21 +793,66 @@
             "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
           },
           {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 20.0,
+            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
+            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
+            "dauer": "121\u2013143 min",
+            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
+          }
+        ]
+      },
+      {
+        "week_nr": 14,
+        "week_start": "2026-09-07",
+        "phase": "Aufbau (Wiedereinstieg)",
+        "planned_km": 66.5,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 9.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "9 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "54\u201359 min",
+            "hinweis": "Speed-Drills halten Lauffrequenz aktiv."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 10.0,
+            "vorgabe": "5\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 5\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "45\u201352 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+          },
+          {
             "tag": "Mi",
             "typ": "Ausdauer",
-            "km": 12.0,
+            "km": 15.0,
             "vorgabe": "~4:58 /km (Z2)",
-            "struktur": "12 km locker @ 4:58 /km (Z2). Tag zwischen Longrun und Intervallen.",
-            "dauer": "66\u201372 min",
+            "struktur": "15 km locker @ 4:58 /km (Z2). Tag zwischen Longrun und Intervallen.",
+            "dauer": "82\u201390 min",
             "hinweis": "Aktive Erholung. Muskulatur regeneriert."
           },
           {
             "tag": "Do",
             "typ": "Regeneration",
-            "km": 6.0,
+            "km": 9.0,
             "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "6 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "36\u201342 min",
+            "struktur": "9 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "54\u201363 min",
             "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
           },
           {
@@ -1020,10 +867,325 @@
           {
             "tag": "So",
             "typ": "Ausdauer",
-            "km": 21.0,
-            "vorgabe": "13 km @ 4:58\u20135:44 (Z2) \u2192 8 km @ 4:37 /km",
-            "struktur": "Erste 13 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 8 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
-            "dauer": "111\u2013130 min",
+            "km": 23.0,
+            "vorgabe": "16 km @ 4:58\u20135:44 (Z2) \u2192 7 km @ 4:37 /km",
+            "struktur": "Erste 16 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 7 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
+            "dauer": "122\u2013143 min",
+            "hinweis": "MP-Durability-Stimulus: ~30% in Renntempo auf vorerm\u00fcdeten Beinen. Abbrechkriterium: wenn MP nach 1 km nicht locker h\u00e4lt \u2192 Easy fertiglaufen. Entlastungswochen: reines Easy."
+          }
+        ]
+      },
+      {
+        "week_nr": 15,
+        "week_start": "2026-09-14",
+        "phase": "Aufbau",
+        "planned_km": 74.8,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 18.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "18 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "108\u2013117 min",
+            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 16.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "16 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "88\u201396 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Test \ud83c\udfaf",
+            "km": 8.0,
+            "vorgabe": "5 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 5 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~35 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 24.0,
+            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
+            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
+            "dauer": "132\u2013156 min",
+            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
+          }
+        ]
+      },
+      {
+        "week_nr": 16,
+        "week_start": "2026-09-21",
+        "phase": "Aufbau (Entlastung)",
+        "planned_km": 60.5,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 13.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "13 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
+            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 7.5,
+            "vorgabe": "1\u00d715 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d715 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "36\u201341 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 13.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "13 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "72\u201378 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 9.0,
+            "vorgabe": "4\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 4\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "40\u201347 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 18.0,
+            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
+            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
+            "dauer": "99\u2013117 min",
+            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
+          }
+        ]
+      },
+      {
+        "week_nr": 17,
+        "week_start": "2026-09-28",
+        "phase": "Aufbau",
+        "planned_km": 76.6,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 13.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "13 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
+            "hinweis": "Speed-Drills halten die Lauffrequenz aktiv ohne Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 17.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "17 km locker @ 4:58 /km (Z2). Tag nach dem Longrun.",
+            "dauer": "94\u2013102 min",
+            "hinweis": "Aktive Erholung. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Regeneration",
+            "km": 14.0,
+            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
+            "struktur": "14 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "84\u201398 min",
+            "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 24.0,
+            "vorgabe": "16 km @ 4:58\u20135:44 (Z2) \u2192 8 km @ 4:37 /km",
+            "struktur": "Erste 16 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 8 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
+            "dauer": "127\u2013149 min",
+            "hinweis": "MP-Durability-Stimulus: ~35% in Renntempo auf vorerm\u00fcdeten Beinen. Abbrechkriterium: wenn MP nach 1 km nicht locker h\u00e4lt \u2192 Easy fertiglaufen. Entlastungswochen: reines Easy."
+          }
+        ]
+      },
+      {
+        "week_nr": 18,
+        "week_start": "2026-10-05",
+        "phase": "Aufbau",
+        "planned_km": 77.4,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 16.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "16 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "96\u2013104 min",
+            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 17.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "17 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "94\u2013102 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 11.0,
+            "vorgabe": "6\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 6\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "50\u201357 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 25.0,
+            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
+            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
+            "dauer": "138\u2013162 min",
+            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
+          }
+        ]
+      },
+      {
+        "week_nr": 19,
+        "week_start": "2026-10-12",
+        "phase": "Aufbau",
+        "planned_km": 78.3,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 11.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "11 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "66\u201372 min",
+            "hinweis": "Speed-Drills halten Lauffrequenz aktiv."
+          },
+          {
+            "tag": "Di",
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 17.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "17 km locker @ 4:58 /km (Z2). Tag zwischen Longrun und Intervallen.",
+            "dauer": "94\u2013102 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert."
+          },
+          {
+            "tag": "Do",
+            "typ": "Regeneration",
+            "km": 12.0,
+            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
+            "struktur": "12 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "72\u201384 min",
+            "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 25.0,
+            "vorgabe": "16 km @ 4:58\u20135:44 (Z2) \u2192 9 km @ 4:37 /km",
+            "struktur": "Erste 16 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 9 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
+            "dauer": "132\u2013155 min",
             "hinweis": "MP-Durability-Stimulus: ~36% in Renntempo auf vorerm\u00fcdeten Beinen. Abbrechkriterium: wenn MP nach 1 km nicht locker h\u00e4lt \u2192 Easy fertiglaufen. Entlastungswochen: reines Easy."
           }
         ]
@@ -1031,7 +1193,7 @@
       {
         "week_nr": 20,
         "week_start": "2026-10-19",
-        "phase": "Aufbau (Entlastung), Wiedereinstieg",
+        "phase": "Aufbau (Entlastung)",
         "planned_km": 63.4,
         "is_current": false,
         "sessions": [
@@ -1094,134 +1256,8 @@
       {
         "week_nr": 21,
         "week_start": "2026-10-26",
-        "phase": "Aufbau (Wiedereinstieg)",
-        "planned_km": 68.1,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mo",
-            "typ": "Speed",
-            "km": 11.0,
-            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "11 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "66\u201372 min",
-            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
-          },
-          {
-            "tag": "Di",
-            "typ": "Qualit\u00e4t \u2b50",
-            "km": 9.0,
-            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "41\u201347 min",
-            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
-          },
-          {
-            "tag": "Mi",
-            "typ": "Ausdauer",
-            "km": 13.0,
-            "vorgabe": "~4:58 /km (Z2)",
-            "struktur": "13 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
-            "dauer": "71\u201378 min",
-            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
-          },
-          {
-            "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50\u2b50",
-            "km": 10.0,
-            "vorgabe": "5\u00d71000m @ 4:04 /km (I-Pace, Z5)",
-            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 5\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "45\u201352 min",
-            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Aerob",
-            "km": null,
-            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
-            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
-            "dauer": "60\u201390 min",
-            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer",
-            "km": 25.0,
-            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
-            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
-            "dauer": "143\u2013169 min",
-            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
-          }
-        ]
-      },
-      {
-        "week_nr": 22,
-        "week_start": "2026-11-02",
         "phase": "Aufbau",
-        "planned_km": 81.0,
-        "is_current": false,
-        "sessions": [
-          {
-            "tag": "Mo",
-            "typ": "Speed",
-            "km": 11.0,
-            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "11 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "66\u201371 min",
-            "hinweis": "Speed-Drills halten die Lauffrequenz aktiv ohne Erholung zu st\u00f6ren."
-          },
-          {
-            "tag": "Di",
-            "typ": "Test \ud83c\udfaf",
-            "km": 13.0,
-            "vorgabe": "10 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~57 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
-          },
-          {
-            "tag": "Mi",
-            "typ": "Ausdauer",
-            "km": 18.0,
-            "vorgabe": "~4:58 /km (Z2)",
-            "struktur": "18 km locker @ 4:58 /km (Z2). Tag nach dem Longrun.",
-            "dauer": "99\u2013108 min",
-            "hinweis": "Aktive Erholung. Lieber zu langsam als zu schnell."
-          },
-          {
-            "tag": "Do",
-            "typ": "Regeneration",
-            "km": 12.0,
-            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "12 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "72\u201384 min",
-            "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
-          },
-          {
-            "tag": "Sa",
-            "typ": "Aerob",
-            "km": null,
-            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
-            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
-            "dauer": "60\u201390 min",
-            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
-          },
-          {
-            "tag": "So",
-            "typ": "Ausdauer",
-            "km": 27.0,
-            "vorgabe": "17 km @ 4:58\u20135:44 (Z2) \u2192 10 km @ 4:37 /km",
-            "struktur": "Erste 17 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 10 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
-            "dauer": "143\u2013167 min",
-            "hinweis": "MP-Durability-Stimulus: ~36% in Renntempo auf vorerm\u00fcdeten Beinen. Abbrechkriterium: wenn MP nach 1 km nicht locker h\u00e4lt \u2192 Easy fertiglaufen. Entlastungswochen: reines Easy."
-          }
-        ]
-      },
-      {
-        "week_nr": 23,
-        "week_start": "2026-11-09",
-        "phase": "Aufbau",
-        "planned_km": 81.8,
+        "planned_km": 80.1,
         "is_current": false,
         "sessions": [
           {
@@ -1259,6 +1295,132 @@
             "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 6\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
             "dauer": "50\u201357 min",
             "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 26.0,
+            "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
+            "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
+            "dauer": "143\u2013169 min",
+            "hinweis": "Aerobe Grundlage st\u00e4rken. Keine Pace-Vorgabe erzwingen."
+          }
+        ]
+      },
+      {
+        "week_nr": 22,
+        "week_start": "2026-11-02",
+        "phase": "Aufbau",
+        "planned_km": 81.0,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 13.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "13 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
+            "hinweis": "Speed-Drills halten die Lauffrequenz aktiv ohne Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 18.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "18 km locker @ 4:58 /km (Z2). Tag nach dem Longrun.",
+            "dauer": "99\u2013108 min",
+            "hinweis": "Aktive Erholung. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Regeneration",
+            "km": 14.0,
+            "vorgabe": "4:58+ /km (Z1\u2013Z2)",
+            "struktur": "14 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "84\u201398 min",
+            "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
+          },
+          {
+            "tag": "Sa",
+            "typ": "Aerob",
+            "km": null,
+            "vorgabe": "60\u201390 min @ Z1\u2013Z2",
+            "struktur": "60\u201390 min gleichm\u00e4\u00dfig treten @ Z1\u2013Z2. Kein Intervall, kein Zeitdruck. Auf Trails oder Radweg.",
+            "dauer": "60\u201390 min",
+            "hinweis": "Aktive Regeneration \u2014 h\u00e4lt die Beine locker ohne Lauf-Belastung. Kann durch 45 min Schwimmen ersetzt werden."
+          },
+          {
+            "tag": "So",
+            "typ": "Ausdauer",
+            "km": 27.0,
+            "vorgabe": "17 km @ 4:58\u20135:44 (Z2) \u2192 10 km @ 4:37 /km",
+            "struktur": "Erste 17 km durchgehend locker @ 4:58\u20135:44 /km (Z2). Letzte 10 km als MP-Finish @ 4:37 /km (Marathon-Pace, Z3). Nicht sprinten \u2014 kontrolliertes Einlaufen in Renntempo auf m\u00fcden Beinen.",
+            "dauer": "143\u2013167 min",
+            "hinweis": "MP-Durability-Stimulus: ~36% in Renntempo auf vorerm\u00fcdeten Beinen. Abbrechkriterium: wenn MP nach 1 km nicht locker h\u00e4lt \u2192 Easy fertiglaufen. Entlastungswochen: reines Easy."
+          }
+        ]
+      },
+      {
+        "week_nr": 23,
+        "week_start": "2026-11-09",
+        "phase": "Aufbau",
+        "planned_km": 81.8,
+        "is_current": false,
+        "sessions": [
+          {
+            "tag": "Mo",
+            "typ": "Speed",
+            "km": 16.0,
+            "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
+            "struktur": "16 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "96\u2013104 min",
+            "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
+          },
+          {
+            "tag": "Di",
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 8.6,
+            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "41\u201347 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+          },
+          {
+            "tag": "Mi",
+            "typ": "Ausdauer",
+            "km": 17.0,
+            "vorgabe": "~4:58 /km (Z2)",
+            "struktur": "17 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "94\u2013102 min",
+            "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
+          },
+          {
+            "tag": "Do",
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
           },
           {
             "tag": "Sa",
@@ -1416,10 +1578,10 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 17.0,
+            "km": 18.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "17 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "102\u2013110 min",
+            "struktur": "18 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "108\u2013117 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -1442,12 +1604,12 @@
           },
           {
             "tag": "Do",
-            "typ": "Test \ud83c\udfaf",
-            "km": 13.0,
-            "vorgabe": "10 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~57 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 11.0,
+            "vorgabe": "6\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 6\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "50\u201357 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
           },
           {
             "tag": "Sa",
@@ -1461,7 +1623,7 @@
           {
             "tag": "So",
             "typ": "Ausdauer",
-            "km": 27.0,
+            "km": 28.0,
             "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
             "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
             "dauer": "154\u2013182 min",
@@ -1479,20 +1641,20 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 15.0,
+            "km": 12.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "15 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "90\u201398 min",
+            "struktur": "12 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "72\u201378 min",
             "hinweis": "Speed-Drills halten die Lauffrequenz aktiv ohne Erholung zu st\u00f6ren."
           },
           {
             "tag": "Di",
-            "typ": "Qualit\u00e4t \u2b50",
-            "km": 8.6,
-            "vorgabe": "1\u00d720 min @ 4:19 /km (T-Pace, Z4)",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 1\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "41\u201347 min",
-            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
           },
           {
             "tag": "Mi",
@@ -1506,10 +1668,10 @@
           {
             "tag": "Do",
             "typ": "Regeneration",
-            "km": 14.0,
+            "km": 12.0,
             "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "14 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "84\u201398 min",
+            "struktur": "12 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "72\u201384 min",
             "hinweis": "Ersetzt die verdr\u00e4ngte Qualit\u00e4tseinheit \u2014 Regeneration hat Vorrang bei MP-Longrun."
           },
           {
@@ -1668,20 +1830,20 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 12.0,
+            "km": 13.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "12 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "72\u201378 min",
+            "struktur": "13 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
             "hinweis": "Speed-Drills halten Lauffrequenz aktiv."
           },
           {
             "tag": "Di",
-            "typ": "Test \ud83c\udfaf",
-            "km": 13.0,
-            "vorgabe": "10 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~57 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 12.0,
+            "vorgabe": "7\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 7\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "54\u201362 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
           },
           {
             "tag": "Mi",
@@ -1749,20 +1911,20 @@
           {
             "tag": "Mi",
             "typ": "Ausdauer",
-            "km": 20.0,
+            "km": 19.0,
             "vorgabe": "~4:58 /km (Z2)",
-            "struktur": "20 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
-            "dauer": "110\u2013120 min",
+            "struktur": "19 km locker @ 4:58 /km (Z2). Tag zwischen zwei Qualit\u00e4tseinheiten.",
+            "dauer": "104\u2013114 min",
             "hinweis": "Aktive Erholung. Muskulatur regeneriert. Lieber zu langsam als zu schnell."
           },
           {
             "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50\u2b50",
-            "km": 12.0,
-            "vorgabe": "7\u00d71000m @ 4:04 /km (I-Pace, Z5)",
-            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 7\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "54\u201362 min",
-            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
           },
           {
             "tag": "Sa",
@@ -1920,10 +2082,10 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 19.0,
+            "km": 20.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "19 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "114\u2013124 min",
+            "struktur": "20 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "120\u2013131 min",
             "hinweis": "Speed-Drills am Freitag nach harten Qualit\u00e4tstagen halten die Lauffrequenz aktiv ohne die Erholung zu st\u00f6ren."
           },
           {
@@ -1946,12 +2108,12 @@
           },
           {
             "tag": "Do",
-            "typ": "Test \ud83c\udfaf",
-            "km": 13.0,
-            "vorgabe": "10 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~57 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 12.0,
+            "vorgabe": "7\u00d71000m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 7\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "54\u201362 min",
+            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
           },
           {
             "tag": "Sa",
@@ -1983,20 +2145,20 @@
           {
             "tag": "Mo",
             "typ": "Speed",
-            "km": 14.0,
+            "km": 13.0,
             "vorgabe": "4:58+ /km + 6\u00d7100m Strides @ 3:45 /km",
-            "struktur": "14 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
-            "dauer": "84\u201391 min",
+            "struktur": "13 km @ 4:58+ /km (Z1\u2013Z2) \u2192 6\u00d7100m Strides @ 3:45 /km (Pause: 45 Sek. Gehen) \u2192 0.5 km Easy auslaufen",
+            "dauer": "78\u201384 min",
             "hinweis": "Speed-Drills halten Lauffrequenz aktiv."
           },
           {
             "tag": "Di",
-            "typ": "Qualit\u00e4t \u2b50\u2b50",
-            "km": 12.0,
-            "vorgabe": "7\u00d71000m @ 4:04 /km (I-Pace, Z5)",
-            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 7\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "54\u201362 min",
-            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
           },
           {
             "tag": "Mi",
@@ -2180,12 +2342,12 @@
           },
           {
             "tag": "Di",
-            "typ": "Test \ud83c\udfaf",
-            "km": 13.0,
-            "vorgabe": "10 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~57 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50",
+            "km": 13.3,
+            "vorgabe": "2\u00d720 min @ 4:19 /km (T-Pace, Z4)",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 2\u00d720 min @ 4:19 /km \u2014 Z4 (Pause je Block: 90 Sek. Easy-Jogging) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "64\u201373 min",
+            "hinweis": "L\u00e4ngere T-Bl\u00f6cke f\u00fcr Fortgeschrittene: Laktattoleranz und Laufeffizienz steigen. Zweiter und dritter Block m\u00fcssen mindestens gleich schnell sein wie der erste."
           },
           {
             "tag": "Mi",
@@ -2261,12 +2423,12 @@
           },
           {
             "tag": "Do",
-            "typ": "Qualit\u00e4t \u2b50\u2b50",
-            "km": 12.0,
-            "vorgabe": "7\u00d71000m @ 4:04 /km (I-Pace, Z5)",
-            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 7\u00d71000m @ 4:04 /km (Z5, VO\u2082max-Zone) \u2014 Pause: 200m Easy-Jogging @ 4:58+ /km (~90 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
-            "dauer": "54\u201362 min",
-            "hinweis": "1000m-Intervalle fordern das VO\u2082max-System effizienter als 400m. Letztes Intervall muss gleich schnell sein wie das erste \u2014 sonst war Pace zu aggressiv. HF Z4\u2013Z5. Pace 4:04 /km \u00b15 Sek/km."
+            "typ": "Test \ud83c\udfaf",
+            "km": 13.0,
+            "vorgabe": "10 km auf Zeit \u2014 alles geben",
+            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 10 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
+            "dauer": "~57 min",
+            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
           },
           {
             "tag": "Sa",
@@ -2280,7 +2442,7 @@
           {
             "tag": "So",
             "typ": "Ausdauer",
-            "km": 32.0,
+            "km": 31.0,
             "vorgabe": "4:58 \u2013 5:44 /km (Z2)",
             "struktur": "Durchgehend locker @ 4:58\u20135:44 /km (Z2).",
             "dauer": "176\u2013208 min",
@@ -2424,20 +2586,20 @@
           {
             "tag": "Mo",
             "typ": "Regeneration",
-            "km": 19.0,
+            "km": 17.0,
             "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "19 km sehr locker @ 4:58+ /km (Z1\u2013Z2).",
-            "dauer": "114\u2013133 min",
+            "struktur": "17 km sehr locker @ 4:58+ /km (Z1\u2013Z2).",
+            "dauer": "102\u2013119 min",
             "hinweis": "Locker. Wenn Beine schwer: Rad stattdessen."
           },
           {
             "tag": "Di",
-            "typ": "Test \ud83c\udfaf",
-            "km": 8.0,
-            "vorgabe": "5 km auf Zeit \u2014 alles geben",
-            "struktur": "2 km @ 4:58 /km einlaufen (10\u201312 min) \u2192 5 km maximal \u2192 1 km @ 4:58+ /km auslaufen",
-            "dauer": "~35 min",
-            "hinweis": "Dieser Lauf setzt deinen aktuellen Fitness-Stand neu. Es gibt bewusst keinen Taper davor \u2014 nur der Vortag bleibt locker. Bei gro\u00dfer Hitze oder Krankheit lieber verschieben, als ein verf\u00e4lschtes Ergebnis in Kauf zu nehmen."
+            "typ": "Qualit\u00e4t \u2b50\u2b50",
+            "km": 12.2,
+            "vorgabe": "6\u00d71200m @ 4:04 /km (I-Pace, Z5)",
+            "struktur": "3 km @ 4:58 /km einlaufen (15\u201318 min) \u2192 6\u00d71200m @ 4:04 /km (Z5, I-Pace) \u2014 Pause je Intervall: 200m easy-Jogging @ 4:58+ /km (~80\u201390 Sek.) \u2192 2 km @ 4:58+ /km auslaufen (sehr locker)",
+            "dauer": "55\u201361 min",
+            "hinweis": "Letztes Intervall = erstes. HF: Z4\u2013Z5. Alternative: 4\u00d71600m @ 4:04 /km (anspruchsvoller, nur wenn gut erholt)."
           },
           {
             "tag": "Mi",
@@ -2451,10 +2613,10 @@
           {
             "tag": "Do",
             "typ": "Regeneration",
-            "km": 18.0,
+            "km": 16.0,
             "vorgabe": "4:58+ /km (Z1\u2013Z2)",
-            "struktur": "18 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
-            "dauer": "108\u2013126 min",
+            "struktur": "16 km locker @ 4:58+ /km (Z1\u2013Z2). Aktive Erholung.",
+            "dauer": "96\u2013112 min",
             "hinweis": "Ersetzt verdr\u00e4ngte Q-Einheit \u2014 Recovery im Peak sch\u00fctzt vor \u00dcbertraining."
           },
           {
