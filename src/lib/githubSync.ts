@@ -94,12 +94,26 @@ const FETCH_TTL_MS = 60_000  // 60 s
 let _fetchCache: { result: { data: SyncData; sha: string } | null; ts: number } | null = null
 let _fetchInFlight: Promise<{ data: SyncData; sha: string } | null> | null = null
 
+// T-208: base64 → UTF-8. atob() allein liefert eine Latin-1-Bytefolge — aus "Qualität ⭐"
+// wird "QualitÃ¤t â­". Das blieb monatelang unsichtbar, weil Streamlit mit
+// json.dumps(ensure_ascii=True) schreibt (reines ASCII, \u-Escapes) und atob() darauf
+// verlustfrei ist; sobald aber die PWA zuletzt geschrieben hatte (pushSync kodiert UTF-8),
+// stand roher UTF-8 in der Datei und der ganze Wochenplan war am iPhone zerschossen.
+// Diese Funktion ist die exakte Umkehrung der Kodierung in pushSync — beide Richtungen
+// müssen UTF-8 sprechen, sonst ist der Roundtrip wieder asymmetrisch.
+function b64ToUtf8(b64: string): string {
+  const bin = atob(b64)
+  const bytes = new Uint8Array(bin.length)
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i)
+  return new TextDecoder('utf-8').decode(bytes)
+}
+
 async function _doFetchSync(): Promise<{ data: SyncData; sha: string } | null> {
   const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${PATH}`, { headers: headers() })
   if (res.status === 404) return null
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
   const j = await res.json()
-  const data: SyncData = JSON.parse(atob(j.content.replace(/\n/g, '')))
+  const data: SyncData = JSON.parse(b64ToUtf8(j.content.replace(/\n/g, '')))
   return { data, sha: j.sha }
 }
 
