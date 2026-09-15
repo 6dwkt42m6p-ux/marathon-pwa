@@ -7,10 +7,12 @@ import type { SyncData } from './githubSync'
 import { registerEvictCallback, STORAGE_WARNING_KEY } from './storage'
 
 // Decode the base64-encoded content from a PUT body.
-// pushSync encodes as btoa(unescape(encodeURIComponent(JSON.stringify(payload, null, 2)))).
-// For pure ASCII test data, atob() suffices as the inverse.
+// pushSync encodes UTF-8 → base64, so the inverse must decode UTF-8 as well.
+// (Der frühere ASCII-only-Helfer hat genau die Asymmetrie verdeckt, die T-208 behebt.)
 function decodePutContent(content: string): SyncData {
-  return JSON.parse(atob(content.replace(/\n/g, '')))
+  const bin = atob(content.replace(/\n/g, ''))
+  const bytes = Uint8Array.from(bin, c => c.charCodeAt(0))
+  return JSON.parse(new TextDecoder().decode(bytes))
 }
 
 // Helper to build a mock Response-like object for fetch
@@ -258,5 +260,83 @@ describe('fetchSync — activityTemps field roundtrip (T-184)', () => {
     const result = await fetchSync(true)
 
     expect(result).toBeNull()
+  })
+})
+
+// ── T-208: base64-Roundtrip muss UTF-8-fest sein ─────────────────────────────
+// Gefundener Realfall: pushSync schreibt UTF-8 (btoa(unescape(encodeURIComponent(…)))),
+// _doFetchSync las aber mit blossem atob() — das liefert eine Latin-1-Bytefolge, aus
+// "Qualität ⭐" wurde "QualitÃ¤t â­". Sichtbar wurde das erst, wenn die letzte
+// Schreibung von der PWA kam: Streamlit schreibt json.dumps(ensure_ascii=True), also
+// reines ASCII (ä-Escapes), das atob() unbeschadet passiert. Nach jedem PWA-Push
+// (Tagestausch, Settings-Änderung) war der Wochenplan am iPhone zerschossen.
+//
+// getResponse() oben kann diesen Fall nicht abbilden — btoa() wirft bei non-ASCII.
+// Deshalb ein eigener Builder, der exakt das liefert, was die GitHub-API für eine
+// von pushSync geschriebene Datei zurückgibt.
+function getResponseUtf8(data: SyncData, sha: string) {
+  const json = JSON.stringify(data)
+  const content = btoa(String.fromCharCode(...new TextEncoder().encode(json)))
+  return { ok: true, status: 200, json: async () => ({ sha, content }) }
+}
+
+describe('fetchSync — UTF-8-Roundtrip (T-208)', () => {
+  // Umlaute, Emoji, En-Dash, Pfeil, Multiplikationszeichen, tiefgestellte 2 —
+  // alles Zeichen, die real in den Plan-Sessions stehen.
+  const SESSION = {
+    tag: 'Di',
+    typ: 'Qualität ⭐',
+    km: 8.6,
+    vorgabe: '1×20 min @ 4:19 /km (T-Pace, Z4)',
+    struktur: '2 km einlaufen → 4×1000m (VO₂max) → 2 km auslaufen',
+    dauer: '41–47 min',
+    hinweis: 'Längere T-Blöcke stärken die Laktattoleranz — gleichmäßig laufen.',
+  }
+
+  beforeEach(() => {
+    localStorage.setItem('github_sync_token', 'test-token-xyz')
+    vi.resetAllMocks()
+  })
+
+  afterEach(() => {
+    localStorage.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('UTF-8-kodierte sync.json → Umlaute/Emoji kommen unverfälscht an', async () => {
+    const data = { settings: { note: 'Fußgängerübergang' }, plan: { weeks: [{ sessions: [SESSION] }] } } as unknown as SyncData
+    vi.stubGlobal('fetch', vi.fn(async () => getResponseUtf8(data, 'sha-utf8')))
+
+    const result = await fetchSync(true)
+    const session = (result?.data.plan as unknown as { weeks: Array<{ sessions: typeof SESSION[] }> }).weeks[0].sessions[0]
+
+    expect(session.typ).toBe('Qualität ⭐')
+    expect(session.struktur).toBe('2 km einlaufen → 4×1000m (VO₂max) → 2 km auslaufen')
+    expect(session.dauer).toBe('41–47 min')
+    expect(session.hinweis).toBe('Längere T-Blöcke stärken die Laktattoleranz — gleichmäßig laufen.')
+    expect(result?.data.settings?.note).toBe('Fußgängerübergang')
+  })
+
+  it('pushSync → fetchSync ist verlustfrei (genau der Pfad, der am iPhone brach)', async () => {
+    const data = { settings: { note: 'Läufe über 30 km' }, plan: { weeks: [{ sessions: [SESSION] }] } } as unknown as SyncData
+
+    // 1. Push: PUT-Body einsammeln
+    let pushedContent = ''
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, opts: RequestInit) => {
+      pushedContent = JSON.parse(opts.body as string).content
+      return putResponse(200)
+    }))
+    await pushSync(data, 'sha-old')
+
+    // 2. Genau dieses content-Feld serviert GitHub beim nächsten GET zurück
+    vi.stubGlobal('fetch', vi.fn(async () => ({
+      ok: true, status: 200, json: async () => ({ sha: 'sha-new', content: pushedContent }),
+    })))
+
+    const result = await fetchSync(true)
+    const session = (result?.data.plan as unknown as { weeks: Array<{ sessions: typeof SESSION[] }> }).weeks[0].sessions[0]
+
+    expect(session).toEqual(SESSION)
+    expect(result?.data.settings?.note).toBe('Läufe über 30 km')
   })
 })
