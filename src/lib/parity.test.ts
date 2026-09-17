@@ -21,6 +21,7 @@ import { createHash } from 'node:crypto'
 import { classifyWorkoutStructure, detectStrides, type ActivityStreams } from './strava'
 import { sessionExecutionQuality, dataQualityScore } from './analytics'
 import { durabilitySignals } from './durability'
+import { analyzeRun } from './vdot'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const FIXTURE_DIR = resolve(HERE, '../../tests/fixtures/parity')
@@ -135,6 +136,15 @@ const files = readdirSync(FIXTURE_DIR)
   .filter((f: string) => f.endsWith('.json') && f !== 'MANIFEST.json').sort()
 const manifest = JSON.parse(readFileSync(resolve(FIXTURE_DIR, 'MANIFEST.json'), 'utf-8')).fixtures as Record<string, string>
 
+// T-218: analyze_run_golden.json hat eine eigene Form (kind === 'analyze_run_golden',
+// keine `streams`/`avg_pace_sec` — coach.analyze_run arbeitet nicht auf Streams). Der
+// Fünf-Funktionen-Loop unten filtert sie raus; die MANIFEST-/Hash-Kopplung oben deckt
+// sie trotzdem ab (Datei bleibt Teil von `files`).
+const streamFiles = files.filter((f: string) => {
+  const raw = JSON.parse(readFileSync(resolve(FIXTURE_DIR, f), 'utf-8'))
+  return raw.kind !== 'analyze_run_golden'
+})
+
 describe('T-171 Parity-Gate: Fixtures', () => {
   it('findet Fixtures (sonst waere das Gate dekorativ)', () => {
     expect(files.length).toBeGreaterThan(0)
@@ -153,7 +163,7 @@ describe('T-171 Parity-Gate: Fixtures', () => {
 })
 
 describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
-  for (const file of files) {
+  for (const file of streamFiles) {
     const fx = JSON.parse(readFileSync(resolve(FIXTURE_DIR, file), 'utf-8')) as Fixture
     const { streams, vdot, avg_pace_sec, distance_km } = fx.input
 
@@ -193,6 +203,57 @@ describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
       const diffs = compare(normalise(sessionExecutionQuality(cls, vdot, distance_km, streams)),
                             fx.expected.session_execution_quality, 'session_execution_quality')
       expect(diffs, diffs.join('\n  ')).toEqual([])
+    })
+  }
+})
+
+// ---------------------------------------------------------------------------
+// T-218 — analyzeRun-Parität: VDOT {40,49,55} x Zonengrenze (I/T/M/E, ±1s) x Phase
+// (Basis, Aufbau). Golden-Werte aus coach.analyze_run (Desktop-Referenz), erzeugt via
+// tests/parity_generate_analyze_run.py — dieselbe Datei wie test_parity_fixtures.py.
+// Nur zoneCode + Verdikt-Klasse (führendes Emoji) werden verglichen; die Verdikt-TEXTE
+// dürfen abweichen (siehe T-218_pwa_impl.md).
+interface AnalyzeRunCase {
+  case_id: string
+  input: { vdot: number; pace_sec_km: number; distance_km: number; phase: string }
+  expected: { zone_code: string; verdict_class: string; dev_sec: number }
+}
+
+const analyzeRunFixturePath = resolve(FIXTURE_DIR, 'analyze_run_golden.json')
+const analyzeRunFixture = JSON.parse(readFileSync(analyzeRunFixturePath, 'utf-8')) as {
+  kind: string
+  cases: AnalyzeRunCase[]
+}
+
+function verdictClass(verdict: string): string {
+  return verdict.split(' ')[0]
+}
+
+describe('T-218 analyzeRun-Parität', () => {
+  it('Fixture hat die erwartete Form (kind, cases)', () => {
+    expect(analyzeRunFixture.kind).toBe('analyze_run_golden')
+    expect(analyzeRunFixture.cases.length).toBeGreaterThan(0)
+  })
+
+  for (const c of analyzeRunFixture.cases) {
+    it(`${c.case_id}: zoneCode + Verdikt-Klasse`, () => {
+      const res = analyzeRun(
+        c.input.pace_sec_km,
+        c.input.distance_km,
+        undefined,   // avgHr — Raster deckt reine Pace-/Phasen-Zonenlogik ab, keine HF-Zweige
+        undefined,   // activityMaxHr
+        c.input.vdot,
+        190,         // maxHr (Default, ohne HF-Daten wirkungslos)
+        50,          // restHr
+        c.input.phase,
+      )
+      expect(res.zoneCode, `zoneCode: ${res.zoneCode} != ${c.expected.zone_code}`)
+        .toBe(c.expected.zone_code)
+      expect(verdictClass(res.verdict),
+        `Verdikt-Klasse: "${res.verdict}" != Klasse "${c.expected.verdict_class}"`,
+      ).toBe(c.expected.verdict_class)
+      expect(res.devSec, `devSec: ${res.devSec} != ${c.expected.dev_sec}`)
+        .toBe(c.expected.dev_sec)
     })
   }
 })

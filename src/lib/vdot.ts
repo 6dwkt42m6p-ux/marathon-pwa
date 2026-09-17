@@ -134,15 +134,6 @@ export function buildPaceTable(vdot: number): PaceTable {
   }
 }
 
-export function classifyRun(paceSec: number, vdot: number): { code: string; name: string; color: string } {
-  const p = trainingPaces(vdot)
-  if (paceSec < p.I * 1.02)        return { code: 'I/R', name: 'Intervall / Rep',   color: '#e53935' }
-  if (paceSec < p.T * 1.02)        return { code: 'T',   name: 'Schwelle (T)',       color: '#FF9800' }
-  if (paceSec < p.E_high * 0.99)   return { code: 'M',   name: 'Marathon-Pace (M)', color: '#FFC107' }
-  if (paceSec < p.E_low * 1.06)    return { code: 'E',   name: 'Easy (E)',           color: '#4CAF50' }
-  return { code: 'Z1', name: 'Regeneration (Z1)', color: '#42A5F5' }
-}
-
 export function feasibilityCheck(currentVdot: number, targetVdot: number, weeks: number) {
   const delta = targetVdot - currentVdot
   if (delta <= 0) return { rating: 'Bereits erreicht', emoji: '✅', color: '#28a745', delta, message: `Aktueller VDOT ${currentVdot.toFixed(1)} reicht bereits!` }
@@ -228,13 +219,17 @@ export function analyzeRun(
     return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null, tempNote, adjPaceSec: adjPace }
   }
 
+  // Zone boundaries — must match coach.analyze_run exactly (T-218): a 2% tolerance
+  // band around I/T/M-pace, and a 6% band above E_low (not 2% above E_high — that
+  // wrongly classified everything up to 4:52/km as M at VDOT 49 while the desktop
+  // reference already drew the M/E line at 4:43/km).
   if (effPace < p.I * (1 + TOL)) {
     zoneCode = 'I/R'; zoneName = 'Intervall / Rep';   zoneColor = '#e53935'
   } else if (effPace < p.T * (1 + TOL)) {
     zoneCode = 'T';   zoneName = 'Schwelle (T)';       zoneColor = '#FF9800'
-  } else if (effPace < p.E_high * (1 - TOL)) {
+  } else if (effPace < p.M * (1 + TOL)) {
     zoneCode = 'M';   zoneName = 'Marathon-Pace (M)'; zoneColor = '#FFC107'
-  } else if (effPace < p.E_low * (1 + TOL)) {
+  } else if (effPace < p.E_low * 1.06) {
     zoneCode = 'E';   zoneName = 'Easy (E)';           zoneColor = '#4CAF50'
   } else {
     zoneCode = 'Z1';  zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5'
@@ -258,8 +253,15 @@ export function analyzeRun(
     if (isBasisTaper)  { verdict = '🟡 Leicht zu schnell'; note = 'Marathon-Pace in Basis/Erholungsphase — etwas zurücknehmen.' }
     else               { verdict = '✅ Marathon-Pace';      note = 'Renntempo — gute Einheit.' }
   } else if (zoneCode === 'E') {
-    verdict = '✅ Zone korrekt'
-    note    = 'Easy-Pace korrekt. Aerobe Basis wird gestärkt.'
+    // T-218/T-086: pace deutlich unterhalb der Easy-Mitte (>20s/km) — "Zone korrekt"
+    // widerspräche sonst dem devStr ("+Ns/km"). Selbe Schwelle wie coach.analyze_run.
+    if (devSec > 20) {
+      verdict = '🔵 Sehr konservativ'
+      note    = 'Sehr lockeres Easy-Tempo, unterhalb der Easy-Mitte. Für Regenerationsläufe ideal.'
+    } else {
+      verdict = '✅ Zone korrekt'
+      note    = 'Easy-Pace korrekt. Aerobe Basis wird gestärkt.'
+    }
   } else {
     // Z1
     const isPeak  = basePhase === 'Peak' || basePhase === 'Aufbau'
