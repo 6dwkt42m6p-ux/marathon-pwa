@@ -1,0 +1,680 @@
+{
+ "cases": [
+  {
+   "case_id": "vdot40_I_below_Basis",
+   "expected": {
+    "dev_sec": -85,
+    "verdict_class": "⚠️",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 292.038803,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_I_above_Basis",
+   "expected": {
+    "dev_sec": -83,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 294.038803,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_I_below_Aufbau",
+   "expected": {
+    "dev_sec": -85,
+    "verdict_class": "✅",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 292.038803,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_I_above_Aufbau",
+   "expected": {
+    "dev_sec": -83,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 294.038803,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_T_below_Basis",
+   "expected": {
+    "dev_sec": -67,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 310.659169,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_T_above_Basis",
+   "expected": {
+    "dev_sec": -65,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 312.659169,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_T_below_Aufbau",
+   "expected": {
+    "dev_sec": -67,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 310.659169,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_T_above_Aufbau",
+   "expected": {
+    "dev_sec": -65,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 312.659169,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_M_below_Basis",
+   "expected": {
+    "dev_sec": -45,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 332.072488,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_M_above_Basis",
+   "expected": {
+    "dev_sec": -43,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 334.072488,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_M_below_Aufbau",
+   "expected": {
+    "dev_sec": -45,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 332.072488,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_M_above_Aufbau",
+   "expected": {
+    "dev_sec": -43,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 334.072488,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_E_below_Basis",
+   "expected": {
+    "dev_sec": 49,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 426.725417,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_E_above_Basis",
+   "expected": {
+    "dev_sec": 51,
+    "verdict_class": "✅",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 428.725417,
+    "phase": "Basis",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_E_below_Aufbau",
+   "expected": {
+    "dev_sec": 49,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 426.725417,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot40_E_above_Aufbau",
+   "expected": {
+    "dev_sec": 51,
+    "verdict_class": "🔵",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 428.725417,
+    "phase": "Aufbau",
+    "vdot": 40
+   }
+  },
+  {
+   "case_id": "vdot49_I_below_Basis",
+   "expected": {
+    "dev_sec": -73,
+    "verdict_class": "⚠️",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 247.690115,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_I_above_Basis",
+   "expected": {
+    "dev_sec": -71,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 249.690115,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_I_below_Aufbau",
+   "expected": {
+    "dev_sec": -73,
+    "verdict_class": "✅",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 247.690115,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_I_above_Aufbau",
+   "expected": {
+    "dev_sec": -71,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 249.690115,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_T_below_Basis",
+   "expected": {
+    "dev_sec": -57,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 263.592647,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_T_above_Basis",
+   "expected": {
+    "dev_sec": -55,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 265.592647,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_T_below_Aufbau",
+   "expected": {
+    "dev_sec": -57,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 263.592647,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_T_above_Aufbau",
+   "expected": {
+    "dev_sec": -55,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 265.592647,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_M_below_Basis",
+   "expected": {
+    "dev_sec": -39,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 281.929523,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_M_above_Basis",
+   "expected": {
+    "dev_sec": -37,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 283.929523,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_M_below_Aufbau",
+   "expected": {
+    "dev_sec": -39,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 281.929523,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_M_above_Aufbau",
+   "expected": {
+    "dev_sec": -37,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 283.929523,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_E_below_Basis",
+   "expected": {
+    "dev_sec": 42,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 363.382464,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_E_above_Basis",
+   "expected": {
+    "dev_sec": 44,
+    "verdict_class": "✅",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 365.382464,
+    "phase": "Basis",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_E_below_Aufbau",
+   "expected": {
+    "dev_sec": 42,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 363.382464,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot49_E_above_Aufbau",
+   "expected": {
+    "dev_sec": 44,
+    "verdict_class": "🔵",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 365.382464,
+    "phase": "Aufbau",
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "vdot55_I_below_Basis",
+   "expected": {
+    "dev_sec": -67,
+    "verdict_class": "⚠️",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 225.460045,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_I_above_Basis",
+   "expected": {
+    "dev_sec": -65,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 227.460045,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_I_below_Aufbau",
+   "expected": {
+    "dev_sec": -67,
+    "verdict_class": "✅",
+    "zone_code": "I/R"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 225.460045,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_I_above_Aufbau",
+   "expected": {
+    "dev_sec": -65,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 227.460045,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_T_below_Basis",
+   "expected": {
+    "dev_sec": -53,
+    "verdict_class": "⚠️",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 239.957779,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_T_above_Basis",
+   "expected": {
+    "dev_sec": -51,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 241.957779,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_T_below_Aufbau",
+   "expected": {
+    "dev_sec": -53,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 239.957779,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_T_above_Aufbau",
+   "expected": {
+    "dev_sec": -51,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 241.957779,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_M_below_Basis",
+   "expected": {
+    "dev_sec": -36,
+    "verdict_class": "🟡",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 256.696037,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_M_above_Basis",
+   "expected": {
+    "dev_sec": -34,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 258.696037,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_M_below_Aufbau",
+   "expected": {
+    "dev_sec": -36,
+    "verdict_class": "✅",
+    "zone_code": "M"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 256.696037,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_M_above_Aufbau",
+   "expected": {
+    "dev_sec": -34,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 258.696037,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_E_below_Basis",
+   "expected": {
+    "dev_sec": 39,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 331.242385,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_E_above_Basis",
+   "expected": {
+    "dev_sec": 41,
+    "verdict_class": "✅",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 333.242385,
+    "phase": "Basis",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_E_below_Aufbau",
+   "expected": {
+    "dev_sec": 39,
+    "verdict_class": "🔵",
+    "zone_code": "E"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 331.242385,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  },
+  {
+   "case_id": "vdot55_E_above_Aufbau",
+   "expected": {
+    "dev_sec": 41,
+    "verdict_class": "🔵",
+    "zone_code": "Z1"
+   },
+   "input": {
+    "distance_km": 12.0,
+    "pace_sec_km": 333.242385,
+    "phase": "Aufbau",
+    "vdot": 55
+   }
+  }
+ ],
+ "description": "T-218: VDOT {40,49,55} x Zonengrenze (I/T/M/E, +-1s) x Phase (Basis, Aufbau) -> zone_code + Verdikt-Klasse aus coach.analyze_run.",
+ "kind": "analyze_run_golden",
+ "name": "analyze_run_golden",
+ "source": "coach.analyze_run (Referenz)"
+}

@@ -818,7 +818,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
           let zoneBadgeLabel = ''
 
           if (act.actType === 'run') {
-            const isWorkout = (act.workoutType ?? 0) > 1
+            // T-218: nur echte "Workout"-Flags (Strava workout_type 3), nicht Long Run (2)
+            const isWorkout = act.workoutType === 3
             analysis = analyzeRun(
               act.paceSec,
               act.distanceKm,
