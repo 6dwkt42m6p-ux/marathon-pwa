@@ -1,8 +1,18 @@
 import { describe, it, expect } from 'vitest'
-import { timeForVdot, racePredictor, vdotFromRace } from './vdot'
+import { timeForVdot, racePredictor, vdotFromRace, isWorkoutActivity } from './vdot'
 
 const HM = 21097
 const M  = 42195
+
+describe('isWorkoutActivity', () => {
+  it('nur workoutType 3 (Strava "Workout") gilt als Workout — Long Run (2) nicht', () => {
+    expect(isWorkoutActivity(undefined)).toBe(false)
+    expect(isWorkoutActivity(0)).toBe(false)
+    expect(isWorkoutActivity(1)).toBe(false)  // Race
+    expect(isWorkoutActivity(2)).toBe(false)  // Long Run — KEIN Workout (T-218 Fix-Loop 1)
+    expect(isWorkoutActivity(3)).toBe(true)   // Workout
+  })
+})
 
 describe('timeForVdot', () => {
   it('roundtrips vdotFromRace for HM', () => {

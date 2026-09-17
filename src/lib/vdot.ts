@@ -162,6 +162,15 @@ export interface RunAnalysis {
   adjPaceSec:     number | null  // heat/cold-corrected pace used for zone classification
 }
 
+// T-218 Fix-Loop 1: Strava workout_type: 1=Race, 2=Long Run, 3=Workout. Nur 3 zählt als
+// "Workout" — Long Run (2) hat eigene Semantik und ist KEIN Workout, sonst werden
+// HF-Mismatch-Hinweise bei Longruns unterdrückt (vgl. app.py `== 3`, coach.py analyze_run
+// is_workout-Parameter). Extrahiert als eigene Funktion, weil die Call-Site (Analysis.tsx)
+// keine Regressionstestdatei hat — vorher konnte das Prädikat unbemerkt zu `> 1` mutieren.
+export function isWorkoutActivity(workoutType: number | undefined): boolean {
+  return workoutType === 3
+}
+
 export function analyzeRun(
   paceSec: number,
   distanceKm: number,

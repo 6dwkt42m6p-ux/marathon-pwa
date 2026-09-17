@@ -21,7 +21,7 @@ import {
   type StrideDataEntry,
   type SyncedThreshold,
 } from '../lib/strava'
-import { analyzeRun, analyzeRide, formatPace } from '../lib/vdot'
+import { analyzeRun, analyzeRide, formatPace, isWorkoutActivity } from '../lib/vdot'
 import {
   intensityDistribution,
   stagnationCheck,
@@ -818,8 +818,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
           let zoneBadgeLabel = ''
 
           if (act.actType === 'run') {
-            // T-218: nur echte "Workout"-Flags (Strava workout_type 3), nicht Long Run (2)
-            const isWorkout = act.workoutType === 3
+            // T-218 Fix-Loop 1: Prädikat als geprüfte Funktion (vdot.test.ts), nicht inline —
+            // Analysis.tsx hat keine eigene Testdatei, eine Inline-Mutation bliebe unbemerkt.
+            const isWorkout = isWorkoutActivity(act.workoutType)
             analysis = analyzeRun(
               act.paceSec,
               act.distanceKm,
