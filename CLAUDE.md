@@ -20,6 +20,12 @@ src/
     githubSync.ts   GitHub-based device sync
 ```
 
+## Orientierung (T-222)
+
+Vor dem ersten Read einer großen Datei `../Trainingscoach/docs/SYMBOLS.md` konsultieren →
+gezielt `Read` mit offset/limit. Der Index wird zentral im Trainingscoach-Repo gepflegt
+(`python3 tools/gen_symbol_index.py` dort ausführen; das dortige Test-Gate prüft Aktualität).
+
 ## Coding Rules
 
 - **Logic in lib/, never inline in components** — new calculations → `vdot.ts` or `strava.ts`
