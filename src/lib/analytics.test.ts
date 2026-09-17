@@ -576,6 +576,34 @@ describe('vdotAdherenceCheck', () => {
     const result = vdotAdherenceCheck(runs, vdot, splits)
     expect(result!.status).toBe('on_target')
   })
+
+  // T-219 Golden-Parität zu coach.vdot_adherence_check (Bisektion, T/I getrennt gewichtet).
+  // Desktop-Referenz (python3 -c, siehe T-219_pwa_impl.md): 2 T-Sessions (Delta -6 s/km) +
+  // 1 I-Session (Delta -12 s/km), current_vdot=48 → suggested_vdot=49.9, avg_delta_sec=-8.0,
+  // status='beating'. Vor dem Fix lieferte die TS-Heuristik (avgDelta/5*0.5, gekappt bei 3)
+  // einen anderen Wert, weil sie T/I nicht getrennt gewichtet über die echte Bisektion invertiert.
+  it('T-219: suggestedVdot identisch zur Desktop-Bisektion (gemischte T/I-Sessions)', () => {
+    const vdot = 48
+    const paces = trainingPaces(vdot)
+    const tPace = paces.T - 6   // bleibt näher an T als an I (Zonen-Mittelpunkt ~255.84)
+    const iPace = paces.I - 12
+    const runs = [
+      makeRun({ id: 2001, date: weeksAgo(10), distanceKm: 8, workoutType: 3 }),
+      makeRun({ id: 2002, date: weeksAgo(7), distanceKm: 8, workoutType: 3 }),
+      makeRun({ id: 2003, date: weeksAgo(4), distanceKm: 6, workoutType: 3 }),
+    ]
+    const splits = {
+      '2001': [tPace, tPace],
+      '2002': [tPace, tPace],
+      '2003': [iPace, iPace],
+    }
+    const result = vdotAdherenceCheck(runs, vdot, splits)
+    expect(result).not.toBeNull()
+    expect(result!.status).toBe('beating')
+    expect(result!.avgDeltaSec).toBeCloseTo(-8.0, 1)
+    expect(result!.beatRatio).toBeCloseTo(1.0, 2)
+    expect(result!.suggestedVdot).toBeCloseTo(49.9, 1)
+  })
 })
 
 // ── aggregateStrideTrend ─────────────────────────────────────────────────────
