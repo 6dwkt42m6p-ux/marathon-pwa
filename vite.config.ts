@@ -9,7 +9,7 @@ export default defineConfig({
   base,
   test: {
     environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.{ts,tsx}'],
     // T-171: deterministische Test-Umgebung. `TOKEN_PROXY` wird in strava.ts auf
     // MODULEBENE aus import.meta.env gelesen, ist zur Laufzeit also nicht mehr
     // stubbar. Ohne diesen Wert zog der Test seine Konfiguration aus der lokalen,
