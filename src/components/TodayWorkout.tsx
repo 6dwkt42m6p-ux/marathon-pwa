@@ -67,6 +67,9 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // hidden module store) so it participates in the useMemo deps below — otherwise a sync that
   // resolves after the first render would be invisible to React (coordinator fix-loop finding).
   const [syncedActivityTemps, setSyncedActivityTemps] = useState<Record<string, number> | undefined>(undefined)
+  // T-217: Desktop-applied day-swaps per week (originalDay → currentDay), needed to tell a
+  // still-pending local override apart from one Desktop has already baked into `tag`.
+  const [syncedWeekOverrides, setSyncedWeekOverrides] = useState<Record<string, Record<string, string>> | undefined>(undefined)
 
   // Track previous settings fingerprint to detect plan-relevant changes
   const prevFingerprintRef = useRef<string | null>(null)
@@ -80,6 +83,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
           setSyncedActivityTemps(result.data.activityTemps)
+          setSyncedWeekOverrides(result.data.weekOverrides)
         }
       })
       .catch(() => { /* offline — keep null, show hint screen */ })
@@ -180,14 +184,25 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // Day-swap state — keyed to the synced week's start date or fallback
   const wKey = syncedCurrentW ? weekKey(syncedCurrentW.week_start) : 'noweek'
 
-  // Build DayAssignment array from synced sessions
+  // Build DayAssignment array from synced sessions. Identity is the tag BEFORE Desktop applied
+  // weekOverrides (T-217) — stable across a Desktop rebuild, unlike `s.tag` itself which changes
+  // the moment Desktop bakes an override in. Falls back to `s.tag` for old sync.json snapshots
+  // without `original_tag` (AC1 backward-compat).
   const rawSyncedSessions: SyncedPlanSession[] = syncedCurrentW?.sessions ?? []
   const defaultAssignments: DayAssignment[] = rawSyncedSessions
-    .map(s => ({ originalDay: s.tag, currentDay: s.tag }))
+    .map(s => ({ originalDay: s.original_tag ?? s.tag, currentDay: s.original_tag ?? s.tag }))
 
   const [assignments, setAssignments] = useState<DayAssignment[]>(() =>
     loadOverrides(wKey) ?? defaultAssignments
   )
+  // T-217 AC3: `assignments` was only ever initialized once at mount, when `wKey` is still the
+  // 'noweek' placeholder (fetchSync resolves after first render). Rebuild whenever the resolved
+  // week or the synced plan itself changes, so a genuinely-saved override is picked up instead
+  // of staying stuck on the 'noweek' initial value forever.
+  useEffect(() => {
+    setAssignments(loadOverrides(wKey) ?? defaultAssignments)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wKey, syncedPlan])
   const [swapping, setSwapping] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(todayTag)
 
@@ -227,18 +242,31 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     pushOverridesToGitHub(defaultAssignments)
   }
 
-  // Apply assignments to synced sessions and sort
+  // Apply assignments to synced sessions and sort.
+  // T-217 AC2: a local override is only applied as a PENDING overlay when Desktop hasn't
+  // already baked the same swap into `tag` via weekOverrides — otherwise a swap of two
+  // sessions (Do↔So) would shift a second time on top of the already-shifted plan.
   const displaySessions = useMemo(() => {
     if (!rawSyncedSessions.length) return []
     return rawSyncedSessions
       .map(s => {
-        const assigned = assignments.find(a => a.originalDay === s.tag)
-        return { ...s, tag: assigned?.currentDay ?? s.tag, originalTag: s.tag }
+        const identity        = s.original_tag ?? s.tag
+        const local           = assignments.find(a => a.originalDay === identity)
+        const localIsSwap     = !!local && local.originalDay !== local.currentDay
+        const alreadyOnDesktop = localIsSwap &&
+          syncedWeekOverrides?.[wKey]?.[local!.originalDay] === local!.currentDay
+        const tag       = localIsSwap && !alreadyOnDesktop ? local!.currentDay : s.tag
+        const isShifted = tag !== (s.original_tag ?? tag)
+        return { ...s, tag, originalTag: identity, isShifted }
       })
       .sort((a, b) => DAYS_ORDER.indexOf(a.tag) - DAYS_ORDER.indexOf(b.tag))
-  }, [rawSyncedSessions, assignments])
+  }, [rawSyncedSessions, assignments, syncedWeekOverrides, wKey])
 
-  const hasOverrides = assignments.some(a => a.originalDay !== a.currentDay)
+  // T-217 AC2/AC3: reset button must also surface a still-pending local swap that the
+  // per-session `isShifted` formula can mask (old sync.json without `original_tag`, see
+  // displaySessions comment above) — the two conditions are deliberately independent (OR).
+  const hasOverrides = displaySessions.some(s => s.isShifted) ||
+    assignments.some(a => a.originalDay !== a.currentDay)
 
   const plannedKmSynced  = syncedCurrentW?.planned_km ?? 0
   const progressPct      = plannedKmSynced > 0 ? Math.min(100, (actualKmWeek / plannedKmSynced) * 100) : 0
@@ -379,7 +407,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
         )}
 
         {DAYS_ORDER.map(day => {
-          const session = displaySessions.find(s => s.tag === day) as (SyncedPlanSession & { originalTag: string }) | undefined
+          const session = displaySessions.find(s => s.tag === day) as (SyncedPlanSession & { originalTag: string; isShifted: boolean }) | undefined
           const isToday = day === todayTag
 
           if (!session) {
@@ -401,7 +429,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
 
           const isOpen     = expanded === day
           const isSwapping = swapping === session.originalTag
-          const isShifted  = session.originalTag !== session.tag
+          const isShifted  = session.isShifted
           const kmDisplay  = session.km !== null ? `${session.km} km` : '—'
 
           return (

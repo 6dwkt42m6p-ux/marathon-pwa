@@ -7,13 +7,16 @@ const API    = 'https://api.github.com'
 
 // T-024: Plan serialized by Streamlit — PWA renders verbatim, never recomputes
 export interface SyncedPlanSession {
-  tag:      string   // "Mo", "Di", etc.
+  tag:      string   // "Mo", "Di", etc. — post-weekOverrides day (Desktop-applied)
   typ:      string   // "Regeneration", "Qualität ⭐", etc.
   km:       number | null  // null for cross-training / rest
   vorgabe:  string
   struktur: string
   dauer:    string
   hinweis:  string
+  original_tag?: string  // T-217: tag before weekOverrides were applied; absent in sync.json
+                          // snapshots written before this field existed (backward-compat) —
+                          // consumers must fall back to `tag` (session.original_tag ?? session.tag)
 }
 
 export interface SyncedPlanWeek {
