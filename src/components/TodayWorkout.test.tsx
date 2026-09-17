@@ -151,4 +151,41 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
     expect(text).not.toContain('↻ verschoben')
     expect(text).not.toContain('Zurücksetzen')
   })
+
+  it('Fall D: echter Zwei-Wege-Tausch (Do↔So) — Desktop hat beide Richtungen gebaut, weekOverrides + lokaler Override enthalten beide → A an So, B an Do, beide mit Marker, kein weiterer Shift', async () => {
+    // T-217 review fix-loop 1: bei einem Einzel-Tausch (Fall A) waere ein Doppel-Shift zufaellig
+    // idempotent (Ziel-Tag bleibt gleich) — der Zwei-Wege-Fall aus dem Ticket-Befund ist die
+    // einzige Konstellation, in der ein Bug (volatile `tag`-Identitaet statt `original_tag`)
+    // sichtbar zu einem FALSCHEN Endzustand fuehren wuerde (A landet bei B's altem Slot statt am
+    // Ziel), nicht nur zu einem no-op.
+    localStorage.setItem(`week_override_${weekStart}`, JSON.stringify([
+      { originalDay: 'Do', currentDay: 'So' },
+      { originalDay: 'So', currentDay: 'Do' },
+    ]))
+    const plan = buildPlan([
+      { tag: 'So', typ: 'Lauf A', km: 18, vorgabe: 'lang', struktur: '18km locker', dauer: '100 min', hinweis: 'Salz mitnehmen', original_tag: 'Do' },
+      { tag: 'Do', typ: 'Lauf B', km: 10, vorgabe: 'mittel', struktur: '10km locker', dauer: '55 min', hinweis: 'entspannt', original_tag: 'So' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, { [weekStart]: { Do: 'So', So: 'Do' } }))
+
+    await mount()
+
+    const text = container.textContent ?? ''
+    // Both sessions carry the marker — two occurrences of the shifted-day text.
+    expect(text.split('↻ verschoben').length - 1).toBe(2)
+    expect(text).toContain('Zurücksetzen')
+
+    const rows = Array.from(container.querySelectorAll('.session-row'))
+    const soRow = rows.find(row => row.querySelector('.session-day')?.textContent === 'So')
+    const doRow = rows.find(row => row.querySelector('.session-day')?.textContent === 'Do')
+
+    expect(soRow?.textContent).toContain('Lauf A')
+    expect(soRow?.textContent).not.toContain('Lauf B')
+    expect(doRow?.textContent).toContain('Lauf B')
+    expect(doRow?.textContent).not.toContain('Lauf A')
+
+    // Exactly one row each — no duplication, no third phantom slot from a re-applied shift.
+    expect(rows.filter(r => r.textContent?.includes('Lauf A')).length).toBe(1)
+    expect(rows.filter(r => r.textContent?.includes('Lauf B')).length).toBe(1)
+  })
 })
