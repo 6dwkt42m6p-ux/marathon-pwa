@@ -356,6 +356,57 @@ export interface AdherenceResult {
   iPaceFmt:      string
 }
 
+// T-219: faithful port of coach.py `_infer_vdot` (vdot_adherence_check, line ~7301).
+// Binary search for the VDOT such that trainingPaces(VDOT)[paceKey] == impliedPace.
+// 40 iterations, bounds passed in by the caller — identical to the Python side.
+function _inferVdot(impliedPace: number, paceKey: 'T' | 'I', lo: number, hi: number): number {
+  for (let i = 0; i < 40; i++) {
+    const midV = (lo + hi) / 2
+    const midP = trainingPaces(midV)[paceKey]
+    if (!isFinite(midP)) break
+    // Faster pace (lower s/km) requires higher VDOT.
+    if (midP > impliedPace) lo = midV; else hi = midV
+  }
+  return (lo + hi) / 2
+}
+
+// T-219: faithful port of coach.py `_weighted_implied_vdot` (T-086: T- and I-sessions invert
+// on their own zone's pace, then combine weighted by session count — avoids the bias of always
+// inverting on T-pace even for I-sessions).
+// direction 'up'   → athlete beats targets (lo=currentVdot,        hi=currentVdot+15)
+// direction 'down' → athlete misses targets (lo=currentVdot-15,    hi=currentVdot)
+function _weightedImpliedVdot(
+  sessions:    AdherenceSession[],
+  currentVdot: number,
+  tSec:        number,
+  iSec:        number,
+  direction:   'up' | 'down',
+): number | null {
+  const tSessions = sessions.filter(s => s.targetZone === 'T')
+  const iSessions = sessions.filter(s => s.targetZone === 'I')
+  const impliedVdots: { v: number; w: number }[] = []
+
+  const loBase = direction === 'up' ? currentVdot : Math.max(currentVdot - 15.0, 20.0)
+  const hiBase = direction === 'up' ? Math.min(currentVdot + 15.0, 85.0) : currentVdot
+
+  if (tSessions.length) {
+    const avgTDelta = tSessions.reduce((s, sess) => s + sess.deltaSec, 0) / tSessions.length
+    const impliedT  = tSec + avgTDelta
+    const vT = _inferVdot(impliedT, 'T', loBase, hiBase)
+    impliedVdots.push({ v: vT, w: tSessions.length })
+  }
+  if (iSessions.length) {
+    const avgIDelta = iSessions.reduce((s, sess) => s + sess.deltaSec, 0) / iSessions.length
+    const impliedI  = iSec + avgIDelta
+    const vI = _inferVdot(impliedI, 'I', loBase, hiBase)
+    impliedVdots.push({ v: vI, w: iSessions.length })
+  }
+
+  if (!impliedVdots.length) return null
+  const totalW = impliedVdots.reduce((s, e) => s + e.w, 0)
+  return impliedVdots.reduce((s, e) => s + e.v * e.w, 0) / totalW
+}
+
 export function vdotAdherenceCheck(
   runs:       RunSummary[],
   currentVdot: number,
@@ -437,17 +488,19 @@ export function vdotAdherenceCheck(
   if (beatRatio >= BEAT_RATIO) {
     status = 'beating'
     reason = `${nBeating} von ${sessions.length} Qualitätseinheiten ≥${BEAT_THRESHOLD} s/km schneller als Ziel-Pace — VDOT möglicherweise zu niedrig.`
-    // Simple heuristic: shift VDOT up by implied improvement (avg delta scaled)
-    // Full binary-search inversion (coach.py) is complex in TS; we round to +0.5 suggestion
-    const implied = currentVdot + Math.min(3, Math.abs(avgDelta) / 5 * 0.5)
-    const cand    = Math.round(implied * 10) / 10
-    if (cand > currentVdot + 0.4) suggestedVdot = cand
+    const raw = _weightedImpliedVdot(sessions, currentVdot, tSec, iSec, 'up')
+    if (raw !== null) {
+      const cand = Math.round(raw * 10) / 10
+      if (cand > currentVdot + 0.4) suggestedVdot = cand
+    }
   } else if (missRatio >= MISS_RATIO) {
     status = 'missing'
     reason = `${nMissing} von ${sessions.length} Qualitätseinheiten ≥${MISS_THRESHOLD} s/km langsamer als Ziel-Pace — VDOT möglicherweise zu hoch.`
-    const implied = currentVdot - Math.min(3, Math.abs(avgDelta) / 8 * 0.5)
-    const cand    = Math.round(implied * 10) / 10
-    if (cand < currentVdot - 0.4) suggestedVdot = cand
+    const raw = _weightedImpliedVdot(sessions, currentVdot, tSec, iSec, 'down')
+    if (raw !== null) {
+      const cand = Math.round(raw * 10) / 10
+      if (cand < currentVdot - 0.4) suggestedVdot = cand
+    }
   } else {
     reason = `Paces innerhalb der Toleranz — VDOT ${currentVdot.toFixed(1)} passt gut.`
   }

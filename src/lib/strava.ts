@@ -665,9 +665,11 @@ export interface BestVdotResult {
  * before normalization even runs). Normalize FIRST (durationSec / effortNormalizationFactor),
  * THEN compute VDOT — order matters (T-186 AC). Plausibility 20 < VDOT < 85.
  * Robust estimate = median of the top-3 normalized VDOTs (guards against a one-off outlier
- * inflating the number); the displayed run/pace/date come from the single highest-VDOT
- * effort (coach.py: `best_row = efforts[0][1]`), so the shown workout is the most
- * representative one even though the number itself is a median.
+ * inflating the number). T-219 (coach.py:738–743, T-194): the displayed run/pace/date come
+ * from the effort whose OWN VDOT is closest to that median — searched across ALL efforts,
+ * not just the top-3 — so the shown workout is the one that actually produced the reported
+ * number. Before T-219, metadata came from the single fastest effort (`efforts[0]`) while the
+ * number was the median of the top-3: the UI could name a run that never produced the shown VDOT.
  */
 export function bestVdotFromActivities(runs: RunSummary[]): BestVdotResult | null {
   const cutoff = new Date(Date.now() - 12 * 7 * 24 * 3600 * 1000)
@@ -696,7 +698,19 @@ export function bestVdotFromActivities(runs: RunSummary[]): BestVdotResult | nul
     ? sorted[mid]
     : (sorted[mid - 1] + sorted[mid]) / 2
 
-  const best = efforts[0].r
+  // T-219: closest-to-median search over the FULL efforts list (coach.py's `min(efforts, ...)`
+  // iterates all efforts, not just the top-3). On a tie, keep the earliest match in the
+  // (desc-sorted) list — mirrors Python's `min()`, which keeps the first minimal element.
+  let bestEffort = efforts[0]
+  let bestDiff   = Math.abs(efforts[0].v - medianV)
+  for (const e of efforts) {
+    const diff = Math.abs(e.v - medianV)
+    if (diff < bestDiff) {
+      bestDiff   = diff
+      bestEffort = e
+    }
+  }
+  const best = bestEffort.r
   return {
     vdot:       Math.round(medianV * 10) / 10,
     name:       best.name,

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { detectStrides, syncAnchorTs, OVERLAP_DAYS, vdotTrendFromActivities, efficiencyFactorTrend, activityLoad, bikeTss, computeAtlCtl, runRtss, runHrtss, ctlRising, thisWeekKm, thisWeekStatsBySport, parseStravaLocal, capStreamLapsCaches, evictAllStreamLapsCaches, saveCachedActivitiesExported as saveCachedActivities, getStorageWarning, clearStorageWarning, STORAGE_WARNING_KEY, STREAM_CACHE_MAX, STREAM_CACHE_KEY, LAPS_CACHE_KEY, getCachedActivities, classifyWorkoutStructure, saveTokens, exchangeCode, loadTokens, parseAllActivities, parseRuns, bestVdotFromActivities } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold } from './strava'
-import { effortNormalizationFactor, tempAdjFactor, vdotFromRace } from './vdot'
+import { effortNormalizationFactor, tempAdjFactor, vdotFromRace, timeForVdot, formatPace } from './vdot'
 
 // T-109: Verify overlap-lookback anchor computation for syncActivities.
 // Root cause: using latestTs directly as "after" permanently skips any activity
@@ -836,6 +836,42 @@ describe('bestVdotFromActivities — GAP/Hitze-Normalisierung (T-186)', () => {
     const rawVdot = Math.round(vdotFromRace(10 * 1000, 2400) * 10) / 10
     expect(result!.vdot).toBe(rawVdot)
     expect(result!.name).toBe('Flat Run')
+  })
+
+  // T-219: Median (die Zahl) und Metadaten müssen vom selben Lauf stammen. Vor dem Fix
+  // kam die Zahl vom Median der Top-3, die Metadaten aber vom schnellsten Lauf (efforts[0])
+  // — bei drei klar unterscheidbaren Efforts (VDOT 47/49/52) zeigte die UI den 52er-Lauf als
+  // Quelle, obwohl der angezeigte Wert 49 war. Desktop-Referenz: coach.py:738–743 (T-194),
+  // best_row = min(efforts, key=lambda t: abs(t[0] - best_v))[1].
+  it('T-219: Metadaten kommen vom Median-nächsten Effort, nicht vom schnellsten (VDOT 47/49/52)', () => {
+    const distanceM = 10_000
+    const mk = (name: string, targetVdot: number, daysAgo: number): RunSummary => {
+      const durationSec = timeForVdot(distanceM, targetVdot)
+      return {
+        id: Math.random(),
+        name,
+        date: new Date(Date.now() - daysAgo * 24 * 3600 * 1000),
+        distanceKm: distanceM / 1000,
+        durationSec,
+        paceSec: durationSec / (distanceM / 1000),
+        paceFmt: formatPace(durationSec / (distanceM / 1000)),
+        elevationM: 0,
+        tempC: undefined,
+      } as RunSummary
+    }
+    const run47 = mk('Run47', 47, 10)
+    const run49 = mk('Run49', 49, 20)
+    const run52 = mk('Run52', 52, 30)
+
+    const result = bestVdotFromActivities([run47, run49, run52])
+    expect(result).not.toBeNull()
+    // Median von {47, 49, 52} = 49 → die Zahl ist unverändert korrekt.
+    expect(result!.vdot).toBeCloseTo(49, 1)
+    // Metadaten müssen vom 49er-Lauf kommen (Median-nächster Effort), nicht vom
+    // schnellsten (Run52).
+    expect(result!.name).toBe('Run49')
+    expect(result!.date.getTime()).toBe(run49.date.getTime())
+    expect(result!.paceFmt).toBe(run49.paceFmt)
   })
 })
 
