@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest'
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
-import TodayWorkout from './TodayWorkout'
+import TodayWorkout, { buildSettingsPushPayload } from './TodayWorkout'
 import { mondayOf, localISODate } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
 import type { SyncData, SyncedPlan, SyncedPlanSession } from '../lib/githubSync'
@@ -187,5 +187,37 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
     // Exactly one row each — no duplication, no third phantom slot from a re-applied shift.
     expect(rows.filter(r => r.textContent?.includes('Lauf A')).length).toBe(1)
     expect(rows.filter(r => r.textContent?.includes('Lauf B')).length).toBe(1)
+  })
+})
+
+// ── buildSettingsPushPayload (T-221) ─────────────────────────────────────────
+// The settings-recompute push (fired when plan-relevant inputs change) used to nest
+// `settings.vdot`/`settings.event1`/`settings.event2` into the pushed SyncData — dead weight:
+// grep across src/ AND the Trainingscoach repo (github_sync.py/app.py/coach.py) found zero
+// readers of those keys under either name. `planRecomputeRequested` is the only signal Desktop
+// actually consumes. Extracted as a pure function (used both as the immediate payload builder
+// and as the 409-retry rebuildFn) so the shape is unit-testable without mounting the component.
+describe('buildSettingsPushPayload (T-221)', () => {
+  const base: SyncData = { settings: { name: 'Philipp' }, lastDevice: 'streamlit' }
+
+  it('sets planRecomputeRequested: true', () => {
+    expect(buildSettingsPushPayload(base).planRecomputeRequested).toBe(true)
+  })
+
+  it('does not add a settings.vdot key', () => {
+    const payload = buildSettingsPushPayload(base)
+    expect(payload.settings).not.toHaveProperty('vdot')
+  })
+
+  it('does not add a settings.event1 or settings.event2 key', () => {
+    const payload = buildSettingsPushPayload(base)
+    expect(payload.settings).not.toHaveProperty('event1')
+    expect(payload.settings).not.toHaveProperty('event2')
+  })
+
+  it('leaves the rest of base untouched (spread, not a full replacement)', () => {
+    const payload = buildSettingsPushPayload(base)
+    expect(payload.settings).toEqual({ name: 'Philipp' })
+    expect(payload.lastDevice).toBe('streamlit')
   })
 })

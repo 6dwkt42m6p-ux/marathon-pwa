@@ -177,21 +177,38 @@ export function mergeSettingsForPush(
   }
 }
 
+// T-221: allowlist of keys mergeRemoteSettings is permitted to adopt from the untyped remote
+// settings blob — mirrors the AppSettings interface field-for-field. `satisfies
+// Record<keyof AppSettings, true>` fails to compile if a future AppSettings field is added here
+// without also being added there (or vice versa), so the two can't silently drift. Without this,
+// ANY remote key spread onto local AppSettings (e.g. TodayWorkout.tsx used to push a nested
+// `event1`/`event2`/duplicate `vdot` before T-221 removed that) — foreign keys landed as extra
+// properties on the persisted `coach_settings` object.
+const APP_SETTINGS_KEYS = {
+  vdot: true, maxHr: true, restHr: true, currentWeeklyKm: true, runsPerWeek: true,
+  raceType1: true, raceDate1: true, raceType2: true, raceDate2: true,
+  preRaceEnabled: true, experience: true, name: true,
+} satisfies Record<keyof AppSettings, true>
+
 // T-182 Phase B review fix (Bug 2): the App.tsx startup merge used to blindly spread
 // `data.settings` (untyped JSON from sync.json) over the local AppSettings and cast the
 // result — `raceDate1: null` (Event 1 disabled on the Desktop, T-182 Phase A) landed unchanged
 // in the non-nullable `AppSettings.raceDate1: string` and got persisted to localStorage, which
 // then fed `new Date(null)` = epoch in VdotPaces.tsx. Root-cause fix: strip null/undefined
-// values from the remote object before merging, generically for ANY key — no AppSettings field
-// is nullable by schema, so a `null` from the Desktop means "no opinion, keep the local value",
-// never "erase it".
+// values from the remote object before merging — no AppSettings field is nullable by schema, so
+// a `null` from the Desktop means "no opinion, keep the local value", never "erase it".
+// T-221: additionally restricted to APP_SETTINGS_KEYS — a remote key outside the AppSettings
+// shape (e.g. a leftover `event1`/`event2` object, or any other foreign field) is dropped
+// instead of silently becoming an extra property on the merged object.
 export function mergeRemoteSettings(
   local: AppSettings,
   remote: Record<string, unknown> | null | undefined,
 ): AppSettings {
   if (!remote) return local
   const cleaned = Object.fromEntries(
-    Object.entries(remote).filter(([, v]) => v !== null && v !== undefined)
+    Object.entries(remote).filter(
+      ([k, v]) => v !== null && v !== undefined && k in APP_SETTINGS_KEYS
+    )
   )
   return { ...local, ...cleaned } as AppSettings
 }

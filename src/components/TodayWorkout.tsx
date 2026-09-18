@@ -54,6 +54,19 @@ function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
 }
 
+// T-221: pure, exported so the pushed shape is unit-testable without mounting the component.
+// Used both as the immediate payload builder (fetchSync(true).then(...)) and as the 409-retry
+// rebuildFn passed to pushSync — closes the RMW race by re-applying against fresh remote state.
+// Previously this also nested settings.vdot/event1/event2 into the payload; removed (T-221):
+// grep across src/ AND Trainingscoach (github_sync.py/app.py/coach.py) found zero readers of
+// those keys — planRecomputeRequested is the only signal Desktop actually consumes here.
+export function buildSettingsPushPayload(base: SyncData): SyncData {
+  return {
+    ...base,
+    planRecomputeRequested: true,
+  }
+}
+
 export default function TodayWorkout({ settings, activitiesVersion = 0, effectiveVdot = settings.vdot, syncedFtp, syncedThreshold }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
@@ -107,19 +120,9 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     fetchSync(true)
       .then(fresh => {
         if (!fresh) return
-        // rebuildFn closes the 409 RMW race: re-apply planRecomputeRequested + settings
-        // against the freshly fetched remote state, preserving concurrent Desktop changes.
-        const buildPayload = (base: SyncData): SyncData => ({
-          ...base,
-          planRecomputeRequested: true,
-          settings: {
-            ...(base.settings ?? {}),
-            vdot: settings.vdot,
-            event1: { date: settings.raceDate1, dist: settings.raceType1 === 'hm' ? 'Halbmarathon (21.1 km)' : 'Marathon (42.2 km)' },
-            event2: { date: settings.raceDate2, dist: settings.raceType2 === 'marathon' ? 'Marathon (42.2 km)' : 'Halbmarathon (21.1 km)' },
-          },
-        })
-        return pushSync(buildPayload(fresh.data), fresh.sha, buildPayload)
+        // rebuildFn closes the 409 RMW race: re-apply planRecomputeRequested against the
+        // freshly fetched remote state, preserving concurrent Desktop changes.
+        return pushSync(buildSettingsPushPayload(fresh.data), fresh.sha, buildSettingsPushPayload)
       })
       .catch(() => { /* non-critical */ })
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps

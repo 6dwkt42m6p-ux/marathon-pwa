@@ -232,6 +232,24 @@ describe('mergeRemoteSettings — T-182 Phase B review fix (Bug 2)', () => {
     expect(mergeRemoteSettings(local, null)).toEqual(local)
     expect(mergeRemoteSettings(local, undefined)).toEqual(local)
   })
+
+  // T-221: TodayWorkout.tsx used to push nested `event1`/`event2` (and a duplicate `vdot`) into
+  // the sync `settings` block. mergeRemoteSettings used to spread ANY remote key over local —
+  // those foreign keys landed as extra properties on the persisted AppSettings object in
+  // localStorage. An allowlist (mirroring the AppSettings interface) stops that regardless of
+  // what a future/legacy remote settings blob contains.
+  it('a foreign key not in AppSettings (e.g. leftover "event1" object from an old sync.json) is dropped, known fields still merge', () => {
+    const local = { ...loadSettings(), raceDate1: '2026-10-11' }
+    const remote = {
+      raceDate1: '2026-11-01',
+      event1: { date: '2026-10-11', dist: 'Halbmarathon (21.1 km)' },
+      foo: 1,
+    }
+    const merged = mergeRemoteSettings(local, remote) as unknown as Record<string, unknown>
+    expect(merged.raceDate1).toBe('2026-11-01')
+    expect(merged).not.toHaveProperty('event1')
+    expect(merged).not.toHaveProperty('foo')
+  })
 })
 
 describe('saveSettings — T-170 quota hardening', () => {
