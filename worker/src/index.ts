@@ -11,6 +11,8 @@
  * Extensibility: add new endpoints in the route map below (e.g. /claude for T-004).
  */
 
+import { b64ToUtf8 } from './b64'
+
 interface Env {
   STRAVA_CLIENT_SECRET: string
   STRAVA_CLIENT_ID: string     // also available as [vars] in wrangler.toml
@@ -221,7 +223,10 @@ async function readMutationsFile(token: string): Promise<{ data: PendingMutation
   if (!res.ok) return null
   const meta: { sha: string; content: string } = await res.json()
   try {
-    const decoded = atob(meta.content.replace(/\n/g, ''))
+    // T-209: b64ToUtf8, nicht bloßes atob() — writeMutationsFile kodiert UTF-8
+    // (btoa(unescape(encodeURIComponent(...)))), Lese- und Schreibpfad müssen symmetrisch
+    // sein, sonst kippt deutscher Freitext (Ticket-Titel, Kommentare) in Mojibake (Zwilling T-208).
+    const decoded = b64ToUtf8(meta.content.replace(/\n/g, ''))
     const parsed = JSON.parse(decoded) as PendingMutations
     return { data: parsed, sha: meta.sha }
   } catch {
