@@ -127,8 +127,15 @@ export interface RaceTargets {
   event2: RaceTarget
 }
 
+// T-220 Fix-Loop 1 (Review): `raw > 0` is required, not just `isFinite`. `raceTargetSec2 <= 0`
+// is reachable via the Desktop UI (`st.number_input("Ziel h/min/sek", 0, ...)` allows all three
+// fields to be 0 → a user can set a 0:00:00 target). The Desktop itself treats that as invalid
+// in `safe_vdot()` (`time_sec <= 0 → None`), but `build_managed_settings()` writes the raw value
+// unfiltered into the sync payload. Without this guard, `vdotFromRace(dist, 0)` returns
+// `Infinity` (division by zero inside the VDOT formula) and a negative value produces a
+// nonsensical huge VDOT — both silently reach the FeasCard.
 function _resolveTargetSec(raw: unknown, fallback: number): number {
-  return typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback
+  return typeof raw === 'number' && Number.isFinite(raw) && raw > 0 ? raw : fallback
 }
 
 // Formats a target time as "H:MM", rounding UP to the next full minute — same rounding the old
