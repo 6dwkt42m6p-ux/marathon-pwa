@@ -29,7 +29,7 @@ vi.mock('../lib/githubSync', async () => {
   }
 })
 
-import { fetchSync } from '../lib/githubSync'
+import { fetchSync, hasToken, pushSync } from '../lib/githubSync'
 
 const weekStart = localISODate(mondayOf(new Date()))
 
@@ -187,6 +187,61 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
     // Exactly one row each — no duplication, no third phantom slot from a re-applied shift.
     expect(rows.filter(r => r.textContent?.includes('Lauf A')).length).toBe(1)
     expect(rows.filter(r => r.textContent?.includes('Lauf B')).length).toBe(1)
+  })
+
+  it('Fall E: Zurücksetzen auf Desktop-gebautem Tausch → Anzeige sofort auf Original-Tag, Pending-Hinweis sichtbar, Push-Payload leer', async () => {
+    ;(hasToken as unknown as Mock).mockReturnValue(true)
+    ;(pushSync as unknown as Mock).mockResolvedValue(undefined)
+    const plan = buildPlan([
+      { tag: 'Mi', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, { [weekStart]: { Di: 'Mi' } }))
+
+    await mount()
+
+    // Sanity: before the click the swap is shown as Desktop built it (Mi).
+    let miRow = Array.from(container.querySelectorAll('.session-row')).find(row => row.textContent?.includes('Easy'))
+    expect(miRow!.querySelector('.session-day')?.textContent).toBe('Mi')
+
+    const resetBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Zurücksetzen'))!
+    await act(async () => {
+      resetBtn.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const text = container.textContent ?? ''
+    expect(text).toContain('wird beim nächsten Desktop-Sync wirksam')
+    expect(text).not.toContain('↻ verschoben')
+
+    const diRow = Array.from(container.querySelectorAll('.session-row')).find(
+      row => row.querySelector('.session-day')?.textContent === 'Di'
+    )
+    expect(diRow?.textContent).toContain('Easy')
+    miRow = Array.from(container.querySelectorAll('.session-row')).find(row => row.textContent?.includes('Easy'))
+    expect(miRow!.querySelector('.session-day')?.textContent).toBe('Di')
+
+    expect(pushSync).toHaveBeenCalled()
+    const lastCall = (pushSync as unknown as Mock).mock.calls.at(-1)!
+    const pushedData = lastCall[0] as SyncData
+    expect(pushedData.weekOverrides?.[weekStart]).toEqual({})
+  })
+
+  it('Fall F: nach simuliertem Desktop-Sync (weekOverrides leer, Tags original) verschwindet der Pending-Hinweis', async () => {
+    // Simuliert einen vorherigen "Zurücksetzen"-Klick, der die Sync-Runde noch nicht überlebt hat
+    // (T-231 Persistenz-Flag) — der nächste Desktop-Lauf hat die Session bereits unverschoben
+    // neu gebaut, weekOverrides ist leer.
+    localStorage.setItem(`reset_pending_${weekStart}`, '1')
+    const plan = buildPlan([
+      { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, {}))
+
+    await mount()
+
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('wird beim nächsten Desktop-Sync wirksam')
+    expect(text).not.toContain('↻ verschoben')
   })
 })
 
