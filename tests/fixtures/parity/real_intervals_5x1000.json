@@ -6,35 +6,45 @@
    "strides": [],
    "tempo_blocks": [
     {
+     "avg_hr": 161.4,
      "avg_pace_sec": 259,
+     "distance_m": 1004,
      "duration_sec": 259,
      "pace_deviation": 3.6,
      "start_sec": 642,
      "zone": "T"
     },
     {
+     "avg_hr": 166.2,
      "avg_pace_sec": 259,
+     "distance_m": 960,
      "duration_sec": 248,
      "pace_deviation": 0.0,
      "start_sec": 991,
      "zone": "T"
     },
     {
+     "avg_hr": 168.0,
      "avg_pace_sec": 261,
+     "distance_m": 988,
      "duration_sec": 257,
      "pace_deviation": -2.7,
      "start_sec": 1333,
      "zone": "T"
     },
     {
+     "avg_hr": 169.8,
      "avg_pace_sec": 262,
+     "distance_m": 959,
      "duration_sec": 250,
      "pace_deviation": -0.8,
      "start_sec": 1678,
      "zone": "T"
     },
     {
+     "avg_hr": 174.0,
      "avg_pace_sec": 259,
+     "distance_m": 952,
      "duration_sec": 246,
      "pace_deviation": 0.4,
      "start_sec": 2018,

@@ -6,7 +6,9 @@
    "strides": [],
    "tempo_blocks": [
     {
+     "avg_hr": 182.7,
      "avg_pace_sec": 244,
+     "distance_m": 4999,
      "duration_sec": 1216,
      "pace_deviation": 6.4,
      "start_sec": 618,

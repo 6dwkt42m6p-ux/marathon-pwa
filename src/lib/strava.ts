@@ -1411,6 +1411,9 @@ export interface WorkoutStrideSegment {
   startSec:    number
   durationSec: number
   peakSpeedMs: number  // m/s
+  // T-248: nur gesetzt, wenn ein Distanz-Stream mit passender Laenge uebergeben wurde
+  // (sonst null) — spiegelt streams.py distance_m 1:1, deshalb kein optionales Feld.
+  distanceM:   number | null
 }
 
 export interface IntervalBlock {
@@ -1418,6 +1421,8 @@ export interface IntervalBlock {
   durationSec: number
   avgPaceSec: number   // sec/km
   avgHr?:     number
+  // T-248: dito WorkoutStrideSegment.distanceM
+  distanceM:  number | null
   // T-193: aus _paceZone(avgMs, baseSpeed), fasst tatsaechliche Blockintensitaet. Optional
   // (nicht `?? "I"` erzwungen), damit handgebaute WorkoutClassification-Objekte ohne Streams
   // (z.B. Tests) weiter kompilieren -- sessionExecutionQuality faellt dann auf workoutType zurueck.
@@ -1429,6 +1434,10 @@ export interface TempoBlock {
   durationSec:  number
   avgPaceSec:   number   // sec/km
   paceDeviation: number  // drift %, end vs start
+  // T-248: wie interval_blocks — Docstring in streams.py versprach avg_hr fuer Tempo-Bloecke
+  // schon vorher, das Feld fehlte. Gleiches Optional-Muster wie IntervalBlock.avgHr.
+  avgHr?:       number
+  distanceM:    number | null
   zone?:        'I' | 'T' | 'M'   // T-193: dito
 }
 
@@ -1454,10 +1463,14 @@ export function classifyWorkoutStructure(
   velocityStream: number[],
   heartrateStream?: number[],
   vdot?: number | null,
+  // T-248: letzte Position, Default undefined → bit-identisches Verhalten fuer alle
+  // bestehenden Aufrufer (analog streams.py distance_stream=None).
+  distanceStream?: number[] | null,
 ): WorkoutClassification {
   const empty: WorkoutClassification = { workoutType: 'easy', strides: [], intervalBlocks: [], tempoBlocks: [] }
   const n = velocityStream.length
   if (n < 10 || n !== timeStream.length) return empty
+  const distOk = distanceStream != null && distanceStream.length === n
 
   // ── Step 1: ~25s rolling-window smoothing (time-based, matches streams.py) ──
   // Estimate sample rate from the time stream, then derive half-window in samples.
@@ -1570,8 +1583,16 @@ export function classifyWorkoutStructure(
     let avgHr: number | undefined
     if (hrUsable && heartrateStream) {
       const hrSeg = heartrateStream.slice(blkS, blkE + 1).filter(h => h > 0)
-      if (hrSeg.length > 0) avgHr = Math.round(hrSeg.reduce((a, b) => a + b, 0) / hrSeg.length)
+      // T-248: 1 Nachkommastelle wie Python round(seg_hr, 1) — bisher rundete Math.round()
+      // auf ganze bpm; fuer tempoBlocks (neue Fixtures mit z.B. 182.7 bpm) faellt der
+      // Float-Toleranzvergleich (1e-6) sonst durch. Betrifft auch intervalBlocks (latent,
+      // keine bisherige Fixture mit non-empty interval_blocks deckte es auf).
+      if (hrSeg.length > 0) avgHr = Math.round((hrSeg.reduce((a, b) => a + b, 0) / hrSeg.length) * 10) / 10
     }
+
+    // T-248: distance_m — nur gesetzt, wenn distanceStream mit passender Laenge da ist,
+    // sonst null (spiegelt streams.py dist_ok exakt).
+    const segDistanceM = distOk ? Math.round(distanceStream![blkE] - distanceStream![blkS]) : null
 
     if (segT < MIN_STRIDE_S) continue  // GPS spike — skip
 
@@ -1582,11 +1603,12 @@ export function classifyWorkoutStructure(
         startSec:    timeStream[blkS],
         durationSec: Math.round(segT),
         peakSpeedMs: Math.round(peakMs * 1000) / 1000,
+        distanceM:   segDistanceM,
       })
     } else if (segT < MIN_TEMPO_S) {
       // 45s–179s → interval block
       if (paceSec > 0) {
-        intervalBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, avgHr, zone: _paceZone(avgMs, baseSpeed) })
+        intervalBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, avgHr, zone: _paceZone(avgMs, baseSpeed), distanceM: segDistanceM })
       }
     } else {
       // ≥ 180s → tempo block (pace drift: intra-block, first vs second half)
@@ -1613,7 +1635,7 @@ export function classifyWorkoutStructure(
             paceDeviation = Math.round((pSecond - pFirst) / pFirst * 100 * 10) / 10
           }
         }
-        tempoBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, paceDeviation, zone: _paceZone(avgMs, baseSpeed) })
+        tempoBlocks.push({ startSec: timeStream[blkS], durationSec: Math.round(segT), avgPaceSec: paceSec, paceDeviation, zone: _paceZone(avgMs, baseSpeed), avgHr, distanceM: segDistanceM })
       }
     }
   }

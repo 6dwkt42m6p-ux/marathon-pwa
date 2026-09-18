@@ -6,36 +6,42 @@
    "strides": [
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 291
     },
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 411
     },
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 531
     },
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 651
     },
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 771
     },
     {
      "avg_speed_ms": 4.287,
+     "distance_m": 158,
      "duration_sec": 36,
      "peak_speed_ms": 4.8,
      "start_sec": 891
