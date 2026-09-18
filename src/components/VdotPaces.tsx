@@ -3,7 +3,7 @@ import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, racePredictor,
 import { getCachedActivities, computeAtlCtl, ctlRising, type SyncedThreshold } from '../lib/strava'
 import { durabilityTrend, loadAllDurability } from '../lib/durability'
 import type { AppSettings } from '../lib/storage'
-import { resolvePreRaceEnabled } from '../lib/storage'
+import { resolvePreRaceEnabled, resolveRaceTargets } from '../lib/storage'
 import { fetchSync } from '../lib/githubSync'
 
 interface Props {
@@ -35,9 +35,13 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
   }, [])
   const preRaceActive = resolvePreRaceEnabled(settings.preRaceEnabled, syncSettings)
 
-  // Target VDOTs
-  const vdotHmSub130 = vdotFromRace(21097, 89 * 60 + 59)
-  const vdotMarSub300 = vdotFromRace(42195, 179 * 60 + 59)
+  // T-220: target VDOTs against the athlete's actual Desktop profile target time
+  // (raceTargetSec1/raceTargetSec2 from the sync settings block) instead of the previous
+  // hardcoded 1:29:59/2:59:59 constants — falls back to those constants for older sync.json
+  // snapshots or while syncSettings hasn't loaded yet (both handled inside the resolver).
+  const raceTargets = resolveRaceTargets(syncSettings)
+  const vdotHmSub130 = vdotFromRace(21097, raceTargets.event1.sec)
+  const vdotMarSub300 = vdotFromRace(42195, raceTargets.event2.sec)
 
   const hmDate  = new Date(settings.raceDate1)
   const marDate = new Date(settings.raceDate2)
@@ -101,7 +105,7 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
         {preRaceActive && (
           <>
             <FeasCard
-              title="Sub 1:30h Halbmarathon"
+              title={raceTargets.event1.title}
               date={hmDate}
               weeks={hmWeeks}
               currentVdot={vdot}
@@ -112,7 +116,7 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
           </>
         )}
         <FeasCard
-          title="Sub 3:00h Marathon"
+          title={raceTargets.event2.title}
           date={marDate}
           weeks={marWeeks}
           currentVdot={vdot}

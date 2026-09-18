@@ -100,6 +100,57 @@ export function resolvePreRaceEnabled(
   return localValue
 }
 
+// T-220: `resolveRaceTargets` — VdotPaces.tsx used to evaluate the target VDOT/card titles
+// against hardcoded constants (89*60+59 / 179*60+59, i.e. 1:29:59 / 2:59:59) instead of the
+// athlete's actual Desktop profile target time. Desktop now writes `raceTargetSec1`/
+// `raceTargetSec2` (int seconds; raceTargetSec1: null when Event 1 is disabled) into the sync
+// `settings` block (github_sync.build_managed_settings). This resolver mirrors the
+// `resolvePreRaceEnabled` pattern above: sync value wins when present AND a finite number,
+// otherwise the pre-T-220 hardcoded constant applies (covers both `null`, a missing key on
+// older sync.json snapshots, and any malformed/non-number value on the untyped wire format).
+//
+// Whether the Event-1 card is shown at all is decided separately, by
+// `resolvePreRaceEnabled`/`preRaceActive` in VdotPaces.tsx — Desktop already signals "no Event
+// 1" via `preRaceEnabled: false` there. This resolver's only job is producing a valid target
+// time + title for whichever cards ARE rendered, so it always falls back rather than
+// propagating `null` into `vdotFromRace()`.
+const FALLBACK_RACE_TARGET_SEC1 = 89 * 60 + 59   // 1:29:59 — pre-T-220 hardcoded HM target
+const FALLBACK_RACE_TARGET_SEC2 = 179 * 60 + 59  // 2:59:59 — pre-T-220 hardcoded Marathon target
+
+export interface RaceTarget {
+  sec: number
+  title: string
+}
+
+export interface RaceTargets {
+  event1: RaceTarget
+  event2: RaceTarget
+}
+
+function _resolveTargetSec(raw: unknown, fallback: number): number {
+  return typeof raw === 'number' && Number.isFinite(raw) ? raw : fallback
+}
+
+// Formats a target time as "H:MM", rounding UP to the next full minute — same rounding the old
+// hardcoded titles relied on implicitly ("Sub 1:30h" from 1:29:59, "Sub 3:00h" from 2:59:59).
+function _fmtRaceTargetTime(sec: number): string {
+  const roundedSec = Math.ceil(sec / 60) * 60
+  const h = Math.floor(roundedSec / 3600)
+  const m = Math.floor((roundedSec % 3600) / 60)
+  return `${h}:${String(m).padStart(2, '0')}`
+}
+
+export function resolveRaceTargets(
+  syncSettings: Record<string, unknown> | null,
+): RaceTargets {
+  const sec1 = _resolveTargetSec(syncSettings?.['raceTargetSec1'], FALLBACK_RACE_TARGET_SEC1)
+  const sec2 = _resolveTargetSec(syncSettings?.['raceTargetSec2'], FALLBACK_RACE_TARGET_SEC2)
+  return {
+    event1: { sec: sec1, title: `Sub ${_fmtRaceTargetTime(sec1)}h Halbmarathon` },
+    event2: { sec: sec2, title: `Sub ${_fmtRaceTargetTime(sec2)}h Marathon` },
+  }
+}
+
 // T-182 Phase B review fix (Bug 1): `handleSave()` in Settings.tsx used to push the entire
 // local `s` state as a full replacement for the sync `settings` block — a stale local
 // preRaceEnabled could silently overwrite a fresh Desktop `false`. Desktop is the SSoT for
