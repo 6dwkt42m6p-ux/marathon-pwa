@@ -7,6 +7,7 @@ import {
   isUsingDefaultSettings, saveSettings, loadSettings,
   safeSetItem, saveNote, loadNote, registerEvictCallback, STORAGE_WARNING_KEY,
   resolvePreRaceEnabled, mergeSettingsForPush, mergeRemoteSettings,
+  resolveRaceTargets,
 } from './storage'
 
 // jsdom environment provides localStorage
@@ -254,5 +255,61 @@ describe('saveSettings — T-170 quota hardening', () => {
 
     expect(threw).toBe(false)
     expect(ok).toBe(false)
+  })
+})
+
+// ── resolveRaceTargets — T-220 ───────────────────────────────────────────────
+// VdotPaces.tsx used to evaluate the target VDOT against hardcoded constants
+// (vdotFromRace(21097, 89*60+59) / vdotFromRace(42195, 179*60+59)) instead of the athlete's
+// actual profile target time entered on the Desktop. Desktop now writes raceTargetSec1/
+// raceTargetSec2 (seconds, int; raceTargetSec1: null when Event 1 is disabled, T-220 AC 1) into
+// the sync `settings` block. This resolver reads them with a fallback to the old hardcoded
+// constants for older sync.json snapshots (pre-T-220, no keys yet) — same resolution pattern as
+// resolvePreRaceEnabled above. Whether the Event-1 card renders at all is decided separately by
+// `resolvePreRaceEnabled`/`preRaceActive` in VdotPaces.tsx (Desktop already signals "no Event 1"
+// via preRaceEnabled: false) — this resolver's only job is to never hand a non-number target
+// time to vdotFromRace, so it falls back rather than propagating null.
+describe('resolveRaceTargets — T-220', () => {
+  it('no sync settings block (null) → falls back to the old hardcoded constants', () => {
+    const r = resolveRaceTargets(null)
+    expect(r.event1.sec).toBe(89 * 60 + 59)
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('sync settings present but keys absent (pre-T-220 snapshot) → falls back to constants', () => {
+    const r = resolveRaceTargets({ raceDate1: '2026-10-11' })
+    expect(r.event1.sec).toBe(89 * 60 + 59)
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('raceTargetSec1/raceTargetSec2 present → used verbatim (both int seconds)', () => {
+    const r = resolveRaceTargets({ raceTargetSec1: 5400, raceTargetSec2: 10740 })
+    expect(r.event1.sec).toBe(5400)
+    expect(r.event2.sec).toBe(10740)
+  })
+
+  it('raceTargetSec1: null (Event 1 disabled on the Desktop, T-220 AC 1) → falls back, does not throw/NaN', () => {
+    const r = resolveRaceTargets({ raceTargetSec1: null, raceTargetSec2: 10740 })
+    expect(r.event1.sec).toBe(89 * 60 + 59)
+    expect(Number.isFinite(r.event1.sec)).toBe(true)
+  })
+
+  it('malformed non-number value → ignored, falls back (defensive against untyped sync JSON)', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: '10740' as unknown })
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('card title is derived from the target time, not hardcoded (golden T-220: 10740s = 2:59:00 exactly)', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: 10740 })
+    expect(r.event2.title).toBe('Sub 2:59h Marathon')
+  })
+
+  it('card title rounds up to the next full minute, matching the old hardcoded "Sub 1:30h"/"Sub 3:00h" strings', () => {
+    // 89*60+59 = 1h29m59s must still render as "Sub 1:30h Halbmarathon" (old fallback string,
+    // regression guard), 179*60+59 = 2h59m59s must still render as "Sub 3:00h Marathon" — both
+    // titles keep the existing "...h ..." suffix format used before T-220.
+    const r = resolveRaceTargets(null)
+    expect(r.event1.title).toBe('Sub 1:30h Halbmarathon')
+    expect(r.event2.title).toBe('Sub 3:00h Marathon')
   })
 })
