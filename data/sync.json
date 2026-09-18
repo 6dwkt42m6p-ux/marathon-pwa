@@ -28,9 +28,12 @@
     "2026-05-25": {
       "Do": "So",
       "So": "Fr"
+    },
+    "2026-09-14": {
+      "Do": "Fr"
     }
   },
-  "lastModified": "2026-09-18T10:48:14.810Z",
+  "lastModified": "2026-09-18T10:48:54.918Z",
   "lastDevice": "pwa",
   "plan": {
     "schemaVersion": 1,
