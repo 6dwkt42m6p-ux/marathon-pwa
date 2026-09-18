@@ -33,9 +33,14 @@ function fmt(s: number) {
   return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
-function planCheck(planned: WorkoutSession, act: ActivitySummary, classification: WorkoutClassification | null, analysis: ReturnType<typeof analyzeRun>): { icon: string; text: string; color: string }[] {
+// T-221: exported (no RTL in this repo, see the `executionSlot` note above) — planCheck used to
+// match against `planned.session`, which `syncedSessionToWorkout` (Analysis.tsx) always sets to
+// `typ` (e.g. "Speed", "Qualität ⭐"). Neither the rep-count regex nor the tempo keyword-match
+// ever fired against a real synced session: "Speed" has no digit, "Qualität ⭐" has no
+// "tempo"/"marathon-pace" substring. The actual workout text (rep counts, MP/T-Pace markers)
+// lives in `vorgabe`/`struktur` — both checks now read from there instead.
+export function planCheck(planned: WorkoutSession, act: ActivitySummary, classification: WorkoutClassification | null, analysis: ReturnType<typeof analyzeRun>): { icon: string; text: string; color: string }[] {
   const checks: { icon: string; text: string; color: string }[] = []
-  const sessionName = planned.session.toLowerCase()
   const plannedKm = typeof planned.distanzKm === 'number' ? planned.distanzKm : parseFloat(String(planned.distanzKm))
 
   if (!isNaN(plannedKm) && plannedKm > 0) {
@@ -45,7 +50,9 @@ function planCheck(planned: WorkoutSession, act: ActivitySummary, classification
     else                   checks.push({ icon: '⚠️', text: `Distanz: nur ${act.distanceKm} km von ${plannedKm} km`, color: '#e53935' })
   }
 
-  const strideMatch = planned.session.match(/(\d+)[×x]/)
+  // Rep count lives in "8×100m"-style markers inside vorgabe or struktur — check both, Desktop
+  // phrases some sessions with the marker only in one of the two fields.
+  const strideMatch = `${planned.vorgabe} ${planned.struktur}`.match(/(\d+)[×x]100m/)
   if (strideMatch && classification) {
     const targetN = parseInt(strideMatch[1])
     const actualN = classification.strides.length
@@ -57,7 +64,11 @@ function planCheck(planned: WorkoutSession, act: ActivitySummary, classification
     checks.push({ icon: '📈', text: `${targetN} Strides geplant — Pace-Verlauf laden um zu prüfen`, color: '#FF9800' })
   }
 
-  if ((sessionName.includes('marathon-pace') || sessionName.includes('m-pace') || sessionName.includes('tempo')) && !sessionName.includes('stride')) {
+  // T-208: `.includes('Qualität')`, not equality — typ carries a variable emoji suffix
+  // (Qualität ⭐ vs. Qualität ⭐⭐). `vorgabe` MP/T-Pace catches non-"Qualität"-labelled
+  // tempo/marathon-pace work (none currently exist, but the ticket's contract allows either).
+  const isTempoSession = planned.typ.includes('Qualität') || /\bMP\b|T-Pace/.test(planned.vorgabe)
+  if (isTempoSession) {
     if (analysis.zoneCode === 'M' || analysis.zoneCode === 'T') {
       checks.push({ icon: '✅', text: `Tempo korrekt — Pace im ${analysis.zoneName}-Bereich`, color: '#4CAF50' })
     } else if (analysis.zoneCode === 'E') {
@@ -486,7 +497,7 @@ export default function RunDetail({
         return (
           <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
             <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '11px', color: 'var(--text-2)' }}>
-              PLAN-CHECK · {plannedSession.session}
+              PLAN-CHECK · {plannedSession.vorgabe}
             </div>
             {checks.map((c, i) => (
               <div key={i} style={{ color: c.color, lineHeight: 1.6 }}>{c.icon} {c.text}</div>
