@@ -11,7 +11,7 @@ import {
   type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
-import { resolvePreRaceEnabled } from '../lib/storage'
+import { resolvePreRaceEnabled, safeSetItem } from '../lib/storage'
 import {
   hasToken, fetchSync, pushSync,
   type SyncData, type SyncedPlan, type SyncedPlanSession,
@@ -52,16 +52,33 @@ function saveOverrides(key: string, a: DayAssignment[]) {
 // T-231: "Zurücksetzen" removes ALL swaps of the week (Variante 2) — shown optimistically before
 // Desktop has rebuilt the plan. Persisted per week so the pending hint survives a tab switch
 // (component unmounts/remounts on tab change) until the wKey/syncedPlan effect below reconciles
-// it against freshly synced session tags.
-function loadResetPending(key: string): boolean {
-  try { return localStorage.getItem(`reset_pending_${key}`) === '1' } catch { return false }
+// it against a freshly synced plan.
+//
+// Fix-Loop 1 (Review): the flag used to be a bare boolean, resolved by "does ANY shift still
+// exist in the week" — a legitimate, INDEPENDENT new Desktop swap after the reset (e.g. Fr→Sa)
+// kept `stillShiftedOnDesktop` true forever, so the pending hint never cleared AND the new swap
+// was masked back onto its original day. Fix: persist the `generatedAt` fingerprint of the plan
+// AS OF the reset click; pending resolves once a freshly synced plan carries a DIFFERENT
+// generatedAt (Desktop has rebuilt since) — regardless of whether shifts exist afterwards. The
+// "no shifts left" check remains as a secondary fallback (covers old sync.json / same-fingerprint
+// edge cases).
+interface ResetPendingState { since: string }
+
+function loadResetPending(key: string): ResetPendingState | null {
+  try {
+    const raw = localStorage.getItem(`reset_pending_${key}`)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    return typeof parsed?.since === 'string' ? parsed : null
+  } catch { return null }
 }
 
-function saveResetPending(key: string, pending: boolean) {
-  try {
-    if (pending) localStorage.setItem(`reset_pending_${key}`, '1')
-    else localStorage.removeItem(`reset_pending_${key}`)
-  } catch {}
+function saveResetPending(key: string, since: string) {
+  safeSetItem(`reset_pending_${key}`, JSON.stringify({ since }))
+}
+
+function clearResetPending(key: string) {
+  try { localStorage.removeItem(`reset_pending_${key}`) } catch { /* iOS private mode */ }
 }
 
 // T-024: plan-relevant input fingerprint — when this changes, request recompute
@@ -221,16 +238,25 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // of staying stuck on the 'noweek' initial value forever.
   useEffect(() => {
     setAssignments(loadOverrides(wKey) ?? defaultAssignments)
-    // T-231: resolve a pending reset once Desktop has rebuilt THIS week's sessions with no shift
-    // left. `weekOverrides[wKey]` alone is not a reliable signal — resetOverrides() already
-    // pushes it empty the moment the button is clicked, before Desktop rebuilds `tag`; checking
-    // it here would clear the hint before the swap is actually gone from the displayed plan.
+    // T-231 (Fix-Loop 1): resolve a pending reset once Desktop has demonstrably rebuilt the plan
+    // SINCE the reset click — primary signal is `generatedAt` differing from the fingerprint
+    // taken at click time, NOT "does any shift still exist" (a later, independent Desktop swap
+    // must not keep the hint alive nor get masked back onto its original day, see review).
+    // `weekOverrides[wKey]` alone is not a reliable signal either — resetOverrides() already
+    // pushes it empty the moment the button is clicked, before Desktop rebuilds `tag`.
     const pending = loadResetPending(wKey)
-    const stillShiftedOnDesktop = rawSyncedSessions.some(s => s.tag !== (s.original_tag ?? s.tag))
-    if (pending && stillShiftedOnDesktop) {
-      setResetPending(true)
+    if (pending) {
+      const rebuiltSincePending = !!syncedPlan?.generatedAt && syncedPlan.generatedAt !== pending.since
+      const stillShiftedOnDesktop = rawSyncedSessions.some(s => s.tag !== (s.original_tag ?? s.tag))
+      // Secondary fallback: no shifts left at all also counts as resolved (old sync.json /
+      // same-fingerprint edge cases), even without a fresh generatedAt.
+      if (rebuiltSincePending || !stillShiftedOnDesktop) {
+        clearResetPending(wKey)
+        setResetPending(false)
+      } else {
+        setResetPending(true)
+      }
     } else {
-      if (pending) saveResetPending(wKey, false)
       setResetPending(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -276,7 +302,9 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     saveOverrides(wKey, defaultAssignments)
     setSwapping(null)
     setResetPending(true)
-    saveResetPending(wKey, true)
+    // Fix-Loop 1: fingerprint the plan AS OF this click — resolved once a later synced plan
+    // carries a different generatedAt (see reconciliation effect above).
+    saveResetPending(wKey, syncedPlan?.generatedAt ?? new Date().toISOString())
     pushOverridesToGitHub(defaultAssignments)
   }
 
