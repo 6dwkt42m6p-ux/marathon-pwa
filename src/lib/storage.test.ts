@@ -9,6 +9,7 @@ import {
   resolvePreRaceEnabled, mergeSettingsForPush, mergeRemoteSettings,
   resolveRaceTargets,
 } from './storage'
+import { vdotFromRace } from './vdot'
 
 // jsdom environment provides localStorage
 
@@ -311,5 +312,52 @@ describe('resolveRaceTargets — T-220', () => {
     const r = resolveRaceTargets(null)
     expect(r.event1.title).toBe('Sub 1:30h Halbmarathon')
     expect(r.event2.title).toBe('Sub 3:00h Marathon')
+  })
+
+  // T-220 Fix-Loop 1 (Review): `raceTargetSec2 <= 0` is reachable via the Desktop UI —
+  // `st.number_input("Ziel h/min/sek", 0, ...)` allows all three fields to be 0, so a user CAN
+  // set a 0:00:00 target time. The Desktop itself guards this in `safe_vdot()` (`time_sec <= 0 →
+  // None`) but `build_managed_settings()` writes the raw 0 into the sync payload unfiltered.
+  // Without a lower-bound guard here, `vdotFromRace(dist, 0)` returns `Infinity` (division by
+  // zero inside the VDOT formula) — not a crash, but a real, reachable UX defect ("+Infinity
+  // VDOT in X Wochen. Physiologisch kaum erreichbar.").
+  it('raceTargetSec2 = 0 (reachable via Desktop UI: Ziel 0h 0min 0sek) → falls back, not 0/Infinity', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: 0 })
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('raceTargetSec1 = 0 → falls back, not 0', () => {
+    const r = resolveRaceTargets({ raceTargetSec1: 0, raceTargetSec2: 10740 })
+    expect(r.event1.sec).toBe(89 * 60 + 59)
+  })
+
+  it('negative raceTargetSec2 → falls back, not passed through', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: -100 })
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('NaN raceTargetSec2 → falls back (already covered by isFinite, regression guard)', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: NaN })
+    expect(r.event2.sec).toBe(179 * 60 + 59)
+  })
+
+  it('sec <= 0 never reaches vdotFromRace as Infinity/NaN (end-to-end guard, not just the resolver)', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: 0 })
+    const targetVdot = vdotFromRace(42195, r.event2.sec)
+    expect(Number.isFinite(targetVdot)).toBe(true)
+  })
+})
+
+// T-220 Fix-Loop 1 (Review AC 3): the golden-parity test required by AC 3 was missing — the
+// resolver tests above only asserted `sec`/`title`, never the VDOT value the app actually shows
+// on the FeasCard. This wires the actual AC: `raceTargetSec2 = 10740` fed through the same
+// `vdotFromRace()` the component calls must match `coach.vdot_from_race(42195, 10740)` (Python
+// golden value, T-194-style golden pair). Mirrored in
+// tests/test_coach.py::test_t220_golden_target_vdot (Trainingscoach repo).
+describe('T-220 Golden-Parität: vdotFromRace(42195, raceTargetSec2) ↔ coach.vdot_from_race', () => {
+  it('raceTargetSec2 = 10740 → Ziel-VDOT identisch zu coach.vdot_from_race(42195, 10740) = 53.881819724935866 (±0.1)', () => {
+    const r = resolveRaceTargets({ raceTargetSec2: 10740 })
+    const targetVdot = vdotFromRace(42195, r.event2.sec)
+    expect(Math.abs(targetVdot - 53.881819724935866)).toBeLessThan(0.1)
   })
 })
