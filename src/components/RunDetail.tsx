@@ -176,6 +176,8 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
                   Drift: {t.paceDeviation > 0 ? '+' : ''}{t.paceDeviation}%
                 </span>
               )}
+              {t.distanceM != null && <span>~{(t.distanceM / 1000).toFixed(1)} km</span>}
+              {t.avgHr != null && <span>♡ {Math.round(t.avgHr)}</span>}
             </div>
           ))}
         </div>
@@ -304,6 +306,7 @@ export default function RunDetail({
           fetchedStreams.velocity_smooth,
           fetchedStreams.heartrate,
           vdot,
+          fetchedStreams.distance,
         ))
       }
     } catch { setStreamErr('Fehler beim Laden der Stream-Daten.') }

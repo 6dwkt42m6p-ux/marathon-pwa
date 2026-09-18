@@ -6,14 +6,18 @@
    "strides": [],
    "tempo_blocks": [
     {
+     "avg_hr": 157.6,
      "avg_pace_sec": 264,
+     "distance_m": 2258,
      "duration_sec": 595,
      "pace_deviation": 1.5,
      "start_sec": 656,
      "zone": "T"
     },
     {
+     "avg_hr": 162.3,
      "avg_pace_sec": 261,
+     "distance_m": 2235,
      "duration_sec": 583,
      "pace_deviation": 0.8,
      "start_sec": 1452,

@@ -171,6 +171,7 @@ describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
       const cls = classifyWorkoutStructure(
         streams.time as number[], streams.velocity_smooth as number[],
         streams.heartrate.length ? streams.heartrate : undefined, vdot,
+        streams.distance as number[] | undefined,
       )
       const diffs = compare(normalise(cls), fx.expected.classify_workout_structure,
                             'classify_workout_structure')
@@ -199,6 +200,7 @@ describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
       const cls = classifyWorkoutStructure(
         streams.time as number[], streams.velocity_smooth as number[],
         streams.heartrate.length ? streams.heartrate : undefined, vdot,
+        streams.distance as number[] | undefined,
       )
       const diffs = compare(normalise(sessionExecutionQuality(cls, vdot, distance_km, streams)),
                             fx.expected.session_execution_quality, 'session_execution_quality')
