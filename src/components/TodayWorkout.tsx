@@ -49,6 +49,21 @@ function saveOverrides(key: string, a: DayAssignment[]) {
   try { localStorage.setItem(`week_override_${key}`, JSON.stringify(a)) } catch {}
 }
 
+// T-231: "Zurücksetzen" removes ALL swaps of the week (Variante 2) — shown optimistically before
+// Desktop has rebuilt the plan. Persisted per week so the pending hint survives a tab switch
+// (component unmounts/remounts on tab change) until the wKey/syncedPlan effect below reconciles
+// it against freshly synced session tags.
+function loadResetPending(key: string): boolean {
+  try { return localStorage.getItem(`reset_pending_${key}`) === '1' } catch { return false }
+}
+
+function saveResetPending(key: string, pending: boolean) {
+  try {
+    if (pending) localStorage.setItem(`reset_pending_${key}`, '1')
+    else localStorage.removeItem(`reset_pending_${key}`)
+  } catch {}
+}
+
 // T-024: plan-relevant input fingerprint — when this changes, request recompute
 function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
@@ -198,12 +213,26 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   const [assignments, setAssignments] = useState<DayAssignment[]>(() =>
     loadOverrides(wKey) ?? defaultAssignments
   )
+  // T-231: locally-pending "Zurücksetzen" — see displaySessions below for how it overrides tags.
+  const [resetPending, setResetPending] = useState<boolean>(false)
   // T-217 AC3: `assignments` was only ever initialized once at mount, when `wKey` is still the
   // 'noweek' placeholder (fetchSync resolves after first render). Rebuild whenever the resolved
   // week or the synced plan itself changes, so a genuinely-saved override is picked up instead
   // of staying stuck on the 'noweek' initial value forever.
   useEffect(() => {
     setAssignments(loadOverrides(wKey) ?? defaultAssignments)
+    // T-231: resolve a pending reset once Desktop has rebuilt THIS week's sessions with no shift
+    // left. `weekOverrides[wKey]` alone is not a reliable signal — resetOverrides() already
+    // pushes it empty the moment the button is clicked, before Desktop rebuilds `tag`; checking
+    // it here would clear the hint before the swap is actually gone from the displayed plan.
+    const pending = loadResetPending(wKey)
+    const stillShiftedOnDesktop = rawSyncedSessions.some(s => s.tag !== (s.original_tag ?? s.tag))
+    if (pending && stillShiftedOnDesktop) {
+      setResetPending(true)
+    } else {
+      if (pending) saveResetPending(wKey, false)
+      setResetPending(false)
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wKey, syncedPlan])
   const [swapping, setSwapping] = useState<string | null>(null)
@@ -238,10 +267,16 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     pushOverridesToGitHub(next)
   }
 
+  // T-231 Variante 2 (Coordinator-Entscheidung): "Zurücksetzen" heißt für den Nutzer "alle
+  // Tausche weg" — entfernt ALLE Tausche der Woche (auch bereits Desktop-gebaute), zeigt das
+  // sofort optimistisch an (original_tag) und blendet einen Hinweis ein, bis Desktop die Woche
+  // tatsächlich neu gebaut hat (Muster injuryPending/Deferred-Write-Back).
   function resetOverrides() {
     setAssignments(defaultAssignments)
     saveOverrides(wKey, defaultAssignments)
     setSwapping(null)
+    setResetPending(true)
+    saveResetPending(wKey, true)
     pushOverridesToGitHub(defaultAssignments)
   }
 
@@ -253,7 +288,12 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     if (!rawSyncedSessions.length) return []
     return rawSyncedSessions
       .map(s => {
-        const identity        = s.original_tag ?? s.tag
+        const identity = s.original_tag ?? s.tag
+        // T-231: pending reset takes back ALL swaps of the week immediately, including ones
+        // Desktop already baked into `tag` — resolved once Desktop rebuilds (see effect above).
+        if (resetPending) {
+          return { ...s, tag: identity, originalTag: identity, isShifted: false }
+        }
         const local           = assignments.find(a => a.originalDay === identity)
         const localIsSwap     = !!local && local.originalDay !== local.currentDay
         const alreadyOnDesktop = localIsSwap &&
@@ -263,7 +303,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
         return { ...s, tag, originalTag: identity, isShifted }
       })
       .sort((a, b) => DAYS_ORDER.indexOf(a.tag) - DAYS_ORDER.indexOf(b.tag))
-  }, [rawSyncedSessions, assignments, syncedWeekOverrides, wKey])
+  }, [rawSyncedSessions, assignments, syncedWeekOverrides, wKey, resetPending])
 
   // T-217 AC2/AC3: reset button must also surface a still-pending local swap that the
   // per-session `isShifted` formula can mask (old sync.json without `original_tag`, see
@@ -401,6 +441,20 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
           </button>
         )}
       </div>
+
+      {/* T-231: pending reset — optimistic already applied above, this is the deferred-write hint */}
+      {resetPending && (
+        <div style={{
+          background: '#FF980020',
+          border: '1px solid #FF980055',
+          borderRadius: '8px',
+          padding: '8px 12px',
+          fontSize: '12px',
+          color: '#FF9800',
+        }}>
+          ↺ Zurückgesetzt — wird beim nächsten Desktop-Sync wirksam
+        </div>
+      )}
 
       <div className="sessions-list">
         {displaySessions.length === 0 && (
