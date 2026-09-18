@@ -229,9 +229,10 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
 
   it('Fall F: nach simuliertem Desktop-Sync (weekOverrides leer, Tags original) verschwindet der Pending-Hinweis', async () => {
     // Simuliert einen vorherigen "Zurücksetzen"-Klick, der die Sync-Runde noch nicht überlebt hat
-    // (T-231 Persistenz-Flag) — der nächste Desktop-Lauf hat die Session bereits unverschoben
-    // neu gebaut, weekOverrides ist leer.
-    localStorage.setItem(`reset_pending_${weekStart}`, '1')
+    // (T-231 Persistenz-Flag, JSON-Fingerprint seit Fix-Loop 1) — der nächste Desktop-Lauf hat die
+    // Session bereits unverschoben neu gebaut, weekOverrides ist leer. Der Fallback "keine Shifts
+    // mehr in der Woche" greift hier unabhängig vom generatedAt-Fingerprint.
+    localStorage.setItem(`reset_pending_${weekStart}`, JSON.stringify({ since: 'irgendein-alter-fingerprint' }))
     const plan = buildPlan([
       { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
     ])
@@ -242,6 +243,58 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
     const text = container.textContent ?? ''
     expect(text).not.toContain('wird beim nächsten Desktop-Sync wirksam')
     expect(text).not.toContain('↻ verschoben')
+  })
+
+  it('Fall G (Fix-Loop 1): Reset (alt) + unabhängiger NEUER Desktop-Tausch (generatedAt neu) → Hinweis weg, neuer Tausch sichtbar statt weggemaskiert', async () => {
+    ;(hasToken as unknown as Mock).mockReturnValue(true)
+    ;(pushSync as unknown as Mock).mockResolvedValue(undefined)
+
+    const oldGeneratedAt = new Date(Date.now() - 60_000).toISOString()
+    const planV1: SyncedPlan = {
+      ...buildPlan([
+        { tag: 'Mi', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+      ]),
+      generatedAt: oldGeneratedAt,
+    }
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(planV1, { [weekStart]: { Di: 'Mi' } }))
+
+    await mount()
+    const resetBtn = Array.from(container.querySelectorAll('button')).find(b => b.textContent?.includes('Zurücksetzen'))!
+    await act(async () => {
+      resetBtn.click()
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+    expect(container.textContent).toContain('wird beim nächsten Desktop-Sync wirksam')
+
+    // Simuliert einen App-Neustart/Tab-Wechsel NACH einem echten Desktop-Rebuild: neues
+    // generatedAt, ein komplett unabhängiger neuer Tausch (Fr→Sa) — der ursprünglich
+    // zurückgesetzte Di-Tausch ist längst sauber, aber es existiert wieder IRGENDEIN Shift
+    // in der Woche (der Bug aus dem Review prüfte fälschlich genau das).
+    await act(async () => { root.unmount() })
+    root = createRoot(container)
+    const newGeneratedAt = new Date().toISOString()
+    const planV2: SyncedPlan = {
+      ...buildPlan([
+        { tag: 'Sa', typ: 'Lang', km: 20, vorgabe: 'lang', struktur: '20km locker', dauer: '110 min', hinweis: 'Salz mitnehmen', original_tag: 'Fr' },
+      ]),
+      generatedAt: newGeneratedAt,
+    }
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(planV2, { [weekStart]: { Fr: 'Sa' } }))
+
+    await mount()
+
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('wird beim nächsten Desktop-Sync wirksam')
+
+    const saRow = Array.from(container.querySelectorAll('.session-row')).find(
+      row => row.querySelector('.session-day')?.textContent === 'Sa'
+    )
+    expect(saRow?.textContent).toContain('Lang')
+    expect(text).toContain('↻ verschoben')
+
+    // Kein Leichnam mehr in localStorage nach erfolgreicher Auflösung.
+    expect(localStorage.getItem(`reset_pending_${weekStart}`)).toBeNull()
   })
 })
 
