@@ -97,6 +97,21 @@ export function isPlanStale(
   return false
 }
 
+// T-246: maschinenlesbares Pendant zu den Q/Speed-Prosastrings (Desktop coach.py:
+// weekly_workout_plan `s()`-Helfer). Optional — nur Qualitäts-/Speed-Sessions setzen es,
+// Easy/Longrun ohne Struktur bleiben `undefined`/`null`. Kein Konsument in T-246 (siehe T-247).
+export interface WorkoutStrukturDaten {
+  kind:            'intervals' | 'tempo' | 'strides' | 'longrun_ff' | 'test'
+  reps:            number
+  rep_m:           number | null
+  rep_sec:         number | null
+  target_pace_sec: number
+  zone:            'I' | 'T' | 'M' | 'R'
+  rest_sec:        number | null
+  wu_km:           number
+  cd_km:           number
+}
+
 export interface WorkoutSession {
   session:    string
   typ:        string
@@ -106,6 +121,7 @@ export interface WorkoutSession {
   dauerMin:   string
   hinweis:    string
   wochentag:  string
+  struktur_daten?: WorkoutStrukturDaten | null
 }
 
 // ── Plan-Abweichungserkennung (T-014) ────────────────────────────────────────
