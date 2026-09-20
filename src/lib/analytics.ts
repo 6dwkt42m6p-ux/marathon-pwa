@@ -8,7 +8,8 @@
 
 import { trainingPaces, formatPace } from './vdot'
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
-import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams } from './strava'
+import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
+import type { WorkoutStrukturDaten } from './plan'
 
 // ── Karvonen HR zone helper (mirrors coach.py _hr_zone_code) ─────────────────
 // hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
@@ -843,6 +844,133 @@ export function sessionExecutionQuality(cls: WorkoutClassification | null, vdot:
   const res = executionQuality(reps, target, tolerance)
   if (!res) return null
   return { ...res, sessionType, zone }
+}
+
+// ── T-247: plan-first Auswertung ───────────────────────────────────────────────
+// Faithful port of streams.match_blocks_to_plan. Matched die erkannten Bloecke gegen die
+// geplante Struktur der Session (T-246 `struktur_daten`) und bewertet sie gegen die
+// tatsaechliche Soll-Pace der Vorgabe statt gegen eine aus der Blockdauer geratene Zone
+// (T-193-Zonenheuristik versagt genau dann, wenn Intervalle zu langsam gelaufen werden).
+// `zone` in WorkoutStrukturDaten deckt auch "R" ab (Strides) -- EXEC_TOL_BY_ZONE kennt nur
+// I/T/M, siehe Python `_EXEC_TOL_FALLBACK_BY_ZONE` (dort begruendet: keine eigene
+// Kalibrierung fuer Strides, faellt auf die engste bestehende Toleranz zurueck).
+const _EXEC_TOL_FALLBACK_BY_ZONE: Partial<Record<'I' | 'T' | 'M' | 'R', number>> = { R: EXEC_TOL_I }
+
+export interface MatchedRep {
+  distanceM:   number | null
+  durationSec: number
+  paceSec:     number
+  deltaSec:    number | null
+  avgHr?:      number
+}
+
+export interface MatchBlocksToPlanResult {
+  matched:       boolean
+  plannedReps:   number
+  foundReps:     number
+  reps:          MatchedRep[]
+  targetPaceSec: number
+  zone:          'I' | 'T' | 'M' | 'R'
+  execution:     ExecutionQualityResult | null
+  label:         string
+}
+
+/** Python's `round()` is round-half-to-even (banker's rounding); JS `Math.round` is
+ * round-half-up. Needed for bit-identical `delta_sec`/label parity (T-247 Rundungs-Falle:
+ * "(+17 s)" muss exakt Pythons `round(pace - target_pace_sec)` treffen). Beide Sprachen
+ * nutzen IEEE-754 doubles -- auf demselben Double-Wert liefert dieselbe Rundungsregel
+ * dasselbe Ergebnis, ohne dass Python ueber FFI aufgerufen werden muss. */
+function pyRoundHalfEven(x: number): number {
+  const floor = Math.floor(x)
+  const diff = x - floor
+  if (diff < 0.5) return floor
+  if (diff > 0.5) return floor + 1
+  return floor % 2 === 0 ? floor : floor + 1
+}
+
+/** `streams` bleibt ungenutzt -- Signatur-Vertrag mit dem Ticket/Aufrufer (Reserve fuer
+ * kuenftige Pausen-Validierung gegen `rest_sec` ueber die rohen Streams zwischen den
+ * Bloecken, siehe Docstring von streams.match_blocks_to_plan). */
+export function matchBlocksToPlan(
+  cls: WorkoutClassification | null,
+  planned: WorkoutStrukturDaten | null,
+  streams: ActivityStreams | null,
+): MatchBlocksToPlanResult | null {
+  void streams
+  if (!planned) return null
+
+  const repsPlanned    = planned.reps
+  const repM           = planned.rep_m
+  const repSec         = planned.rep_sec
+  const targetPaceSec  = planned.target_pace_sec
+  const zone           = planned.zone
+
+  if (!repsPlanned || repsPlanned <= 0) return null
+  if (!repM && !repSec) return null
+  if (!Number.isFinite(targetPaceSec)) return null
+
+  const blocks: (IntervalBlock | TempoBlock)[] = [
+    ...(cls?.intervalBlocks ?? []),
+    ...(cls?.tempoBlocks ?? []),
+  ].sort((a, b) => a.startSec - b.startSec)
+
+  const repRatio = (b: IntervalBlock | TempoBlock): number | null => {
+    if (repM) return b.distanceM ? b.distanceM / repM : null
+    return b.durationSec ? b.durationSec / (repSec as number) : null
+  }
+
+  const matchedBlocks = blocks.filter(b => {
+    const r = repRatio(b)
+    return r !== null && r >= 0.8 && r <= 1.2
+  })
+  const foundReps = matchedBlocks.length
+
+  const repsOut: MatchedRep[] = []
+  const repPaces: number[] = []
+  for (const b of matchedBlocks) {
+    const pace = b.avgPaceSec
+    const paceOk = Number.isFinite(pace)
+    const delta = paceOk ? pyRoundHalfEven(pace - targetPaceSec) : null
+    repsOut.push({
+      distanceM:   b.distanceM,
+      durationSec: b.durationSec,
+      paceSec:     pace,
+      deltaSec:    delta,
+      avgHr:       b.avgHr,
+    })
+    if (paceOk && pace > 0) repPaces.push(pace)
+  }
+
+  const tolerance = EXEC_TOL_BY_ZONE[zone as 'I' | 'T' | 'M'] ?? _EXEC_TOL_FALLBACK_BY_ZONE[zone]
+  let execution: ExecutionQualityResult | null = null
+  if (tolerance !== undefined && repPaces.length) {
+    execution = executionQuality(repPaces, targetPaceSec, tolerance)
+  }
+
+  const matched = (foundReps / repsPlanned) >= 0.5
+
+  const unitLabel = repM
+    ? `${foundReps}×~${(repM / 1000).toFixed(1).replace('.', ',')} km`
+    : `${foundReps}×${pyRoundHalfEven((repSec as number) / 60)} min`
+
+  let label = unitLabel
+  if (repPaces.length) {
+    const avgPace = repPaces.reduce((a, p) => a + p, 0) / repPaces.length
+    const avgDelta = avgPace - targetPaceSec
+    const sign = avgDelta >= 0 ? '+' : '-'
+    label = `${unitLabel} · Ø ${formatPace(avgPace)} vs. ${formatPace(targetPaceSec)} Soll (${sign}${pyRoundHalfEven(Math.abs(avgDelta))} s)`
+  }
+
+  return {
+    matched,
+    plannedReps: repsPlanned,
+    foundReps,
+    reps: repsOut,
+    targetPaceSec,
+    zone,
+    execution,
+    label,
+  }
 }
 
 export function dataQualityScore(streams: ActivityStreams | null): DataQualityResult {

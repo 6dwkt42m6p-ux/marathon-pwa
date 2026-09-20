@@ -97,6 +97,10 @@ function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
     dauerMin:  s.dauer,
     hinweis:   s.hinweis,
     wochentag: s.tag,
+    // T-247: ohne Durchreichen bliebe struktur_daten (T-246) am RunDetail-Konsumenten immer
+    // undefined — matchBlocksToPlan waere dadurch in der echten App unerreichbar, obwohl der
+    // Desktop-Sync es schon serialisiert (T-247-Reviewer-Hinweis in SyncedPlanSession).
+    struktur_daten: s.struktur_daten ?? null,
   }
 }
 

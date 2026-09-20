@@ -186,6 +186,60 @@
    "gap_adjusted": true,
    "pace_fade_pct": -1.73
   },
+  "match_blocks_to_plan": {
+   "execution": {
+    "color": "#F1C40F",
+    "label": "Leicht abgebaut",
+    "n_reps": 5,
+    "rep_fade_pct": 0.0,
+    "split_cv_pct": 0.5,
+    "time_in_target_pct": 60.0,
+    "verdict": "leicht abgebaut"
+   },
+   "found_reps": 5,
+   "label": "5×~1,0 km · Ø 4:20 vs. 4:08 Soll (+12 s)",
+   "matched": true,
+   "planned_reps": 5,
+   "reps": [
+    {
+     "avg_hr": 161.4,
+     "delta_sec": 11,
+     "distance_m": 1004,
+     "duration_sec": 259,
+     "pace_sec": 259
+    },
+    {
+     "avg_hr": 166.2,
+     "delta_sec": 11,
+     "distance_m": 960,
+     "duration_sec": 248,
+     "pace_sec": 259
+    },
+    {
+     "avg_hr": 168.0,
+     "delta_sec": 13,
+     "distance_m": 988,
+     "duration_sec": 257,
+     "pace_sec": 261
+    },
+    {
+     "avg_hr": 169.8,
+     "delta_sec": 14,
+     "distance_m": 959,
+     "duration_sec": 250,
+     "pace_sec": 262
+    },
+    {
+     "avg_hr": 174.0,
+     "delta_sec": 11,
+     "distance_m": 952,
+     "duration_sec": 246,
+     "pace_sec": 259
+    }
+   ],
+   "target_pace_sec": 248,
+   "zone": "I"
+  },
   "session_execution_quality": {
    "color": "#2ECC71",
    "label": "Sauber ausgeführt",
@@ -201,6 +255,14 @@
  "input": {
   "avg_pace_sec": 291.1,
   "distance_km": 9.18,
+  "planned": {
+   "kind": "intervals",
+   "rep_m": 1000,
+   "rep_sec": null,
+   "reps": 5,
+   "target_pace_sec": 248,
+   "zone": "I"
+  },
   "streams": {
    "altitude": [
     9.2,

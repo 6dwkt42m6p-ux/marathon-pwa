@@ -27,6 +27,7 @@
    "strides": []
   },
   "durability_signals": null,
+  "match_blocks_to_plan": null,
   "session_execution_quality": null
  },
  "input": {
