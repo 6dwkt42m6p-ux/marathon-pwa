@@ -3,6 +3,9 @@
 // T-148: Tests for executionQuality / sessionExecutionQuality / dataQualityScore (faithful port).
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   intensityDistribution,
   stagnationCheck,
@@ -13,11 +16,13 @@ import {
   executionQuality,
   sessionExecutionQuality,
   dataQualityScore,
+  matchBlocksToPlan,
 } from './analytics'
 import { trainingPaces } from './vdot'
-import { dailyLoadSeries } from './strava'
+import { dailyLoadSeries, classifyWorkoutStructure } from './strava'
 import type { RunSummary, StravaActivity } from './strava'
 import type { WorkoutClassification, ActivityStreams } from './strava'
+import type { WorkoutStrukturDaten } from './plan'
 
 // ── T-148: executionQuality ───────────────────────────────────────────────────
 
@@ -57,6 +62,73 @@ describe('sessionExecutionQuality', () => {
     const c = cls('intervals', { intervalBlocks: [{ startSec: 0, durationSec: 180, avgPaceSec: 222 }] as unknown as WorkoutClassification['intervalBlocks'] })
     expect(sessionExecutionQuality(c, null)).toBeNull()
   })
+})
+
+// ── T-247: matchBlocksToPlan ──────────────────────────────────────────────────
+// Golden-Faelle aus denselben Parity-Fixtures wie parity.test.ts (tests/fixtures/parity/,
+// Python-Referenz streams.match_blocks_to_plan) — kein handgetipptes Streams-Fixture, damit
+// die Erwartungswerte aus der Desktop-Referenz kommen statt geraten zu sein.
+const PARITY_FIXTURE_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../tests/fixtures/parity')
+
+function loadFixture(name: string): { streams: ActivityStreams; vdot: number } {
+  const raw = JSON.parse(readFileSync(resolve(PARITY_FIXTURE_DIR, name), 'utf-8'))
+  return { streams: raw.input.streams, vdot: raw.input.vdot }
+}
+
+describe('matchBlocksToPlan', () => {
+  it('Review-Fall (4x1000m @ I-Pace, real 4:11/4:18/4:19/4:25) → verfehlt, alle delta_sec > 0', () => {
+    // Regressionsschutz T-247: gegen die vom Klassifikator geratene T-Pace sah dieselbe
+    // Aktivitaet nach "leicht abgebaut" aus (siehe sessionExecutionQuality-Fixture-Wert),
+    // gegen die tatsaechliche I-Pace-Vorgabe ist es korrekt "verfehlt".
+    const { streams, vdot } = loadFixture('real_intervals_4x1000_plan.json')
+    const cls = classifyWorkoutStructure(streams.time, streams.velocity_smooth, streams.heartrate, vdot, streams.distance)
+    const iPace = Math.round(trainingPaces(vdot).I)
+    const planned: WorkoutStrukturDaten = {
+      kind: 'intervals', reps: 4, rep_m: 1000, rep_sec: null,
+      target_pace_sec: iPace, zone: 'I', rest_sec: 90, wu_km: 3.0, cd_km: 2.0,
+    }
+    const match = matchBlocksToPlan(cls, planned, streams)
+    expect(match).not.toBeNull()
+    expect(match!.foundReps).toBe(4)
+    expect(match!.plannedReps).toBe(4)
+    expect(match!.matched).toBe(true)
+    expect(match!.execution).not.toBeNull()
+    expect(match!.execution!.verdict).toBe('verfehlt')
+    expect(match!.reps).toHaveLength(4)
+    for (const rep of match!.reps) expect(rep.deltaSec).toBeGreaterThan(0)
+  })
+
+  it('Tempo-Fall (2x10min @ T-Pace) → found_reps 2', () => {
+    const { streams, vdot } = loadFixture('real_tempo_2x10min.json')
+    const cls = classifyWorkoutStructure(streams.time, streams.velocity_smooth, streams.heartrate, vdot, streams.distance)
+    const tPace = Math.round(trainingPaces(vdot).T)
+    const planned: WorkoutStrukturDaten = {
+      kind: 'tempo', reps: 2, rep_m: null, rep_sec: 600,
+      target_pace_sec: tPace, zone: 'T', rest_sec: 180, wu_km: 2.0, cd_km: 2.0,
+    }
+    const match = matchBlocksToPlan(cls, planned, null)
+    expect(match).not.toBeNull()
+    expect(match!.foundReps).toBe(2)
+    expect(match!.plannedReps).toBe(2)
+    expect(match!.matched).toBe(true)
+  })
+
+  it('planned=null → null', () => {
+    const { streams, vdot } = loadFixture('real_intervals_4x1000_plan.json')
+    const cls = classifyWorkoutStructure(streams.time, streams.velocity_smooth, streams.heartrate, vdot, streams.distance)
+    expect(matchBlocksToPlan(cls, null, streams)).toBeNull()
+  })
+
+  it('planned ohne reps/rep_m/rep_sec → null', () => {
+    const { streams, vdot } = loadFixture('real_intervals_4x1000_plan.json')
+    const cls = classifyWorkoutStructure(streams.time, streams.velocity_smooth, streams.heartrate, vdot, streams.distance)
+    expect(matchBlocksToPlan(cls, { kind: 'longrun_ff' } as unknown as WorkoutStrukturDaten, streams)).toBeNull()
+    expect(matchBlocksToPlan(cls, {} as unknown as WorkoutStrukturDaten, streams)).toBeNull()
+  })
+
+  // Mutations-Nachweis-Doku (nicht ausfuehrbar als Test, siehe Impl-Notiz): obere Toleranz
+  // 0.8 <= r <= 1.2 auf 0.8 <= r <= 0.99 verengt -> foundReps 3 statt 4 (Review-Fall),
+  // 1 statt 2 (Tempo-Fall) -- Tests oben bewachen die 1.2-Grenze tatsaechlich.
 })
 
 // ── T-148: dataQualityScore ───────────────────────────────────────────────────

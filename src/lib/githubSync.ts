@@ -1,4 +1,5 @@
 import { safeSetItem } from './storage'
+import type { WorkoutStrukturDaten } from './plan'
 
 const OWNER = '6dwkt42m6p-ux'
 const REPO   = 'marathon-pwa'
@@ -17,6 +18,9 @@ export interface SyncedPlanSession {
   original_tag?: string  // T-217: tag before weekOverrides were applied; absent in sync.json
                           // snapshots written before this field existed (backward-compat) —
                           // consumers must fall back to `tag` (session.original_tag ?? session.tag)
+  // T-246 (Desktop) additiv gesetzt; T-247-Reviewer-Hinweis: ohne dieses Feld ist der Wert
+  // am realen Sync-Konsumenten typseitig unsichtbar, obwohl coach.py ihn schon serialisiert.
+  struktur_daten?: WorkoutStrukturDaten | null
 }
 
 export interface SyncedPlanWeek {

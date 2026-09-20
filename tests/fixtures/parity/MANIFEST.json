@@ -1,13 +1,14 @@
 {
  "fixtures": {
   "analyze_run_golden.json": "3918f4903d342537ebb61a2828f411a6f33ffdfe3ea54ec99deda2f5d387fd84",
-  "edge_empty.json": "ff6762abd919804ba16cb8a0a9123fb15be1e6d1bf344fc2e198ef153a2d21de",
-  "real_5km_test_zone_bug.json": "2b53345e57fbc4503f1be7649df46b772ee1969e799f1669bf8dda8f712116df",
-  "real_intervals_5x1000.json": "b16f3188c3461beb86ad053989c024689e43d3a395889d395959a1214f4080e8",
-  "real_longrun_18km.json": "891577543c81579700722281a9275de6a33209554e71082378e14744d36f7f97",
-  "real_tempo_2x10min.json": "ebeb903ace74d2750bc57ab193fe6e206e18e384205ebbbe1c08d73abccf3b05",
-  "synthetic_easy.json": "5d0cd167d140890cf71499e9735b72c910a89683d2ddf0e7c7680ac8cc8be6d2",
-  "synthetic_frozen.json": "081c3b372cf68ece0d23e9d8a4c629307378d47368cf74ac0b88daf2f6a01e41",
-  "synthetic_strides.json": "e909be6e18905bfd4bb7fed2bb66ea5ab2b0a9dc3981676e58993daef00992dd"
+  "edge_empty.json": "8ecb8189ff067a25f6fbe0427fc7b07854468ec72fc0f036aefbb22ce58e91b6",
+  "real_5km_test_zone_bug.json": "459f70fba015c613ccc3dde209e61fac753c0a6763bda6e8bca456a20fe8ff26",
+  "real_intervals_4x1000_plan.json": "d4942446bc5a0f8eb7f45eb481853915f77edd1ea5a56b6af77db5fe721257cb",
+  "real_intervals_5x1000.json": "a6b3e3cc8eb66c5b27a4fc104cba974e720ffbed53af07b743a19aad86fe45d8",
+  "real_longrun_18km.json": "67d0fd4b52c26e8f1da1010a30dbedd97694e3ddbadf27f965b9c6d4eafc4bcf",
+  "real_tempo_2x10min.json": "aec5851de2a9bfdb700f88b2cd11c5006b37d9f93b191146bad2eeefa28ea85d",
+  "synthetic_easy.json": "0b5d32b640bfac5e067f4948f4f322884633a79f0c55602dd44476f6aa24969c",
+  "synthetic_frozen.json": "ec70beed272590a466e606d877496aed6a4d518e388ab2776b27e3ad383b1cdb",
+  "synthetic_strides.json": "464616d05675ae54eac561f3ad03b01a2bb09d21dd6523a8a8d46da606fc1903"
  }
 }

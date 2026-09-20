@@ -19,7 +19,8 @@ import { fileURLToPath } from 'node:url'
 import { createHash } from 'node:crypto'
 
 import { classifyWorkoutStructure, detectStrides, type ActivityStreams } from './strava'
-import { sessionExecutionQuality, dataQualityScore } from './analytics'
+import { sessionExecutionQuality, dataQualityScore, matchBlocksToPlan } from './analytics'
+import type { WorkoutStrukturDaten } from './plan'
 import { durabilitySignals } from './durability'
 import { analyzeRun } from './vdot'
 
@@ -128,6 +129,7 @@ interface Fixture {
     vdot: number
     avg_pace_sec: number
     distance_km: number
+    planned?: WorkoutStrukturDaten | null
   }
   expected: Record<string, unknown>
 }
@@ -166,6 +168,7 @@ describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
   for (const file of streamFiles) {
     const fx = JSON.parse(readFileSync(resolve(FIXTURE_DIR, file), 'utf-8')) as Fixture
     const { streams, vdot, avg_pace_sec, distance_km } = fx.input
+    const planned = fx.input.planned ?? null
 
     it(`${fx.name}: classifyWorkoutStructure`, () => {
       const cls = classifyWorkoutStructure(
@@ -204,6 +207,17 @@ describe('T-171 Parity-Gate: TS-Ports gegen Python-Referenz', () => {
       )
       const diffs = compare(normalise(sessionExecutionQuality(cls, vdot, distance_km, streams)),
                             fx.expected.session_execution_quality, 'session_execution_quality')
+      expect(diffs, diffs.join('\n  ')).toEqual([])
+    })
+
+    it(`${fx.name}: matchBlocksToPlan`, () => {
+      const cls = classifyWorkoutStructure(
+        streams.time as number[], streams.velocity_smooth as number[],
+        streams.heartrate.length ? streams.heartrate : undefined, vdot,
+        streams.distance as number[] | undefined,
+      )
+      const diffs = compare(normalise(matchBlocksToPlan(cls, planned, streams)),
+                            fx.expected.match_blocks_to_plan, 'match_blocks_to_plan')
       expect(diffs, diffs.join('\n  ')).toEqual([])
     })
   }

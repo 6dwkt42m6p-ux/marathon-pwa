@@ -9,8 +9,11 @@ import {
 } from '../lib/strava'
 import { analyzeRun, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
 import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
-import type { WorkoutSession, PlanDeviation } from '../lib/plan'
-import { sessionExecutionQuality, executionBadgeParts, dataQualityScore } from '../lib/analytics'
+import type { WorkoutSession, PlanDeviation, WorkoutStrukturDaten } from '../lib/plan'
+import {
+  sessionExecutionQuality, executionBadgeParts, dataQualityScore,
+  matchBlocksToPlan, type MatchBlocksToPlanResult,
+} from '../lib/analytics'
 import { fetchSync, pushSync, type SyncData } from '../lib/githubSync'
 import {
   buildSaveNoteMutation, buildDeleteNoteMutation,
@@ -186,6 +189,67 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
   )
 }
 
+// T-247: Header-Label bei erfolgreichem Plan-Match, nach `planned.kind` statt nach der
+// (bei zu langsam gelaufenen Intervallen unzuverlaessigen, T-193) aus der Blockdauer
+// geratenen Zone. Faithful port von app.py `_PLAN_KIND_HEADER_LABELS`; andere `kind`-Werte
+// erreichen `matched=true` in der Praxis nicht (siehe Docstring von
+// streams.match_blocks_to_plan — die Ratio-Pruefung filtert sie strukturell aus), daher
+// nur ein generischer Fallback statt eines vollstaendigen Kind-Labels.
+const PLAN_KIND_HEADER_LABELS: Partial<Record<WorkoutStrukturDaten['kind'], string>> = {
+  intervals: '🔄 Intervall-Einheit',
+  tempo:     '🔥 Tempo',
+}
+
+// T-247: ersetzt fuer gematchte Schluesseleinheiten die generischen "Tempo-Block n"-Kacheln
+// aus WorkoutBadge -- Execution-Badge aus `match.execution` + Rep-Tabelle aus `match.reps`.
+// Faithful port von app.py `_render_plan_match`.
+function PlanMatchPanel({ match, planned }: { match: MatchBlocksToPlanResult; planned: WorkoutStrukturDaten }) {
+  const kindLabel = PLAN_KIND_HEADER_LABELS[planned.kind] ?? `📋 ${planned.kind}`
+  const unitPart = match.label.split(' · ')[0]
+  const badge = executionBadgeParts(match.execution)
+
+  return (
+    <div style={{ background: 'var(--surface2)', borderRadius: '6px', padding: '8px 10px', fontSize: '12px' }}>
+      <div style={{ fontWeight: 700, marginBottom: '6px' }}>{kindLabel} ({unitPart})</div>
+      {badge ? (
+        <div style={{ color: badge.color, fontWeight: 600, marginBottom: match.reps.length ? '6px' : '0' }}>
+          🎯 {badge.label} — {match.label}
+        </div>
+      ) : (
+        <div style={{ color: 'var(--text-2)', marginBottom: match.reps.length ? '6px' : '0' }}>{match.label}</div>
+      )}
+      {match.reps.length > 0 && (
+        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ color: 'var(--text-2)', textAlign: 'left' }}>
+              <th style={{ padding: '2px 6px 2px 0', fontWeight: 600 }}>#</th>
+              <th style={{ padding: '2px 6px', fontWeight: 600 }}>Distanz</th>
+              <th style={{ padding: '2px 6px', fontWeight: 600 }}>Dauer</th>
+              <th style={{ padding: '2px 6px', fontWeight: 600 }}>Pace</th>
+              <th style={{ padding: '2px 6px', fontWeight: 600 }}>Δ Soll</th>
+              <th style={{ padding: '2px 0 2px 6px', fontWeight: 600 }}>Ø HF</th>
+            </tr>
+          </thead>
+          <tbody>
+            {match.reps.map((rep, i) => (
+              <tr key={i} style={{ color: 'var(--text-1)' }}>
+                <td style={{ padding: '2px 6px 2px 0', fontWeight: 700 }}>{i + 1}</td>
+                <td style={{ padding: '2px 6px' }}>{rep.distanceM != null ? `${Math.round(rep.distanceM)} m` : '—'}</td>
+                <td style={{ padding: '2px 6px' }}>{fmt(rep.durationSec)} min</td>
+                <td style={{ padding: '2px 6px' }}>{fmt(rep.paceSec)} /km</td>
+                <td style={{ padding: '2px 6px', color: rep.deltaSec == null ? undefined : (rep.deltaSec > 0 ? '#e53935' : '#4CAF50') }}>
+                  {rep.deltaSec != null ? `${rep.deltaSec >= 0 ? '+' : '-'}${Math.abs(rep.deltaSec)} s` : '—'}
+                </td>
+                <td style={{ padding: '2px 0 2px 6px' }}>{rep.avgHr != null ? Math.round(rep.avgHr) : '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </div>
+  )
+}
+
 interface RunDetailProps {
   analysis: ReturnType<typeof analyzeRun>
   act: ActivitySummary
@@ -314,6 +378,21 @@ export default function RunDetail({
   }
 
   const durationMin = act.durationSec > 0 ? Math.round(act.durationSec / 60) : null
+
+  // T-247: Plan-first Auswertung (AC2/AC3-Reihenfolge): (a) geplante Session des Tages
+  // (plannedSession, gesyncte Desktop-Session inkl. struktur_daten), (b) bei struktur_daten
+  // vorhanden Match-Versuch, (c) bei fehlendem Match Fallback auf den unveraenderten
+  // generischen Pfad (WorkoutBadge + executionSlot). T-196/D-047 Testlauf-Vorrang bleibt
+  // erhalten: ein Zeitfahren bekommt nie ein plan-basiertes Ausfuehrungs-Verdikt, der
+  // Plan-Match wird fuer Testlauf-Tage erst gar nicht versucht.
+  const testRun = testRuns?.[String(act.id)]
+  const plannedStruktur = plannedSession?.struktur_daten ?? null
+  const planMatch: MatchBlocksToPlanResult | null =
+    !testRun && classification && plannedStruktur
+      ? matchBlocksToPlan(classification, plannedStruktur, streams)
+      : null
+  const usePlanMatch = !!(planMatch && planMatch.matched)
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
@@ -403,9 +482,13 @@ export default function RunDetail({
       )}
       {streamErr && <div style={{ color: '#e53935', fontSize: '11px' }}>{streamErr}</div>}
 
-      {classification && <WorkoutBadge classification={classification} />}
+      {classification && !usePlanMatch && <WorkoutBadge classification={classification} />}
 
-      {(() => {
+      {usePlanMatch && planMatch && plannedStruktur && (
+        <PlanMatchPanel match={planMatch} planned={plannedStruktur} />
+      )}
+
+      {!usePlanMatch && (() => {
         const slot = executionSlot(classification, testRuns, act, vdot, streams)
         if (!slot) return null
         if (slot.kind === 'testRun') {

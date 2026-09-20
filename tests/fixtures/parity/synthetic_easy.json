@@ -34,6 +34,7 @@
    "gap_adjusted": true,
    "pace_fade_pct": 0.0
   },
+  "match_blocks_to_plan": null,
   "session_execution_quality": null
  },
  "input": {
