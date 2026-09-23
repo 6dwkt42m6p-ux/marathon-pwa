@@ -49,6 +49,7 @@ import {
 } from '../lib/plan'
 import type { AppSettings } from '../lib/storage'
 import { loadNote } from '../lib/storage'
+import { helpText } from '../lib/glossary'
 import { fetchSync, type SyncedPlan, type SyncedPlanSession, type SyncData } from '../lib/githubSync'
 import RunDetail from './RunDetail'
 import { resolveNote } from '../lib/notesSync'
@@ -125,8 +126,43 @@ function DurabilitySparkline({ series, color }: { series: Array<[number, number]
   )
 }
 
+// T-244: ⓘ-Toggle für Glossar-Erklärungen an KPI-Labels — kein title-Tooltip (funktioniert
+// auf Touch nicht, siehe T-244-Befund), Tap togglet eine sichtbare `kpi-help`-Zeile.
+// `variant="tile"` füllt die volle Breite einer schmalen KPI-Tile (kollisionsfrei in der
+// engen 3-Spalten-Reihe, echtes 44px-Touch-Ziel ohne Overlap mit Nachbar-Buttons);
+// `variant="inline"` ist ein kompaktes rundes Icon für Fließtext-Kontexte (z.B. neben einer
+// Section-Überschrift wie „Verletzungsrisiko").
+function HelpToggle({ glossaryKey, open, onToggle, variant = 'inline' }: {
+  glossaryKey: string
+  open: boolean
+  onToggle: () => void
+  variant?: 'inline' | 'tile'
+}) {
+  return (
+    <button
+      type="button"
+      className={variant === 'tile' ? 'kpi-help-btn kpi-help-btn--tile' : 'kpi-help-btn'}
+      aria-label={`Erklärung ${glossaryKey}`}
+      aria-expanded={open}
+      onClick={onToggle}
+    >
+      ⓘ
+    </button>
+  )
+}
+
 export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, syncedThreshold, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
   const [expandedId, setExpandedId] = useState<number | null>(null)
+  // T-244: welche Glossar-ⓘ sind aufgeklappt (Set von Keys, unabhängig togglebar).
+  const [openHelp, setOpenHelp] = useState<Set<string>>(new Set())
+  function toggleHelp(key: string) {
+    setOpenHelp(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
   const [noteVersion, setNoteVersion] = useState(0)
   const [cached, setCached] = useState<StravaActivity[]>(getCachedActivities)
   const [syncedPlan, setSyncedPlan] = useState<SyncedPlan | null>(null)
@@ -439,16 +475,22 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                 <div className="kpi-tile">
                   <span className="kpi-value" style={{ color: tsbColor }}>{tsb > 0 ? '+' : ''}{tsb}</span>
                   <span className="kpi-label">TSB</span>
+                  <HelpToggle glossaryKey="TSB" variant="tile" open={openHelp.has('TSB')} onToggle={() => toggleHelp('TSB')} />
                 </div>
                 <div className="kpi-tile">
                   <span className="kpi-value">{ctl}</span>
                   <span className="kpi-label">CTL (42d)</span>
+                  <HelpToggle glossaryKey="CTL" variant="tile" open={openHelp.has('CTL')} onToggle={() => toggleHelp('CTL')} />
                 </div>
                 <div className="kpi-tile">
                   <span className="kpi-value">{atl}</span>
                   <span className="kpi-label">ATL (7d)</span>
+                  <HelpToggle glossaryKey="ATL" variant="tile" open={openHelp.has('ATL')} onToggle={() => toggleHelp('ATL')} />
                 </div>
               </div>
+              {(['TSB', 'CTL', 'ATL'] as const).filter(k => openHelp.has(k)).map(k => (
+                <div key={k} className="kpi-help">{helpText(k)}</div>
+              ))}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <span style={{ fontSize: '18px' }}>{tsbIcon}</span>
                 <div>
@@ -489,12 +531,16 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               {/* T-144: Verletzungsrisiko-Block (ACWR + CTL-Ramp) */}
               {injury && injury.enoughData && (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid var(--border, #ffffff22)' }}>
-                  <div style={{ fontSize: '13px', fontWeight: 600 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 2 }}>
                     {injury.riskEmoji} Verletzungsrisiko
+                    <HelpToggle glossaryKey="ACWR" open={openHelp.has('ACWR')} onToggle={() => toggleHelp('ACWR')} />
                   </div>
                   <div style={{ fontSize: '12px', color: injury.acwrColor, marginTop: 2 }}>{injury.acwrLabel}</div>
                   {injury.rampLabel && (
                     <div style={{ fontSize: '11px', color: injury.rampColor, marginTop: 2 }}>{injury.rampLabel}</div>
+                  )}
+                  {openHelp.has('ACWR') && (
+                    <div className="kpi-help">{helpText('ACWR')}</div>
                   )}
                 </div>
               )}

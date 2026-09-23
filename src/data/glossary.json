@@ -1,0 +1,196 @@
+{
+  "80/20": {
+    "name": "80/20-Intensitätsverteilung",
+    "short": "Trainingsprinzip: ~80 % der Laufzeit locker (Easy), ~20 % qualitativ hart; Graue Zone (Z3) möglichst gering halten."
+  },
+  "ACWR": {
+    "name": "Acute:Chronic Workload Ratio (ACWR)",
+    "short": "Verhältnis akute Last (7d-EWMA) zu chronischer Last (28d-EWMA). < 0.8 Unterlast · 0.8–1.3 Sweet-Spot · 1.3–1.5 erhöht · > 1.5 hoch.",
+    "long": "ACWR vergleicht die kurzfristige (7 Tage) mit der langfristigen (28 Tage) Trainingslast und ist ein etablierter Indikator für Verletzungsrisiko bei zu schneller Laststeigerung. Zonen: < 0.8 Unterlast (Detraining-Bereich) · 0.8–1.3 Sweet-Spot, Last gut balanciert · 1.3–1.5 erhöhte akute Last, beobachten · > 1.5 akute Last deutlich über Chronic, 1–2 Tage zurücknehmen."
+  },
+  "ATL": {
+    "name": "Acute Training Load (ATL)",
+    "short": "Ermüdung: 7-Tage-EWMA der täglichen Trainingslast. Höher = aktuell mehr Belastung."
+  },
+  "Abw. Easy-Mitte": {
+    "name": "Abweichung Easy-Mitte",
+    "short": "Wie weit die tatsächliche Easy-Pace vom Mittelpunkt der Easy-Zone (E_low…E_high) abweicht — zeigt zu schnelle oder zu langsame Grundlagenläufe."
+  },
+  "CSS": {
+    "name": "Critical Swim Speed (CSS)",
+    "short": "Schwimm-Schwellentempo aus Technik- (langsamster) und VO₂-Test (schnellster), Basis für Schwimm-Trainingszonen.",
+    "unit": "s/100m"
+  },
+  "CTL": {
+    "name": "Chronic Training Load (CTL)",
+    "short": "Fitness: 42-Tage-EWMA der täglichen Trainingslast. Höher = mehr aerobe Basis aufgebaut."
+  },
+  "CTL-Ramp": {
+    "name": "CTL-Ramp-Rate",
+    "short": "Veränderung der CTL (42-Tage-Fitness) pro Woche. Zu schnelle Steigerung erhöht das Verletzungsrisiko, zu starker Abfall bedeutet Formverlust (Detraining)."
+  },
+  "Durability": {
+    "name": "Durability (Spätform-Haltbarkeit)",
+    "short": "Fähigkeit, Pace über die Distanz zu halten. Wird aus HR-Decoupling und Pace-Fade auf langen Läufen sowie Marathon- vs. Kurzstrecken-VDOT abgeleitet."
+  },
+  "E": {
+    "name": "Easy (E)",
+    "short": "Lockere Grundlagenpace (Daniels): aerobe Basis, Erholung zwischen härteren Einheiten.",
+    "unit": "s/km"
+  },
+  "EF": {
+    "name": "Efficiency Factor (EF)",
+    "short": "Friel: Pace (m/min) ÷ Ø-Herzfrequenz auf Easy-Läufen. Steigend = mehr Meter pro Herzschlag = bessere aerobe Laufökonomie.",
+    "long": "Der Efficiency Factor setzt Lauftempo ins Verhältnis zur Herzfrequenz. Ein steigender EF bei gleicher HF (oder gleichem Tempo bei sinkender HF) zeigt eine verbesserte aerobe Ökonomie an — auch wenn reine Easy-HR-Trends das nicht erfassen würden (z.B. wenn Pace bei gleicher HF steigt).",
+    "unit": "m/bpm"
+  },
+  "FTP": {
+    "name": "Functional Threshold Power (FTP)",
+    "short": "Höchstleistung, die ca. 1 Stunde gehalten werden kann. Basis für Coggan-Rad-Zonen und Bike-TSS.",
+    "unit": "W"
+  },
+  "GAP": {
+    "name": "Grade Adjusted Pace (GAP)",
+    "short": "Gelände- und hitzebereinigte Pace — macht Läufe mit unterschiedlichem Höhenprofil/Temperatur fair vergleichbar.",
+    "unit": "s/km"
+  },
+  "Graue Zone": {
+    "name": "Graue Zone",
+    "short": "Z3 (70–80 % HRR / M-Tempo): weder klar locker noch klar hart. Sollte laut 80/20-Prinzip möglichst gering gehalten werden."
+  },
+  "HF": {
+    "name": "Herzfrequenz (HF)",
+    "short": "Ø Herzfrequenz in bpm während der Aktivität.",
+    "unit": "bpm"
+  },
+  "HFmax": {
+    "name": "Maximale Herzfrequenz (HFmax)",
+    "short": "Höchste je erreichte Herzfrequenz; Basis für %HFmax-Zonen (Z1–Z5).",
+    "unit": "bpm"
+  },
+  "HFrest": {
+    "name": "Ruhepuls (HFrest)",
+    "short": "Herzfrequenz in vollständiger Ruhe; Basis für Karvonen-Zonen (%HRR).",
+    "unit": "bpm"
+  },
+  "HRR": {
+    "name": "Heart Rate Reserve (HRR)",
+    "short": "= HFmax − HFrest (Karvonen-Formel). %HRR ist die Basis für die Z1–Z5-Zoneneinteilung und die 65%-HRR-Grenze in Trend-Analysen."
+  },
+  "I": {
+    "name": "Intervall (I)",
+    "short": "VO2max-Pace: harte Intervalle mit Traberholung, steigert die maximale Sauerstoffaufnahme.",
+    "unit": "s/km"
+  },
+  "IF": {
+    "name": "Intensity Factor (IF)",
+    "short": "NP ÷ FTP (Rad) bzw. Threshold-Pace ÷ Ø-Pace (Lauf). 1.0 = genau an der Schwelle."
+  },
+  "LTHR": {
+    "name": "Lactate Threshold Heart Rate (LTHR)",
+    "short": "Herzfrequenz an der Laktatschwelle (Friel); Basis für HF-Zonen und hrTSS-Berechnung.",
+    "unit": "bpm"
+  },
+  "Load": {
+    "name": "Tages-Trainingslast (Load)",
+    "short": "Tages-Belastungspunkte je Einheit. Priorität: rTSS/hrTSS → Bike-TSS → Strava Suffer Score → Dauer×Faktor (erster verfügbarer Wert gewinnt)."
+  },
+  "M": {
+    "name": "Marathon-Pace (M)",
+    "short": "Zielpace fürs Marathon-Renntempo — leicht unter Schwelle, lange am Stück haltbar.",
+    "unit": "s/km"
+  },
+  "NP": {
+    "name": "Normalized Power (NP)",
+    "short": "Geglättete, gewichtete Leistungskennzahl (Rad), die Leistungsspitzen stärker gewichtet als der reine Durchschnitt. Basis für IF und TSS.",
+    "unit": "W"
+  },
+  "Pa:HR-Decoupling": {
+    "name": "Pace:HR-Decoupling (kardialer Drift)",
+    "short": "Friel: EF(1. Hälfte) vs. EF(2. Hälfte) eines Laufs. Positiver Drift = HF steigt bei gleicher Pace = aerobe Entkopplung/Ermüdung.",
+    "unit": "%"
+  },
+  "Pace-Drift": {
+    "name": "Pace-Drift",
+    "short": "Abweichung der Ist-Pace von der Plan-/Soll-Pace innerhalb einer Einheit oder eines Segments, in Prozent.",
+    "unit": "%"
+  },
+  "Pace-Fade": {
+    "name": "Pace-Fade",
+    "short": "Geländebereinigte Pace-Verschlechterung in der 2. Hälfte eines langen Laufs — Proxy für Marathon-Durability (Sub-Ziel-Limiter).",
+    "unit": "%"
+  },
+  "Plan-Badges": {
+    "name": "Plan-Badges",
+    "short": "Soll/Ist-Kennzeichnung je Aktivität: 📋 ✓ plangemäß · 📋 ↗️ mehr Volumen · 📋 ↘️ weniger Volumen · 📋 ⚡ intensiver · 💤→🏃 Lauf an geplantem Ruhetag."
+  },
+  "R": {
+    "name": "Repetition (R)",
+    "short": "Schnellste Trainingspace: kurze Sprints mit voller Erholung, verbessert Laufökonomie & Speed.",
+    "unit": "s/km"
+  },
+  "Strides": {
+    "name": "Strides (Steigerungsläufe)",
+    "short": "Kurze Tempo-Steigerungen (10–20s) innerhalb eines lockeren Laufs; Peak-basierte Erkennung über VDOT-verankerte Geschwindigkeitsschwelle."
+  },
+  "Suffer Score": {
+    "name": "Suffer Score",
+    "short": "Strava-eigene HF-basierte Belastungskennzahl (0–200 normiert); Fallback-Quelle für die tägliche Trainingslast, wenn kein rTSS/hrTSS berechenbar ist."
+  },
+  "T": {
+    "name": "Schwellenlauf (T)",
+    "short": "Tempo-/Threshold-Pace: Laktatschwelle, ca. 1h-Renntempo, verbessert die Ausdauergeschwindigkeit.",
+    "unit": "s/km"
+  },
+  "TSB": {
+    "name": "Training Stress Balance (TSB)",
+    "short": "Form = CTL − ATL. 🔴 < −30 Überbelastung · 🟡 −30…0 Aufbau · 🟢 0…+20 Fit · 🏁 > +20 Rennform.",
+    "long": "TSB misst, wie erholt bzw. wie ermüdet ein Athlet aktuell relativ zur eigenen Fitness ist. Ein stark negatives TSB signalisiert Überbelastungsrisiko, ein stark positives TSB (typisch in der Taper-Woche) signalisiert Rennform."
+  },
+  "TSS": {
+    "name": "Training Stress Score (TSS)",
+    "short": "Normierte Belastungspunktzahl: 1 Stunde an der Schwelle (Pace, HF oder Rad-Leistung) = 100 Punkte."
+  },
+  "Threshold-Pace": {
+    "name": "Schwellen-Pace (Threshold-Pace)",
+    "short": "Tempo an der Laktatschwelle (≈ 1h-Renntempo); Basis für rTSS und die T-Zone im Training.",
+    "unit": "s/km"
+  },
+  "VDOT": {
+    "name": "VDOT",
+    "short": "Daniels-Laufleistungskennzahl aus einem Referenzlauf; leitet alle Trainings-Paces (E/M/T/I/R) und Zielzeiten ab.",
+    "long": "Von Jack Daniels entwickelter Fitness-Index, der aus Distanz und Zeit eines Wettkampf- oder Testlaufs berechnet wird. Höherer VDOT = bessere Laufform. Alle Trainingspaces (Easy, Marathon, Threshold, Interval, Repetition) werden aus dem VDOT abgeleitet, ebenso Zielzeit-Prognosen."
+  },
+  "Z1": {
+    "name": "Z1 — Regeneration",
+    "short": "< 60 % HRR (Karvonen). Lockere Regeneration, sehr niedrige Belastung."
+  },
+  "Z2": {
+    "name": "Z2 — Grundlage",
+    "short": "60–70 % HRR (Karvonen). Aerobe Grundlagenzone, Easy-Läufe."
+  },
+  "Z3": {
+    "name": "Z3 — Aerob intensiv",
+    "short": "70–80 % HRR (Karvonen). Graue Zone — weder klar Easy noch klar Quality, möglichst gering halten (80/20-Prinzip)."
+  },
+  "Z4": {
+    "name": "Z4 — Schwelle",
+    "short": "80–90 % HRR (Karvonen). Schwellenbereich, Tempoläufe (T)."
+  },
+  "Z5": {
+    "name": "Z5 — Maximal",
+    "short": "≥ 90 % HRR (Karvonen). Maximale Anstrengung, Intervalle/Repetitions."
+  },
+  "Zonen": {
+    "name": "Trainingszonen",
+    "short": "Intensitätsstufen zur Einordnung von Trainingsreiz/Erholung: Z1–Z5 nach %HRR bzw. %LTHR (HF-basiert) oder E/M/T/I/R nach Daniels-Pace."
+  },
+  "hrTSS": {
+    "name": "Heart-Rate TSS (hrTSS)",
+    "short": "HF-basiertes TSS für strukturierte Läufe: IF_hr = (Ø-HF − HFrest) ÷ (LTHR − HFrest), hrTSS = Dauer(h) × IF_hr² × 100."
+  },
+  "rTSS": {
+    "name": "Running TSS (rTSS)",
+    "short": "Pace-basiertes TSS für Läufe: IF = Threshold-Pace ÷ Ø-Pace, rTSS = Dauer(h) × IF² × 100. 1h an Threshold-Pace = 100."
+  }
+}

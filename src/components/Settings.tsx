@@ -20,6 +20,7 @@ import {
   resolvePendingNoteMutation,
   type NoteMutation,
 } from '../lib/notesSync'
+import { GLOSSARY, label as glossaryLabel } from '../lib/glossary'
 
 interface Props {
   settings: AppSettings
@@ -766,6 +767,23 @@ export default function Settings({ settings, onUpdate }: Props) {
           Vorbereitungsrennen (vom Desktop gesteuert)
         </label>
       </div>
+
+      {/* T-244: Abkürzungs-Glossar — dieselbe Quelle wie die ⓘ-Toggles in Analysis.tsx
+          (src/data/glossary.json, generiert aus glossary.py). Native <details> statt
+          eigenem Toggle-State: kostenlos accessible (Tastatur + Screenreader), Touch-Ziel
+          durch <summary>-Padding automatisch groß genug. */}
+      <div className="section-title">📖 Begriffe</div>
+      <details className="glossary-details">
+        <summary>Alle Abkürzungen anzeigen ({Object.keys(GLOSSARY).length})</summary>
+        <div className="glossary-list">
+          {Object.entries(GLOSSARY).map(([key, entry]) => (
+            <div key={key} className="glossary-item">
+              <div className="glossary-item-name">{glossaryLabel(key)}</div>
+              <div className="glossary-item-short">{entry.short}</div>
+            </div>
+          ))}
+        </div>
+      </details>
 
       <button
         className={`btn-save ${saved ? 'saved' : ''}`}
