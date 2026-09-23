@@ -720,6 +720,31 @@ body {
 .setting-row { display: flex; align-items: center; gap: 12px; }
 .setting-hint { font-size: 12px; color: var(--accent-1); }
 
+/* T-244: Begriffe-Collapsible (Glossar). <summary> ist der native Toggle — min-height 44px
+   deckt das Touch-Ziel ab, list-style entfernt (kein Browser-Dreieck vor Emoji-Text). */
+.glossary-details {
+  background: var(--bg-surface);
+  backdrop-filter: var(--blur);
+  -webkit-backdrop-filter: var(--blur);
+  border-radius: var(--radius-card);
+  border: 1px solid var(--border);
+  padding: 0 14px;
+}
+.glossary-details summary {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-2);
+  cursor: pointer;
+  list-style: none;
+}
+.glossary-details summary::-webkit-details-marker { display: none; }
+.glossary-list { display: flex; flex-direction: column; gap: 10px; padding: 0 0 14px; }
+.glossary-item-name { font-size: 13px; font-weight: 700; }
+.glossary-item-short { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+
 .setting-input {
   width: 100%;
   background: var(--bg-overlay);
@@ -865,6 +890,52 @@ body {
 }
 .kpi-value { font-size: 20px; font-weight: 800; display: block; }
 .kpi-label { font-size: 10px; color: var(--text-2); text-transform: uppercase; font-weight: 600; }
+
+/* T-244 (Fix-Loop 1, Coordinator-Review): ⓘ-Glossar-Toggle. Kein title-Attribut
+   (Touch hat kein Hover) — sichtbarer, togglebarer kpi-help-Text stattdessen.
+   Feste `width`/`height` (box-sizing: border-box) statt padding+negative-margin:
+   die vorige Padding-Variante bemaß die Hit-Fläche über Glyph-Content-Box + Padding
+   (14px + Glyphbreite + 14px) — Messung ergab 41x41px statt 44x44px, weil die
+   "ⓘ"-Glyphe schmaler ist als angenommen. Ein fester border-box-Wert ist unabhängig
+   von Schriftmetriken. EINE Basisregel für BEIDE Varianten — die Tile-Variante
+   überschreibt nur `width` (volle Kachelbreite, vermeidet Overlap zwischen den drei
+   eng benachbarten TSB/CTL/ATL-Buttons), `height` bleibt bei 44px, keine
+   Sonderregel schrumpft je eine Dimension unter 44px. */
+.kpi-help-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  border-radius: 999px;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  margin: 0;
+  flex-shrink: 0;
+}
+.kpi-help-btn:active { color: var(--text-1); background: var(--bg-overlay); }
+/* Tile-Variante: volle Tile-Breite als eigene Zeile (height bleibt 44px von oben). */
+.kpi-help-btn--tile {
+  display: flex;
+  width: 100%;
+  margin-top: 2px;
+}
+.kpi-help {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-top: 6px;
+  padding: 8px 10px;
+  background: var(--bg-overlay);
+  border-radius: var(--radius-sm);
+  text-align: left;
+}
 
 /* Reusable stat-card class (glass) */
 .stat-card {

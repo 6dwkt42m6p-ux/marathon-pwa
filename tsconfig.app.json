@@ -8,6 +8,8 @@
     // url/crypto in src/lib/parity.test.ts). @types/node ist ohnehin devDependency.
     "types": ["vite/client", "node"],
     "skipLibCheck": true,
+    // T-244: src/data/glossary.json wird als Modul importiert (src/lib/glossary.ts).
+    "resolveJsonModule": true,
 
     /* Bundler mode */
     "moduleResolution": "bundler",
