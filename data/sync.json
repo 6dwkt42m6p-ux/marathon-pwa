@@ -44,11 +44,12 @@
       "Do": "Di"
     },
     "2026-10-05": {
+      "Mo": "Fr",
       "Mi": "Sa",
       "Sa": "Mi"
     }
   },
-  "lastModified": "2026-10-07T20:59:32.596Z",
+  "lastModified": "2026-10-07T20:59:40.063Z",
   "lastDevice": "pwa",
   "plan": {
     "schemaVersion": 2,
