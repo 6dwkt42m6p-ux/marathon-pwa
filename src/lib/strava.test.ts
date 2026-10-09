@@ -342,15 +342,15 @@ describe('efficiencyFactorTrend (T-120)', () => {
   })
 })
 
-// ── T-122: activityLoad — factor-map parity with coach.py _daily_load ────────
+// ── T-122: activityLoad — factor-map parity with coach_load.py:_daily_load ────────
 // Expected values derived from the DESKTOP factor maps (NOT from the PWA function),
 // ensuring tests catch regressions, not just mirror the implementation.
 //
-// _WORKOUT_TYPE_FACTOR (coach.py):
+// _WORKOUT_TYPE_FACTOR (coach_load.py):
 //   run:  0→1.0, 1→1.4 (race), 2→0.9 (long), 3→1.3 (workout)
 //   ride: 10→1.4, 11→1.3, 12→0.9
 //
-// _SPORT_TYPE_FACTOR (coach.py):
+// _SPORT_TYPE_FACTOR (coach_load.py):
 //   Swim→0.8, Hike→0.8, Walk→0.8, VirtualRide→1.0, EBikeRide→0.6
 //
 // Auswahllogik:
@@ -458,7 +458,7 @@ describe('activityLoad (T-122) — suffer_score priority', () => {
 })
 
 // ── T-125: bikeTss formula ────────────────────────────────────────────────────
-// Reference: coach.py bike_tss: TSS = duration_sec * IF^2 / 3600 * 100
+// Reference: coach_multisport.py:bike_tss: TSS = duration_sec * IF^2 / 3600 * 100
 // where IF = np_watts / ftp.
 // Expected values computed from the formula directly, NOT from the function
 // (anti-tautology: a coding error would produce wrong result, not a passing test).
@@ -594,7 +594,7 @@ describe('computeAtlCtl (T-125) — ftp parameter propagates to activityLoad', (
   })
 })
 
-// ── T-138: runRtss / runHrtss — formula identical to coach.py ─────────────────
+// ── T-138: runRtss / runHrtss — formula identical to coach_load.py ─────────────────
 
 describe('runRtss / runHrtss (T-138) — formelgleich zu coach.py', () => {
   it('rTSS: 1 h @ threshold pace = 100', () => {
@@ -789,7 +789,7 @@ describe('GAP/Hitze in vdotTrendFromActivities (T-140)', () => {
   })
 })
 
-// ── T-186: bestVdotFromActivities — faithful port of coach.py:best_vdot_from_activities.
+// ── T-186: bestVdotFromActivities — faithful port of coach_analysis.py:best_vdot_from_activities.
 // Before this fix, StravaSync.tsx computed the displayed VDOT on raw (uncorrected) times,
 // diverging from the Desktop by up to 1.6 VDOT points and even picking a different "best" run.
 
@@ -841,7 +841,7 @@ describe('bestVdotFromActivities — GAP/Hitze-Normalisierung (T-186)', () => {
   // T-219: Median (die Zahl) und Metadaten müssen vom selben Lauf stammen. Vor dem Fix
   // kam die Zahl vom Median der Top-3, die Metadaten aber vom schnellsten Lauf (efforts[0])
   // — bei drei klar unterscheidbaren Efforts (VDOT 47/49/52) zeigte die UI den 52er-Lauf als
-  // Quelle, obwohl der angezeigte Wert 49 war. Desktop-Referenz: coach.py:738–743 (T-194),
+  // Quelle, obwohl der angezeigte Wert 49 war. Desktop-Referenz: coach_analysis.py:best_vdot_from_activities (T-194),
   // best_row = min(efforts, key=lambda t: abs(t[0] - best_v))[1].
   it('T-219: Metadaten kommen vom Median-nächsten Effort, nicht vom schnellsten (VDOT 47/49/52)', () => {
     const distanceM = 10_000

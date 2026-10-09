@@ -286,7 +286,7 @@ describe('injuryRisk', () => {
   })
 })
 
-// ── T-177: rampZone grid (isolierter Branch, faithful port coach.py:_ramp_zone) ─
+// ── T-177: rampZone grid (isolierter Branch, faithful port coach_load.py:_ramp_zone) ─
 
 describe('rampZone', () => {
   it('detrain grid: <= -3.0 → blue, kein "Aufbau"-Wortlaut', () => {
