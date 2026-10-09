@@ -264,26 +264,100 @@ export function deleteNote(activityId: number): void {
   localStorage.removeItem(`note_${activityId}`)
 }
 
-// Remote-weekOverrides (Desktop) additiv in localStorage uebernehmen. Je Woche isoliert (P-11):
-// ein korruptes week_override_* oder ein Quota-Fehler darf weder die uebrigen Wochen noch den
-// nachfolgenden Notiz-Flush im Startup-Sync abbrechen.
-export function applyRemoteWeekOverrides(weekOverrides: Record<string, Record<string, string>>): void {
-  const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-  for (const [weekKey, map] of Object.entries(weekOverrides)) {
+// --- Week overrides (day swaps) ---
+
+const WEEK_OVERRIDE_PREFIX = 'week_override_'
+// Not under WEEK_OVERRIDE_PREFIX on purpose — prefix scans over week_override_* must not see it.
+const WEEK_OVERRIDE_PENDING_PREFIX = 'wo_pending_'
+const WEEK_DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+type DaySwap = { originalDay: string; currentDay: string }
+
+// T-260 P-06: a local swap not yet confirmed in the remote sync.json. Value = stamp of the local
+// edit, so a push that resolves late cannot clear the marker of a newer edit (clear-if-equal).
+export function markWeekOverridePending(weekKey: string, stamp: string = new Date().toISOString()): string {
+  safeSetItem(WEEK_OVERRIDE_PENDING_PREFIX + weekKey, stamp)
+  return stamp
+}
+
+export function clearWeekOverridePending(weekKey: string, stamp?: string): void {
+  try {
+    const k = WEEK_OVERRIDE_PENDING_PREFIX + weekKey
+    if (stamp === undefined || localStorage.getItem(k) === stamp) localStorage.removeItem(k)
+  } catch { /* iOS private mode */ }
+}
+
+export function isWeekOverridePending(weekKey: string): boolean {
+  try { return localStorage.getItem(WEEK_OVERRIDE_PENDING_PREFIX + weekKey) !== null } catch { return false }
+}
+
+function loadWeekSwaps(weekKey: string): DaySwap[] {
+  try {
+    const parsed = JSON.parse(localStorage.getItem(WEEK_OVERRIDE_PREFIX + weekKey) ?? '[]')
+    return Array.isArray(parsed) ? parsed : []
+  } catch { return [] /* korrupt -> aus Remote neu aufbauen */ }
+}
+
+// Remote shape: only swapped days (originalDay → currentDay), cf. TodayWorkout.pushOverridesToGitHub.
+function swapsToMap(arr: DaySwap[]): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const a of arr) if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay
+  return map
+}
+
+function sameMap(a: Record<string, string>, b: Record<string, string>): boolean {
+  const ka = Object.keys(a)
+  return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k])
+}
+
+function localWeekKeys(): string[] {
+  const keys: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i) || ''
+    if (k.startsWith(WEEK_OVERRIDE_PREFIX)) keys.push(k.slice(WEEK_OVERRIDE_PREFIX.length))
+  }
+  return keys
+}
+
+// Remote-weekOverrides (Desktop) in localStorage spiegeln. Je Woche isoliert (P-11): ein korruptes
+// week_override_* oder ein Quota-Fehler darf weder die uebrigen Wochen noch den nachfolgenden
+// Notiz-Flush im Startup-Sync abbrechen.
+// T-260 P-06: Remote ist SSoT fuer jede Woche, die lokal NICHT pending ist — fehlt die Woche
+// (Desktop "Tausche zuruecksetzen") oder ein Tag (Einzel-Undo) remote, wird der lokale Tausch
+// verworfen. Pending Wochen bleiben lokal; traegt Remote exakt ihren Stand, endet pending.
+export function applyRemoteWeekOverrides(weekOverrides: Record<string, Record<string, string>> | null | undefined): void {
+  const remote = weekOverrides ?? {}
+  let localKeys: string[] = []
+  try { localKeys = localWeekKeys() } catch { /* storage unreadable */ }
+  const allWeeks = new Set([...Object.keys(remote), ...localKeys])
+  for (const weekKey of allWeeks) {
     try {
-      const lsKey = `week_override_${weekKey}`
-      let arr: Array<{ originalDay: string; currentDay: string }> = []
-      try {
-        const parsed = JSON.parse(localStorage.getItem(lsKey) ?? '[]')
-        if (Array.isArray(parsed)) arr = parsed
-      } catch { /* korrupt -> aus Remote neu aufbauen */ }
-      const updated = days
+      const lsKey = WEEK_OVERRIDE_PREFIX + weekKey
+      const raw = remote[weekKey]
+      const map: Record<string, string> = raw && typeof raw === 'object' ? raw : {}
+      const arr = loadWeekSwaps(weekKey)
+      if (isWeekOverridePending(weekKey)) {
+        if (sameMap(swapsToMap(arr), map)) clearWeekOverridePending(weekKey)
+        continue
+      }
+      const updated = WEEK_DAYS
         .filter(d => arr.some(a => a.originalDay === d) || map[d])
-        .map(d => {
-          const found = arr.find(a => a.originalDay === d)
-          return { originalDay: d, currentDay: map[d] ?? found?.currentDay ?? d }
-        })
-      if (updated.length > 0) safeSetItem(lsKey, JSON.stringify(updated))
+        .map(d => ({ originalDay: d, currentDay: map[d] ?? d }))
+      if (updated.some(a => a.originalDay !== a.currentDay)) safeSetItem(lsKey, JSON.stringify(updated))
+      else if (localStorage.getItem(lsKey) !== null) localStorage.removeItem(lsKey)
     } catch { /* naechste Woche */ }
   }
+}
+
+// T-260 P-06: pending weeks as remote-shaped maps (+ stamp) for a re-push on the next sync.
+export function pendingWeekOverrideMaps(): Record<string, { stamp: string; map: Record<string, string> }> {
+  const out: Record<string, { stamp: string; map: Record<string, string> }> = {}
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i) || ''
+      if (!k.startsWith(WEEK_OVERRIDE_PENDING_PREFIX)) continue
+      const weekKey = k.slice(WEEK_OVERRIDE_PENDING_PREFIX.length)
+      out[weekKey] = { stamp: localStorage.getItem(k) ?? '', map: swapsToMap(loadWeekSwaps(weekKey)) }
+    }
+  } catch { /* storage unreadable */ }
+  return out
 }

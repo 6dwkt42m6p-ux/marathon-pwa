@@ -1356,6 +1356,59 @@ export interface StrideDataEntry {
   avgPeakPaceSec?: number | null
 }
 
+// T-260 P-03: compact per-run bulk-loader result, persisted independently of the (capped, large)
+// stream/laps caches — a run whose stream was evicted by capStreamLapsCaches is not re-fetched on
+// every Analyse visit. `strides`/`splits`: undefined = not computed yet, null = computed, nothing
+// found. `v` = VDOT at computation time; kept for older runs on purpose (historic entries keep the
+// state of their time, cf. gotchas "Persistierungs-Pfade"); recomputed whenever the stream is
+// still cached (free).
+export const ANALYTICS_RESULT_KEY = (id: number): string => `_analytics_run_${id}`
+// Bump when detectStrides/analyzeWorkoutLaps change semantics — older persisted entries then
+// count as "not computed" and are refetched (Fix-Loop 1).
+export const ANALYTICS_ALGO_VERSION = 1
+const ANALYTICS_RESULT_PREFIX = '_analytics_run_'
+
+interface PersistedRunAnalytics {
+  a:        number   // ANALYTICS_ALGO_VERSION at computation time
+  v:        number
+  strides?: StrideDataEntry | null
+  splits?:  number[] | null
+}
+
+function _loadRunAnalytics(id: number): PersistedRunAnalytics | null {
+  try {
+    const raw = localStorage.getItem(ANALYTICS_RESULT_KEY(id))
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || parsed.a !== ANALYTICS_ALGO_VERSION) return null
+    return parsed as PersistedRunAnalytics
+  } catch { return null }
+}
+
+function _saveRunAnalytics(id: number, patch: Partial<PersistedRunAnalytics> & { v: number }): void {
+  const prev = _loadRunAnalytics(id) ?? {}   // version mismatch → start fresh (drops stale fields)
+  const next = JSON.stringify({ ...prev, ...patch, a: ANALYTICS_ALGO_VERSION })
+  try { if (localStorage.getItem(ANALYTICS_RESULT_KEY(id)) === next) return } catch { return }
+  safeSetItem(ANALYTICS_RESULT_KEY(id), next)
+}
+
+// Drop persisted results of activities no longer in the cached activity list (bounded by it).
+function _pruneRunAnalytics(): void {
+  let ids: Set<string>
+  try {
+    const raw = localStorage.getItem(ACTS_KEY)
+    const acts: StravaActivity[] = raw ? JSON.parse(raw) : []
+    if (!Array.isArray(acts) || acts.length === 0) return
+    ids = new Set(acts.map(a => String(a.id)))
+  } catch { return }
+  const toRemove: string[] = []
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i) || ''
+    if (k.startsWith(ANALYTICS_RESULT_PREFIX) && !ids.has(k.slice(ANALYTICS_RESULT_PREFIX.length))) toRemove.push(k)
+  }
+  for (const k of toRemove) localStorage.removeItem(k)
+}
+
 export interface BulkAnalyticsResult {
   strideDataById: Record<string, StrideDataEntry>
   workSplits:     Record<string, number[]>
@@ -1379,6 +1432,7 @@ export async function loadAnalyticsStreams(
   allRuns:      RunSummary[],
   qualityRuns:  RunSummary[],
   vdot:         number,
+  signal?:      AbortSignal,  // T-260 P-03: effect cleanup aborts — no second parallel loop
 ): Promise<BulkAnalyticsResult> {
   const strideDataById: Record<string, StrideDataEntry> = {}
   const workSplits:     Record<string, number[]>        = {}
@@ -1393,9 +1447,17 @@ export async function loadAnalyticsStreams(
 
   // ── Phase 1: streams for all runs → stride detection ─────────────────────
   for (const run of allRuns) {
+    if (signal?.aborted) { partial = true; break }
     const cachedStream = _loadCachedStream(run.id)
     let result = cachedStream as FetchStreamResult
     if (!cachedStream) {
+      // T-260 P-03: stream evicted by the cache cap but result already persisted → no request.
+      const persisted = _loadRunAnalytics(run.id)
+      if (persisted && persisted.strides !== undefined) {
+        fetched++
+        if (persisted.strides) strideDataById[String(run.id)] = persisted.strides
+        continue
+      }
       const t = await getToken()
       if (!t) continue
       result = await _fetchStreams429(run.id, t)
@@ -1406,13 +1468,16 @@ export async function loadAnalyticsStreams(
 
     // detectStrides is defined in this same file (strava.ts) — direct call, no import needed.
     const analysis = detectStrides(result, run.paceSec, vdot)
+    let strideEntry: StrideDataEntry | null = null
     if (analysis.strideCount > 0) {
-      strideDataById[String(run.id)] = {
+      strideEntry = {
         strideCount:    analysis.strideCount,
         strides:        analysis.strides.map(s => ({ peakPaceSec: s.peakPaceSec })),
         avgPeakPaceSec: analysis.avgPeakPaceSec,
       }
+      strideDataById[String(run.id)] = strideEntry
     }
+    _saveRunAnalytics(run.id, { v: vdot, strides: strideEntry })
 
     // T-142: Durability-Cache aus denselben Streams befüllen (Longrun-Gate).
     if (run.durationSec >= 4500 || run.distanceKm >= 18) {
@@ -1424,9 +1489,16 @@ export async function loadAnalyticsStreams(
   // ── Phase 2: laps for quality sessions → work-splits ─────────────────────
   if (!partial) {
     for (const run of qualityRuns) {
+      if (signal?.aborted) { partial = true; break }
       const cachedLaps = _loadCachedLaps(run.id)
       let laps = cachedLaps as FetchLapsResult
       if (!cachedLaps) {
+        const persisted = _loadRunAnalytics(run.id)
+        if (persisted && persisted.splits !== undefined) {
+          fetched++
+          if (persisted.splits) workSplits[String(run.id)] = persisted.splits
+          continue
+        }
         const t = await getToken()
         if (!t) continue
         laps = await _fetchLaps429(run.id, t)
@@ -1436,6 +1508,7 @@ export async function loadAnalyticsStreams(
       fetched++
 
       const lapAnalysis = analyzeWorkoutLaps(laps, vdot)
+      let splitsEntry: number[] | null = null
       if (lapAnalysis) {
         // Extract pace of interval laps as work-splits (sec/km)
         const intervalSplits = lapAnalysis.laps
@@ -1443,14 +1516,17 @@ export async function loadAnalyticsStreams(
           .map(l => l.paceSec)
         if (intervalSplits.length > 0) {
           workSplits[String(run.id)] = intervalSplits
+          splitsEntry = intervalSplits
         }
       }
+      _saveRunAnalytics(run.id, { v: vdot, splits: splitsEntry })
     }
   }
 
   // T-163: cap stream/laps caches after bulk fetch to prevent iOS quota exhaustion.
   // Streams are always re-fetchable; capping here keeps storage within ~5 MB iOS limit.
   capStreamLapsCaches()
+  _pruneRunAnalytics()
 
   return { strideDataById, workSplits, partial, fetched, total }
 }

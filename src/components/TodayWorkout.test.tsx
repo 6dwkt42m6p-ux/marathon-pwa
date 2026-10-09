@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client'
 import TodayWorkout, { buildSettingsPushPayload } from './TodayWorkout'
 import { mondayOf, localISODate } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
+import { markWeekOverridePending, isWeekOverridePending, pendingWeekOverrideMaps } from '../lib/storage'
 import type { SyncData, SyncedPlan, SyncedPlanSession } from '../lib/githubSync'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -118,6 +119,8 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
 
   it('Fall B: pending local-only override (weekOverrides empty, Desktop has not rebuilt yet) → session shown at Mi, marker shown', async () => {
     localStorage.setItem(`week_override_${weekStart}`, JSON.stringify([{ originalDay: 'Di', currentDay: 'Mi' }]))
+    // T-260 P-06: "lokal-only" heißt seit T-260 explizit pending (Push noch nicht bestätigt).
+    markWeekOverridePending(weekStart)
     const plan = buildPlan([
       { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
     ])
@@ -295,6 +298,119 @@ describe('TodayWorkout — T-217 day-swap persists across reload', () => {
 
     // Kein Leichnam mehr in localStorage nach erfolgreicher Auflösung.
     expect(localStorage.getItem(`reset_pending_${weekStart}`)).toBeNull()
+  })
+
+  it('Fall H (T-260 P-06): Desktop hat die Woche zurückgesetzt (weekOverrides ohne Woche), lokaler Tausch nicht pending → Tausch verschwindet', async () => {
+    localStorage.setItem(`week_override_${weekStart}`, JSON.stringify([{ originalDay: 'Di', currentDay: 'Mi' }]))
+    const plan = buildPlan([
+      { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, {}))
+
+    await mount()
+
+    const text = container.textContent ?? ''
+    expect(text).not.toContain('↻ verschoben')
+    expect(text).not.toContain('Zurücksetzen')
+    const row = Array.from(container.querySelectorAll('.session-row')).find(r => r.textContent?.includes('Easy'))
+    expect(row!.querySelector('.session-day')?.textContent).toBe('Di')
+  })
+
+  it('Fall I (T-260 P-06): Tausch ohne Token/offline bleibt pending und überlebt den nächsten Sync ohne Remote-Eintrag', async () => {
+    ;(hasToken as unknown as Mock).mockReturnValue(false)
+    const plan = buildPlan([
+      { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, {}))
+    await mount()
+
+    const swapBtn = container.querySelector('.swap-btn') as HTMLButtonElement
+    await act(async () => { swapBtn.click() })
+    const miBtn = Array.from(container.querySelectorAll('.day-pick-btn')).find(b => b.textContent?.includes('Mi')) as HTMLButtonElement
+    await act(async () => { miBtn.click(); await Promise.resolve() })
+    expect(isWeekOverridePending(weekStart)).toBe(true)
+
+    await act(async () => { root.unmount() })
+    root = createRoot(container)
+    await mount()
+    const row = Array.from(container.querySelectorAll('.session-row')).find(r => r.textContent?.includes('Easy'))
+    expect(row!.querySelector('.session-day')?.textContent).toBe('Mi')
+    expect(container.textContent).toContain('↻ verschoben')
+  })
+
+  it('Fall J (T-260 Fix-Loop 1/2, Bug 3): echtes fetchSync/pushSync gegen Fake-GitHub — Remount < 60 s nach Push → Tausch bleibt; zweiter Tausch verliert den ersten nicht', async () => {
+    // Echte githubSync-Implementierung (inkl. 60-s-Cache) statt Mock: genau der Cache ist Bug 3.
+    const actual = await vi.importActual<typeof import('../lib/githubSync')>('../lib/githubSync')
+    localStorage.setItem('github_sync_token', 'test-token')
+    const plan = buildPlan([
+      { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+      { tag: 'Do', typ: 'Tempo', km: 10, vorgabe: 'zügig', struktur: '3x2km', dauer: '55 min', hinweis: 'warm', original_tag: 'Do' },
+    ])
+    let remote: { data: SyncData; sha: string } = { data: { plan, weekOverrides: {} }, sha: 'sha-0' }
+    let puts = 0
+    const lastPut: { data?: SyncData } = {}
+    const enc = (d: SyncData) => btoa(unescape(encodeURIComponent(JSON.stringify(d))))
+    const dec = (b64: string) => JSON.parse(decodeURIComponent(escape(atob(b64)))) as SyncData
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PUT') {
+        const body = JSON.parse(String(opts.body))
+        remote = { data: dec(body.content), sha: `sha-${++puts}` }
+        lastPut.data = remote.data
+        return { ok: true, status: 200, json: async () => ({ content: { sha: remote.sha } }) }
+      }
+      return { ok: true, status: 200, json: async () => ({ sha: remote.sha, content: enc(remote.data) }) }
+    }))
+    ;(hasToken as unknown as Mock).mockReturnValue(true)
+    ;(fetchSync as unknown as Mock).mockImplementation(actual.fetchSync)
+    ;(pushSync as unknown as Mock).mockImplementation(actual.pushSync)
+    try {
+      await mount()
+      const easyRow = () => Array.from(container.querySelectorAll('.session-row')).find(r => r.textContent?.includes('Easy'))!
+      await act(async () => { (easyRow().querySelector('.swap-btn') as HTMLButtonElement).click() })
+      const miBtn = Array.from(container.querySelectorAll('.day-pick-btn')).find(b => b.textContent?.includes('Mi')) as HTMLButtonElement
+      await act(async () => { miBtn.click(); for (let i = 0; i < 20; i++) await Promise.resolve() })
+      expect(puts).toBe(1)
+
+      // Tab-Wechsel < 60 s: fetchSync() (ohne force) bedient sich aus dem Cache
+      await act(async () => { root.unmount() })
+      root = createRoot(container)
+      await mount()
+      expect(easyRow().querySelector('.session-day')?.textContent).toBe('Mi')
+
+      const tempoRow = Array.from(container.querySelectorAll('.session-row')).find(r => r.textContent?.includes('Tempo'))!
+      await act(async () => { (tempoRow.querySelector('.swap-btn') as HTMLButtonElement).click() })
+      const frBtn = Array.from(container.querySelectorAll('.day-pick-btn')).find(b => b.textContent?.includes('Fr')) as HTMLButtonElement
+      await act(async () => { frBtn.click(); for (let i = 0; i < 20; i++) await Promise.resolve() })
+      expect(puts).toBe(2)
+      expect(lastPut.data?.weekOverrides?.[weekStart]).toEqual({ Di: 'Mi', Do: 'Fr' })
+    } finally {
+      ;(fetchSync as unknown as Mock).mockReset()
+      ;(pushSync as unknown as Mock).mockReset()
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('Fall K (T-260 Fix-Loop 2, Probe P1): Tausch erfolgreich gepusht → Desktop setzt Woche zurück → Tausch weg, Woche nicht mehr pending (kein Re-Push über den Desktop)', async () => {
+    ;(hasToken as unknown as Mock).mockReturnValue(true)
+    ;(pushSync as unknown as Mock).mockResolvedValue(undefined)
+    const plan = buildPlan([
+      { tag: 'Di', typ: 'Easy', km: 8, vorgabe: 'locker', struktur: '8km locker', dauer: '45 min', hinweis: 'ruhig starten', original_tag: 'Di' },
+    ])
+    ;(fetchSync as unknown as Mock).mockResolvedValue(syncResult(plan, {}))
+    await mount()
+    await act(async () => { (container.querySelector('.swap-btn') as HTMLButtonElement).click() })
+    const miBtn = Array.from(container.querySelectorAll('.day-pick-btn')).find(b => b.textContent?.includes('Mi')) as HTMLButtonElement
+    await act(async () => { miBtn.click(); for (let i = 0; i < 5; i++) await Promise.resolve() })
+    expect(pushSync).toHaveBeenCalled()
+
+    // Abends am Desktop: "Tausche zurücksetzen" poppt die Woche → nächster PWA-Start sieht {}
+    await act(async () => { root.unmount() })
+    root = createRoot(container)
+    await mount()
+    const row = Array.from(container.querySelectorAll('.session-row')).find(r => r.textContent?.includes('Easy'))!
+    expect(row.querySelector('.session-day')?.textContent).toBe('Di')
+    expect(isWeekOverridePending(weekStart)).toBe(false)
+    expect(pendingWeekOverrideMaps()).toEqual({})
   })
 })
 

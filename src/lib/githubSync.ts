@@ -186,4 +186,13 @@ export async function pushSync(
     return pushSync(retryData, fresh.sha, rebuildFn, true)
   }
   if (!res.ok) throw new Error(`GitHub push ${res.status}`)
+  // T-260 Fix-Loop 1: the 60-s fetchSync cache still holds the pre-push state — a remount within
+  // the TTL would treat it as remote SSoT (weekOverrides) and drop just-pushed changes. Seed the
+  // cache with what we wrote (+ new sha from the PUT response); without a sha just invalidate.
+  let newSha: string | undefined
+  try {
+    const j = await res.json()
+    if (typeof j?.content?.sha === 'string') newSha = j.content.sha
+  } catch { /* no/invalid body */ }
+  _fetchCache = newSha ? { result: { data: payload, sha: newSha }, ts: Date.now() } : null
 }
