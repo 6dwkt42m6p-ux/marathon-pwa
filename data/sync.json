@@ -50,11 +50,11 @@
       "Sa": "Mi"
     }
   },
-  "lastModified": "2026-10-09T16:46:35.704579+00:00",
+  "lastModified": "2026-10-09T16:49:58.180926+00:00",
   "lastDevice": "streamlit",
   "plan": {
     "schemaVersion": 2,
-    "generatedAt": "2026-10-09T16:46:35Z",
+    "generatedAt": "2026-10-09T16:49:57Z",
     "generatedBy": "streamlit",
     "vdot": 49.0,
     "paces": {
@@ -65,7 +65,7 @@
       "I": "4:04",
       "R": "3:45"
     },
-    "inputHash": "5395834f4a30647825df992e35326b5257d1654bfaa99a6282d9294b74151881",
+    "inputHash": "2e8fbbc64e280abfb6e44e7b8502d968307979a62fa169b26ad3ade2fb16b440",
     "weeks": [
       {
         "week_nr": 1,
@@ -4238,10 +4238,10 @@
     ],
     "threshold": {
       "lthr": 171,
-      "threshold_pace_sec": 268.4,
+      "threshold_pace_sec": 263.0,
       "rest_hr": 45,
       "is_fallback": false,
-      "source": "activity:Evening Run"
+      "source": "activity:Afternoon Run"
     },
     "notes": {
       "18820788688": {
@@ -4479,7 +4479,14 @@
     "20313726749": 13.0,
     "20335790105": 7.3,
     "20355683447": 24.7,
-    "20382762642": 22.4
+    "20382762642": 22.4,
+    "20397058262": 22.4,
+    "20410401349": 21.7,
+    "20423470710": 21.7,
+    "20437749799": 21.0,
+    "20477873239": 18.5,
+    "20490472450": 25.0,
+    "20517451872": 11.7
   },
   "testRuns": {
     "19798570148": {
@@ -4496,6 +4503,11 @@
       "vdot": 49,
       "reliable": true,
       "text": "VDOT 49.0"
+    },
+    "20517451872": {
+      "vdot": 46.7,
+      "reliable": true,
+      "text": "VDOT 46.7 \u00b7 Segment 3.70 km in 4:09/km"
     }
   }
 }
