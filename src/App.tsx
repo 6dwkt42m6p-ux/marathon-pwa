@@ -64,7 +64,7 @@ function flushPendingNoteMutations(data: SyncData, sha: string): void {
 }
 
 export default function App() {
-  const hasOAuthCode = new URLSearchParams(window.location.search).has('code')
+  const hasOAuthCode = (() => { const q = new URLSearchParams(window.location.search); return q.has('code') || q.has('error') })()
   const [tab, setTab]           = useState<Tab>(hasOAuthCode ? 'settings' : 'today')
   const [settings, setSettings] = useState<AppSettings>(loadSettings)
   const [online, setOnline] = useState(navigator.onLine)

@@ -347,6 +347,7 @@ export default function RunDetail({
     setLoadingLaps(true); setLapErr(null)
     try {
       const laps = await fetchActivityLaps(act.id)
+      if (laps === 'rate_limited') { setLapErr('Strava-Rate-Limit erreicht — bitte in ein paar Minuten erneut versuchen.'); return }
       if (!laps || laps.length === 0) { setLapErr('Keine Lap-Daten verfügbar — bitte Lap-Taste auf der Uhr nutzen.'); return }
       const result = analyzeWorkoutLaps(laps, vdotVal)
       if (!result) setLapErr('Zu wenige Laps für Intervallauswertung.')

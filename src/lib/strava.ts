@@ -74,8 +74,26 @@ export interface StravaActivity {
   device_watts?:           boolean  // true = power from hardware meter, not estimated
 }
 
+const OAUTH_STATE_KEY = 'strava_oauth_state'
+// T-259 P-08: gesetzt, wenn Strava den Refresh-Token ablehnt (widerrufen) — Settings zeigt "neu verbinden".
+export const STRAVA_REAUTH_KEY = 'strava_reauth_needed'
+
+function _newOAuthState(): string {
+  try {
+    const b = new Uint8Array(16)
+    crypto.getRandomValues(b)
+    return Array.from(b, x => x.toString(16).padStart(2, '0')).join('')
+  } catch { return `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}` }
+}
+
 export function getAuthUrl(): string {
+  // T-259 P-09: state gegen Login-CSRF. sessionStorage (tab-gebunden) + localStorage-Fallback,
+  // falls iOS den Redirect in einem anderen Browsing-Kontext zurückbringt.
+  const state = _newOAuthState()
+  try { sessionStorage.setItem(OAUTH_STATE_KEY, state) } catch {}
+  try { localStorage.setItem(OAUTH_STATE_KEY, state) } catch {}
   const params = new URLSearchParams({
+    state,
     client_id:       CLIENT_ID,
     redirect_uri:    REDIRECT_URI,
     response_type:   'code',
@@ -83,6 +101,26 @@ export function getAuthUrl(): string {
     scope:           'read,activity:read_all',
   })
   return `https://www.strava.com/oauth/authorize?${params}`
+}
+
+export type OAuthCallback = { code: string } | { error: string }
+
+// Wertet die Redirect-Query aus. null = kein OAuth-Callback. Verbraucht den gespeicherten state
+// (Einmalnutzung). Fehlender/abweichender state -> Fehler statt Token-Exchange.
+export function parseOAuthCallback(search: string): OAuthCallback | null {
+  const params = new URLSearchParams(search)
+  const code = params.get('code')
+  const oauthErr = params.get('error')
+  if (!code && !oauthErr) return null
+  let expected: string | null = null
+  try { expected = sessionStorage.getItem(OAUTH_STATE_KEY) } catch {}
+  if (!expected) { try { expected = localStorage.getItem(OAUTH_STATE_KEY) } catch {} }
+  try { sessionStorage.removeItem(OAUTH_STATE_KEY) } catch {}
+  try { localStorage.removeItem(OAUTH_STATE_KEY) } catch {}
+  if (oauthErr) return { error: `Strava-Autorisierung abgebrochen (${oauthErr}).` }
+  if (!expected || params.get('state') !== expected)
+    return { error: 'Login-Sitzung ungültig oder abgelaufen (state-Prüfung) — bitte erneut mit Strava verbinden.' }
+  return { code: code as string }
 }
 
 export function loadTokens(): StravaTokens | null {
@@ -96,12 +134,21 @@ export function loadTokens(): StravaTokens | null {
 // OAuth-Token nicht, der User ist ausgeloggt ohne jedes Signal. Rückgabewert MUSS ausgewertet
 // werden (siehe refreshTokens/exchangeCode unten).
 export function saveTokens(t: StravaTokens): boolean {
-  return safeSetItem(TOKEN_KEY, JSON.stringify(t))
+  const ok = safeSetItem(TOKEN_KEY, JSON.stringify(t))
+  if (ok) { try { localStorage.removeItem(STRAVA_REAUTH_KEY) } catch {} }
+  return ok
 }
 
+// Trennen: Strava-Daten verlassen das Gerät (Strava-Agreement: Löschung bei Deauth) —
+// Token, Aktivitätsliste, Stream/Laps-Caches und der Workbox-Cache 'strava-api'.
 export function clearTokens(): void {
   localStorage.removeItem(TOKEN_KEY)
   localStorage.removeItem(ACTS_KEY)
+  localStorage.removeItem(STRAVA_REAUTH_KEY)
+  evictAllStreamLapsCaches()
+  if (typeof caches !== 'undefined' && caches) {
+    try { void caches.delete('strava-api').catch(() => {}) } catch {}
+  }
 }
 
 export function saveLastSyncTimestamp(): void {
@@ -141,7 +188,11 @@ async function refreshTokens(refreshToken: string): Promise<StravaTokens> {
     // Worker appends client_id + client_secret server-side
     body: JSON.stringify({ refresh_token: refreshToken }),
   })
-  if (!r.ok) throw new Error(`Token refresh failed: ${r.status}`)
+  if (!r.ok) {
+    const err = new Error(`Token refresh failed: ${r.status}`) as Error & { status?: number }
+    err.status = r.status
+    throw err
+  }
   const tokens = await r.json()
   if (!saveTokens(tokens)) {
     // getValidToken()'s caller already treats any refreshTokens() rejection as "not
@@ -156,8 +207,19 @@ export async function getValidToken(): Promise<string | null> {
   let tokens = loadTokens()
   if (!tokens) return null
   if (tokens.expires_at < Date.now() / 1000 + 300) {
-    try { tokens = await refreshTokens(tokens.refresh_token) }
-    catch { return null }
+    const usedRefresh = tokens.refresh_token
+    try { tokens = await refreshTokens(usedRefresh) }
+    catch (e) {
+      // T-259 P-08: nur 400/401 vom Refresh = Token widerrufen/ungültig -> löschen + Reconnect-Hinweis.
+      // Netzfehler, 5xx, Quota: Tokens bleiben (sonst Zwangs-Logout bei kurzem Offline).
+      const status = (e as { status?: number }).status
+      // Race: hat ein paralleler Refresh bereits neue Tokens gespeichert, nicht löschen.
+      if ((status === 400 || status === 401) && loadTokens()?.refresh_token === usedRefresh) {
+        localStorage.removeItem(TOKEN_KEY)
+        try { localStorage.setItem(STRAVA_REAUTH_KEY, '1') } catch {}
+      }
+      return null
+    }
   }
   return tokens.access_token
 }
@@ -1232,6 +1294,8 @@ export async function fetchActivityStreams(activityId: number): Promise<FetchStr
   // Delegiert an den 429-bewussten Fetcher: reicht den 'rate_limited'-Sentinel durch, statt
   // 429 (wie früher) still als null zu maskieren (T-129). Entfernt zugleich das Duplikat der
   // Fetch/Parse/Cache-Logik — war eine Kopie von _fetchStreams429.
+  const cached = _loadCachedStream(activityId)   // T-259 P-07: Cache vor Token (offline lesbar)
+  if (cached) return cached
   const token = await getValidToken()
   if (!token) return null
   return _fetchStreams429(activityId, token)
@@ -1239,19 +1303,12 @@ export async function fetchActivityStreams(activityId: number): Promise<FetchStr
 
 // Strava lap raw data — variable structure, parsed in analyzeWorkoutLaps()
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function fetchActivityLaps(activityId: number): Promise<any[] | null> {
+export async function fetchActivityLaps(activityId: number): Promise<FetchLapsResult> {
+  const cached = _loadCachedLaps(activityId)   // T-259 P-07: Cache vor Token
+  if (cached) return cached
   const token = await getValidToken()
   if (!token) return null
-  const cached = _loadCachedLaps(activityId)
-  if (cached) return cached
-  const res = await fetch(
-    `${STRAVA_API_BASE}/activities/${activityId}/laps`,
-    { headers: { Authorization: `Bearer ${token}` } }
-  )
-  if (!res.ok) return null
-  const laps = await res.json()
-  _cacheLaps(activityId, laps)
-  return laps
+  return _fetchLaps429(activityId, token)
 }
 
 // 429-aware internal fetchers — return 'rate_limited' sentinel on HTTP 429.
@@ -1329,12 +1386,20 @@ export async function loadAnalyticsStreams(
   let fetched  = 0
   const total  = allRuns.length + qualityRuns.length
 
-  const token = await getValidToken()
-  if (!token) return { strideDataById, workSplits, partial: false, fetched: 0, total }
+  // T-259 P-07: Token erst bei Cache-Miss holen — Cache-Treffer funktionieren offline / mit
+  // nicht erneuerbarem Token. Ein Miss ohne Token überspringt nur diesen Lauf.
+  let token: string | null | undefined
+  const getToken = async () => (token === undefined ? (token = await getValidToken()) : token)
 
   // ── Phase 1: streams for all runs → stride detection ─────────────────────
   for (const run of allRuns) {
-    const result = await _fetchStreams429(run.id, token)
+    const cachedStream = _loadCachedStream(run.id)
+    let result = cachedStream as FetchStreamResult
+    if (!cachedStream) {
+      const t = await getToken()
+      if (!t) continue
+      result = await _fetchStreams429(run.id, t)
+    }
     if (result === 'rate_limited') { partial = true; break }
     if (!result) continue
     fetched++
@@ -1359,7 +1424,13 @@ export async function loadAnalyticsStreams(
   // ── Phase 2: laps for quality sessions → work-splits ─────────────────────
   if (!partial) {
     for (const run of qualityRuns) {
-      const laps = await _fetchLaps429(run.id, token)
+      const cachedLaps = _loadCachedLaps(run.id)
+      let laps = cachedLaps as FetchLapsResult
+      if (!cachedLaps) {
+        const t = await getToken()
+        if (!t) continue
+        laps = await _fetchLaps429(run.id, t)
+      }
       if (laps === 'rate_limited') { partial = true; break }
       if (!laps) continue
       fetched++

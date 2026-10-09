@@ -3,7 +3,7 @@ import type { AppSettings } from '../lib/storage'
 import { saveSettings, resolvePreRaceEnabled, mergeSettingsForPush } from '../lib/storage'
 import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
-  isAuthenticated, getAuthUrl, exchangeCode, clearTokens,
+  isAuthenticated, getAuthUrl, exchangeCode, clearTokens, parseOAuthCallback, STRAVA_REAUTH_KEY,
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
   loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
@@ -192,7 +192,10 @@ export default function Settings({ settings, onUpdate }: Props) {
   const [authed,    setAuthed]   = useState(isAuthenticated())
   const [syncing,   setSyncing]  = useState(false)
   const [syncMsg,   setSyncMsg]  = useState<string | null>(null)
-  const [stravaErr, setStravaErr] = useState<string | null>(null)
+  const [stravaErr, setStravaErr] = useState<string | null>(() => {
+    try { return localStorage.getItem(STRAVA_REAUTH_KEY) && !isAuthenticated()
+      ? 'Strava-Verbindung abgelaufen oder widerrufen — bitte neu verbinden.' : null } catch { return null }
+  })
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(loadLastSyncTimestamp)
   const [online,    setOnline]   = useState(navigator.onLine)
 
@@ -206,13 +209,17 @@ export default function Settings({ settings, onUpdate }: Props) {
 
   // Handle OAuth redirect — exchange code, then auto-sync
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const code = params.get('code')
-    if (code && !authed) {
-      exchangeCode(code)
+    const cb = authed ? null : parseOAuthCallback(window.location.search)
+    if (cb) {
+      // T-259 P-09: URL sofort bereinigen (auch im Fehlerpfad) — sonst tauscht jeder Re-Mount
+      // denselben verbrauchten Code erneut.
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+    if (cb && 'error' in cb) setStravaErr(cb.error)
+    else if (cb) {
+      exchangeCode(cb.code)
         .then(async () => {
           setAuthed(true)
-          window.history.replaceState({}, '', window.location.pathname)
           setSyncing(true)
           try {
             await syncActivities(52)
@@ -251,6 +258,7 @@ export default function Settings({ settings, onUpdate }: Props) {
     clearTokens()
     setAuthed(false)
     setSyncMsg(null)
+    setStravaErr(null)
   }
 
   async function handleStravaSync() {
@@ -266,7 +274,11 @@ export default function Settings({ settings, onUpdate }: Props) {
       setSyncMsg(`${acts.length} Aktivitäten synchronisiert`)
       setTimeout(() => setSyncMsg(null), 3000)
     } catch (e) {
-      setStravaErr(String(e))
+      // T-259 P-08: Refresh abgelehnt (400/401) -> getValidToken hat die Tokens gelöscht.
+      if (!isAuthenticated()) {
+        setAuthed(false)
+        setStravaErr('Strava-Verbindung abgelaufen oder widerrufen — bitte neu verbinden.')
+      } else setStravaErr(String(e))
     } finally {
       setSyncing(false)
     }
