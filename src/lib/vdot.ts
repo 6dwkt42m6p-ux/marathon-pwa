@@ -67,14 +67,14 @@ export function tempAdjFactor(tempC: number): number {
   return Math.min((10 - tempC) * 0.002, 0.06)
 }
 
-// T-140: GAP + Hitze-Normalisierung — formelgleich coach.py effort_normalization_factor.
+// T-140: GAP + Hitze-Normalisierung — formelgleich coach_analysis.py:effort_normalization_factor.
 // Eliminiert Gelände- und Hitzeverzerrung aus EF und VDOT-Trend.
 const GAP_GRADE_FLOOR_PCT = 1.0   // < 1% Ø-Steigung gilt als flach
 const GAP_COST_PER_PCT   = 0.02  // 2% Pace-Vorteil je 1% Ø-Steigung über Floor
 const GAP_CAP            = 0.12  // max. 12% GAP-Aufschlag
 
 // T-142: uphill-only Gelände-Kostenfaktor (≥ 1.0). Eine Quelle für die GAP-Konstanten,
-// genutzt von durability.ts (formelgleich coach.py _gap_factor_for_grade / effort_normalization).
+// genutzt von durability.ts (formelgleich streams.py:_gap_factor_for_grade / coach_analysis.py:effort_normalization_factor).
 export function gapFactorForGrade(gradePct: number): number {
   const gap = Math.min(GAP_COST_PER_PCT * Math.max(gradePct - GAP_GRADE_FLOOR_PCT, 0), GAP_CAP)
   return 1 + gap
@@ -164,7 +164,7 @@ export interface RunAnalysis {
 
 // T-218 Fix-Loop 1: Strava workout_type: 1=Race, 2=Long Run, 3=Workout. Nur 3 zählt als
 // "Workout" — Long Run (2) hat eigene Semantik und ist KEIN Workout, sonst werden
-// HF-Mismatch-Hinweise bei Longruns unterdrückt (vgl. app.py `== 3`, coach.py analyze_run
+// HF-Mismatch-Hinweise bei Longruns unterdrückt (vgl. app.py `== 3`, coach_activity.py:analyze_run
 // is_workout-Parameter). Extrahiert als eigene Funktion, weil die Call-Site (Analysis.tsx)
 // keine Regressionstestdatei hat — vorher konnte das Prädikat unbemerkt zu `> 1` mutieren.
 export function isWorkoutActivity(workoutType: number | undefined): boolean {

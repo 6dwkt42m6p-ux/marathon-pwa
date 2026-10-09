@@ -621,7 +621,7 @@ export function vdotTrendFromActivities(
   // easy effort — HR going down at the same pace is the real fitness signal.
   const easyInWindow = runs.filter(r =>
     r.date >= eightWeeksAgo && !!r.avgHr && r.distanceKm >= 3 && hrr > 0 &&
-    // T-086/T-120: unified boundary at <65% HRR (same as coach.py:282).
+    // T-086/T-120: unified boundary at <65% HRR (same as coach_analysis.py:vdot_trend).
     // Previously <70% caused 65–70% runs to appear in BOTH easy_hr_trend and effort signal.
     (r.avgHr - restHr) / hrr * 100 < 65
   )
@@ -717,7 +717,7 @@ export interface BestVdotResult {
 }
 
 /**
- * Best-effort VDOT estimate — faithful port of coach.py:best_vdot_from_activities (T-186).
+ * Best-effort VDOT estimate — faithful port of coach_analysis.py:best_vdot_from_activities (T-186).
  * Before T-186, the (since removed, T-258) StravaSync.tsx computed the displayed VDOT on raw, uncorrected times
  * (no GAP/Hitze), diverging from the Desktop by up to 1.6 points and even picking a
  * different "best" run.
@@ -727,7 +727,7 @@ export interface BestVdotResult {
  * before normalization even runs). Normalize FIRST (durationSec / effortNormalizationFactor),
  * THEN compute VDOT — order matters (T-186 AC). Plausibility 20 < VDOT < 85.
  * Robust estimate = median of the top-3 normalized VDOTs (guards against a one-off outlier
- * inflating the number). T-219 (coach.py:738–743, T-194): the displayed run/pace/date come
+ * inflating the number). T-219 (coach_analysis.py:best_vdot_from_activities, T-194): the displayed run/pace/date come
  * from the effort whose OWN VDOT is closest to that median — searched across ALL efforts,
  * not just the top-3 — so the shown workout is the one that actually produced the reported
  * number. Before T-219, metadata came from the single fastest effort (`efforts[0]`) while the
@@ -782,7 +782,7 @@ export function bestVdotFromActivities(runs: RunSummary[]): BestVdotResult | nul
   }
 }
 
-// ── Efficiency Factor trend (Friel EF) — faithful port of coach.py:392 ───────
+// ── Efficiency Factor trend (Friel EF) — faithful port of coach_analysis.py:efficiency_factor_trend ───────
 
 export interface EfWeeklyPoint {
   weekStart: Date
@@ -1009,7 +1009,7 @@ export interface AtlCtlResult {
   tsb: number
 }
 
-// Factor maps mirroring coach.py _WORKOUT_TYPE_FACTOR and _SPORT_TYPE_FACTOR (T-122).
+// Factor maps mirroring coach_load.py:_WORKOUT_TYPE_FACTOR and _SPORT_TYPE_FACTOR (T-122).
 // Run codes: 0=default/easy, 1=race, 2=long, 3=workout/interval.
 // Ride codes: 10=ride-race, 11=ride-workout, 12=ride-long.
 const _WORKOUT_TYPE_FACTOR: Record<number, number> = {
@@ -1022,7 +1022,7 @@ const _WORKOUT_TYPE_FACTOR: Record<number, number> = {
   12: 0.9,
 }
 
-// T-125: Power-based Training Stress Score — faithful port of coach.py bike_tss.
+// T-125: Power-based Training Stress Score — faithful port of coach_multisport.py:bike_tss.
 // TSS = duration_sec * (NP/FTP)^2 / 3600 * 100
 // ftp <= 0 → 0 (ZeroDivision guard, matches Python guard).
 export function bikeTss(npWatts: number, durationSec: number, ftp: number): number {
@@ -1042,7 +1042,7 @@ const _SPORT_TYPE_FACTOR: Record<string, number> = {
   EBikeRide:   0.6,
 }
 
-// T-138: rTSS/hrTSS — formelgleich zu coach.py run_rtss/run_hrtss.
+// T-138: rTSS/hrTSS — formelgleich zu coach_load.py:run_rtss/run_hrtss.
 // 1 h @ threshold = 100; IF = threshold/avgPace (faster pace → higher IF).
 const TSS_REF_SEC = 3600
 const STRUCTURED_DIVERGENCE = 1.15  // hrTSS/rTSS ratio above which workout is treated as structured
@@ -1086,7 +1086,7 @@ export interface SyncedThreshold {
 
 export function activityLoad(a: StravaActivity, ftp?: number, threshold?: SyncedThreshold): number {
   // Priority 1: Power-TSS for Rides with device-measured NP and known FTP.
-  // Mirrors coach.py _daily_load priority: power path runs FIRST, before suffer_score.
+  // Mirrors coach_load.py:_daily_load priority: power path runs FIRST, before suffer_score.
   // weighted_average_watts is Strava's NP field; fallback to average_watts not used here
   // (coach.py also requires device_watts=True before accepting np_watts).
   const sportType = a.sport_type || a.type || ''
@@ -1123,7 +1123,7 @@ export function activityLoad(a: StravaActivity, ftp?: number, threshold?: Synced
   const durationMin = (a.moving_time || 0) / 60
   const wt = a.workout_type ?? 0
 
-  // Auswahllogik identical to coach.py _daily_load:
+  // Auswahllogik identical to coach_load.py:_daily_load:
   //   if wt not in _WORKOUT_TYPE_FACTOR AND sport_type in _SPORT_TYPE_FACTOR → sport factor
   //   elif wt === 0 AND sport_type in _SPORT_TYPE_FACTOR                      → sport factor
   //   else                                                                    → workout_type factor (default 1.0)
@@ -1140,7 +1140,7 @@ export function activityLoad(a: StravaActivity, ftp?: number, threshold?: Synced
 }
 
 // T-144: per-Kalendertag-Last oldest→today (gefüllt 0). Geteilt von computeAtlCtl + injuryRisk,
-// spiegelt coach.py _daily_load + reindex-to-today.
+// spiegelt coach_load.py:_daily_load + reindex-to-today.
 export function dailyLoadSeries(
   activities: StravaActivity[], ftp?: number, threshold?: SyncedThreshold,
 ): number[] {

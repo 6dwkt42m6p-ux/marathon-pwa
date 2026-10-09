@@ -89,7 +89,7 @@ export function isPlanStale(
   return false
 }
 
-// T-246: maschinenlesbares Pendant zu den Q/Speed-Prosastrings (Desktop coach.py:
+// T-246: maschinenlesbares Pendant zu den Q/Speed-Prosastrings (Desktop coach_sessions.py:
 // weekly_workout_plan `s()`-Helfer). Optional — nur Qualitäts-/Speed-Sessions setzen es,
 // Easy/Longrun ohne Struktur bleiben `undefined`/`null`. Kein Konsument in T-246 (siehe T-247).
 export interface WorkoutStrukturDaten {

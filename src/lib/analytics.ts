@@ -11,7 +11,7 @@ import { mondayOf, localISODate, dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
 import type { WorkoutStrukturDaten } from './plan'
 
-// ── Karvonen HR zone helper (mirrors coach.py _hr_zone_code) ─────────────────
+// ── Karvonen HR zone helper (mirrors coach_activity.py:_hr_zone_code) ─────────────────
 // hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
 function _hrZoneCode(hrPct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
   if (hrPct < 60) return 'Z1'
@@ -22,7 +22,7 @@ function _hrZoneCode(hrPct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
 }
 
 // ── intensityDistribution ─────────────────────────────────────────────────────
-// Ports coach.py intensity_distribution() — Path B only (avg-HR whole-activity bucket).
+// Ports coach_activity.py:intensity_distribution() — Path B only (avg-HR whole-activity bucket).
 // Path A (per-second HR stream) is not available on the PWA without on-demand stream fetch,
 // which would require an API call per activity. PWA uses avg-HR bucketing for all activities.
 // This is the documented approximation for T-124 (see impl note).
@@ -172,7 +172,7 @@ export function intensityDistribution(
 }
 
 // ── stagnationCheck ───────────────────────────────────────────────────────────
-// Ports coach.py stagnation_check() faithfully.
+// Ports coach_activity.py:stagnation_check() faithfully.
 // trendInfo only needs { delta, insufficientEffortRuns } — the subset used here.
 
 // T-168: below this weekly-km baseline a Cause-B %-jump is a rounding artifact of a
@@ -328,7 +328,7 @@ export function stagnationCheck(
 }
 
 // ── vdotAdherenceCheck ────────────────────────────────────────────────────────
-// Ports coach.py vdot_adherence_check().
+// Ports coach_activity.py:vdot_adherence_check().
 // workSplits maps activityId (string) → list of interval-lap paces (sec/km).
 // No fallback to session-average pace (same as coach.py).
 // workoutType 3 = Strava Workout flag (same filter as coach.py wt==3).
@@ -357,7 +357,7 @@ export interface AdherenceResult {
   iPaceFmt:      string
 }
 
-// T-219: faithful port of coach.py `_infer_vdot` (vdot_adherence_check, line ~7301).
+// T-219: faithful port of coach_activity.py:vdot_adherence_check (`_infer_vdot`).
 // Binary search for the VDOT such that trainingPaces(VDOT)[paceKey] == impliedPace.
 // 40 iterations, bounds passed in by the caller — identical to the Python side.
 function _inferVdot(impliedPace: number, paceKey: 'T' | 'I', lo: number, hi: number): number {
@@ -371,7 +371,7 @@ function _inferVdot(impliedPace: number, paceKey: 'T' | 'I', lo: number, hi: num
   return (lo + hi) / 2
 }
 
-// T-219: faithful port of coach.py `_weighted_implied_vdot` (T-086: T- and I-sessions invert
+// T-219: faithful port of coach_activity.py:vdot_adherence_check (`_weighted_implied_vdot`) (T-086: T- and I-sessions invert
 // on their own zone's pace, then combine weighted by session count — avoids the bias of always
 // inverting on T-pace even for I-sessions).
 // direction 'up'   → athlete beats targets (lo=currentVdot,        hi=currentVdot+15)
@@ -518,7 +518,7 @@ export function vdotAdherenceCheck(
 }
 
 // ── aggregateStrideTrend ──────────────────────────────────────────────────────
-// Ports coach.py aggregate_stride_trend().
+// Ports coach_activity.py:aggregate_stride_trend().
 // strideDataById maps activityId (string) → { strideCount, strides, avgPeakPaceSec }
 // where strides is an array of { peakPaceSec }.
 
@@ -596,7 +596,7 @@ export function aggregateStrideTrend(
 // ── injuryRisk ────────────────────────────────────────────────────────────────
 // T-144: Faithful port of coach.injury_risk (T-143).
 // ACWR = 7d-EWMA / 28d-EWMA; CTL-Ramp = 42d-CTL delta over 7 calendar days.
-// SSoT: coach.py constants ACWR_SWEET_LOW/HIGH, ACWR_CAUTION_HIGH, RAMP_DETRAIN, RAMP_SAFE, RAMP_CAUTION, ACWR_MIN_DAYS.
+// SSoT: coach_load.py constants ACWR_SWEET_LOW/HIGH, ACWR_CAUTION_HIGH, RAMP_DETRAIN, RAMP_SAFE, RAMP_CAUTION, ACWR_MIN_DAYS.
 
 const ACWR_SWEET_LOW    = 0.8
 const ACWR_SWEET_HIGH   = 1.3
@@ -611,7 +611,7 @@ const ACWR_MIN_DAYS     = 28
 // erhalten ihr Vorzeichen bereits von toFixed(1) selbst ("-0.0") — kein zusaetzliches "+" davor.
 const rampStr = (v: number) => (v >= 0 ? '+' : '') + v.toFixed(1)
 
-// T-177: isolierter Branch aus injuryRisk (faithful port coach.py:_ramp_zone, T-167).
+// T-177: isolierter Branch aus injuryRisk (faithful port coach_load.py:_ramp_zone, T-167).
 // Getrennt exportiert, damit die Gitterpunkte unabhaengig von der EWMA-Berechnung
 // getestet werden koennen. Prueft Ober- UND Untergrenze: eine stark negative Ramp
 // ist Formverlust/Detraining, kein "Aufbau" (vorher faelschlich gruen).
