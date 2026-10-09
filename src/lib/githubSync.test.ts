@@ -255,7 +255,9 @@ describe('fetchSync — activityTemps field roundtrip (T-184)', () => {
   })
 
   it('no sync.json at all (404) → fetchSync resolves null, no throw', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: false, status: 404 })))
+    // T-264: null nur, wenn das (private) Repo selbst erreichbar ist — sonst SyncAccessError.
+    vi.stubGlobal('fetch', vi.fn(async (url: string) =>
+      url.endsWith('/contents/data/sync.json') ? { ok: false, status: 404 } : { ok: true, status: 200, json: async () => ({}) }))
 
     const result = await fetchSync(true)
 

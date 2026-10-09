@@ -11,7 +11,7 @@ import {
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
   loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
-import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync, type SyncData } from '../lib/githubSync'
+import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync, SyncAccessError, SYNC_REPO, type SyncData } from '../lib/githubSync'
 import {
   activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
   loadPendingMutation, savePendingMutation, clearPendingMutation,
@@ -79,7 +79,10 @@ export default function Settings({ settings, onUpdate }: Props) {
           setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
         }
       }
-    }).catch(() => { /* best-effort, same pattern as App.tsx startup sync */ })
+    }).catch(e => {
+      // best-effort wie App.tsx — aber fehlender Token-Zugriff aufs private Repo (T-264) muss sichtbar sein
+      if (mounted && e instanceof SyncAccessError) setGhErr(e.message)
+    })
     return () => { mounted = false }
   }, [])
 
@@ -162,7 +165,7 @@ export default function Settings({ settings, onUpdate }: Props) {
       } else {
         setGhMsg('Noch keine Sync-Daten vorhanden.')
       }
-    } catch (e) { setGhErr(String(e)) }
+    } catch (e) { setGhErr(e instanceof SyncAccessError ? e.message : String(e)) }
     finally { setGhSyncing(false) }
   }
 
@@ -452,6 +455,7 @@ export default function Settings({ settings, onUpdate }: Props) {
           <>
             <p style={{ fontSize: '13px', color: 'var(--text-2)', lineHeight: 1.5 }}>
               Einstellungen und Trainingstausche zwischen iPhone und Mac synchronisieren.
+              Fine-grained Token mit Zugriff auf <code>{SYNC_REPO}</code> (Contents: Read and write).
             </p>
             <label className="setting-label">
               GitHub Token
