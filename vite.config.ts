@@ -50,7 +50,10 @@ export default defineConfig({
           {
             urlPattern: /^https:\/\/www\.strava\.com\/api\//,
             handler: 'NetworkFirst',
-            options: { cacheName: 'strava-api', networkTimeoutSeconds: 8 },
+            options: { cacheName: 'strava-api', networkTimeoutSeconds: 8,
+              // T-259 P-12: Cache Storage nicht unbegrenzt wachsen lassen
+              expiration: { maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 },
+            },
           },
         ],
       },
