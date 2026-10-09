@@ -187,38 +187,3 @@ export async function pushSync(
   }
   if (!res.ok) throw new Error(`GitHub push ${res.status}`)
 }
-
-// Load remote sync and merge into local state — returns merged data
-export async function pullAndMerge(): Promise<{
-  settings: Record<string, unknown> | null
-  weekOverrides: Record<string, Record<string, string>>
-  plan: SyncedPlan | null    // T-024: verbatim plan from Streamlit
-  sha: string | null
-}> {
-  const result = await fetchSync()
-  if (!result) return { settings: null, weekOverrides: {}, plan: null, sha: null }
-  const { data, sha } = result
-  const local = getLocalOverrides()
-  // Merge week overrides: remote wins per week (last device wins)
-  const merged = { ...local, ...(data.weekOverrides ?? {}) }
-  return { settings: data.settings ?? null, weekOverrides: merged, plan: data.plan ?? null, sha }
-}
-
-// Read all local week overrides from localStorage
-function getLocalOverrides(): Record<string, Record<string, string>> {
-  const result: Record<string, Record<string, string>> = {}
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i)
-    if (key?.startsWith('week_override_')) {
-      try {
-        const weekKey = key.replace('week_override_', '')
-        const raw = localStorage.getItem(key)!
-        const arr: Array<{ originalDay: string; currentDay: string }> = JSON.parse(raw)
-        const map: Record<string, string> = {}
-        arr.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
-        if (Object.keys(map).length > 0) result[weekKey] = map
-      } catch { /* skip */ }
-    }
-  }
-  return result
-}

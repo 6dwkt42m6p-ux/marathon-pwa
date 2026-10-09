@@ -14,7 +14,7 @@ import { STORAGE_WARNING_KEY, getStorageWarning, clearStorageWarning, safeSetIte
 export { STORAGE_WARNING_KEY, getStorageWarning, clearStorageWarning }
 
 // Thrown by fetchActivitiesAfter (and propagated through syncActivities) when Strava returns
-// HTTP 429. Callers (e.g. StravaSync.tsx) can use `instanceof StravaRateLimitError` to show
+// HTTP 429. Callers (e.g. App.tsx trySync) can use `instanceof StravaRateLimitError` to show
 // a user-friendly rate-limit message instead of the raw status string.
 // Mirrors the T-129 pattern used by _fetchStreams429/_fetchLaps429 (sentinel there, typed
 // error here — typed error is cleaner for async call-stack propagation).
@@ -656,7 +656,7 @@ export interface BestVdotResult {
 
 /**
  * Best-effort VDOT estimate — faithful port of coach.py:best_vdot_from_activities (T-186).
- * Before T-186, StravaSync.tsx computed the displayed VDOT on raw, uncorrected times
+ * Before T-186, the (since removed, T-258) StravaSync.tsx computed the displayed VDOT on raw, uncorrected times
  * (no GAP/Hitze), diverging from the Desktop by up to 1.6 points and even picking a
  * different "best" run.
  *
@@ -1089,7 +1089,9 @@ export function dailyLoadSeries(
     dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp, threshold))
   }
   const dates = Array.from(dayMap.keys()).sort()
-  const startDate = new Date(dates[0])
+  // Lokal parsen: new Date('YYYY-MM-DD') ist UTC-Mitternacht und schloss in UTC+ den heutigen Tag aus (P-02).
+  const [sy, sm, sd] = dates[0].split('-').map(Number)
+  const startDate = new Date(sy, sm - 1, sd)
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const out: number[] = []
   for (let d = new Date(startDate); d <= today; d.setDate(d.getDate() + 1)) {

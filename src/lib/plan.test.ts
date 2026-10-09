@@ -161,38 +161,47 @@ describe('isPlanStale — race-date branch via sync settings block (T-182)', () 
 
   it('no settings block at all (older sync.json, pre T-182) → not stale (regression guard)', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, null)).toBe(false)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, null)).toBe(false)
   })
 
   it('settings block present but raceDate1/raceDate2 keys absent → not stale', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, {})).toBe(false)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, {})).toBe(false)
   })
 
   it('raceDate1 matches local → not stale', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: LOCAL_D2 })).toBe(false)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: LOCAL_D2 })).toBe(false)
   })
 
   it('raceDate1 diverges from local → stale', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: '2026-11-01', raceDate2: LOCAL_D2 })).toBe(true)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, { raceDate1: '2026-11-01', raceDate2: LOCAL_D2 })).toBe(true)
   })
 
   it('raceDate2 diverges from local → stale', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: '2027-05-01' })).toBe(true)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, { raceDate1: LOCAL_D1, raceDate2: '2027-05-01' })).toBe(true)
   })
 
   it('raceDate1: null (Event 1 / prep race disabled on Desktop) → NOT stale, not a mismatch', () => {
     // Guards against a future "cleanup" turning `d1 &&` into a strict `d1 !== undefined` check,
     // which would misread "disabled" as "diverges from local" and show a false staleness banner.
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: LOCAL_D2 })).toBe(false)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: LOCAL_D2 })).toBe(false)
   })
 
   it('raceDate1: null with raceDate2 still diverging → stale (raceDate2 branch independent)', () => {
     const plan = makePlan()
-    expect(isPlanStale(plan, 50, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: '2027-06-01' })).toBe(true)
+    expect(isPlanStale(plan, LOCAL_D1, LOCAL_D2, { raceDate1: null, raceDate2: '2027-06-01' })).toBe(true)
+  })
+})
+
+// P-05: plan.vdot (Desktop-SSoT) darf nicht gegen den lokalen Offline-Fallback-VDOT verglichen werden.
+describe('isPlanStale — kein VDOT-Vergleich (P-05)', () => {
+  it('frischer Plan mit vdot 49 ist nicht stale, auch wenn lokaler settings.vdot 47.9 ist', () => {
+    const plan = { schemaVersion: 1, generatedAt: new Date().toISOString(), generatedBy: 'streamlit', vdot: 49,
+      paces: {}, inputHash: 'x', weeks: [] } as unknown as SyncedPlan
+    expect(isPlanStale(plan, '2026-10-11', '2027-04-25', null)).toBe(false)
   })
 })

@@ -3,7 +3,7 @@
 // drifted badly from the Desktop periodization (missing T-055/T-066/T-087/T-102/T-131)
 // and produced invalid plans (no taper, inverted periodization). No local fallback
 // planner is kept; consumers show an explicit empty state instead.
-import { mondayOf, localISODate, DAY_TAGS, type ActivitySummary, type WorkoutClassification } from './strava'
+import { mondayOf, localISODate, type ActivitySummary, type WorkoutClassification } from './strava'
 import type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession } from './githubSync'
 
 // Re-export synced plan types for convenience in components
@@ -32,12 +32,6 @@ export function syncedSessionForTag(week: SyncedPlanWeek, tag: string): SyncedPl
   return week.sessions.find(s => s.tag === tag) ?? null
 }
 
-// Return the session for today's weekday tag from a synced plan week
-export function syncedTodaySession(week: SyncedPlanWeek): SyncedPlanSession | null {
-  const todayTag = DAY_TAGS[new Date().getDay()]
-  return week.sessions.find(s => s.tag === todayTag) ?? null
-}
-
 // T-157: True when the Desktop flagged the week with a session-build error.
 // Defensively truthy — any non-empty error string counts, not just the canonical value.
 export function weekHasSessionError(week: SyncedPlanWeek): boolean {
@@ -63,13 +57,11 @@ const PLAN_STALE_DAYS = 7
 // or the plan itself is too old to be considered current.
 export function isPlanStale(
   plan: SyncedPlan,
-  localVdot: number,
   localRaceDate1: string,
   localRaceDate2: string,
   syncSettings: Record<string, unknown> | null,
 ): boolean {
-  // VDOT mismatch
-  if (Math.abs(plan.vdot - localVdot) > 0.1) return true
+  // Kein VDOT-Vergleich: plan.vdot ist die Desktop-SSoT, settings.vdot nur Offline-Fallback (P-05).
 
   // Age check: plan generated more than PLAN_STALE_DAYS days ago
   if (plan.generatedAt) {
@@ -258,4 +250,12 @@ export function assessDeviationForRestDay(
     badge:        'ruhetag',
     badgeColor:   '#FFC107',
   }
+}
+
+// Kalendertage von `now` bis `date` (lokal). Math.round statt ceil: ueber den DST-Wechsel
+// ist die Differenz 24h±1h, ceil lieferte dort einen Tag zu viel (P-13).
+export function daysUntil(date: Date, now: Date = new Date()): number {
+  const today = new Date(now); today.setHours(0, 0, 0, 0)
+  const day = new Date(date); day.setHours(0, 0, 0, 0)
+  return Math.round((day.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 }

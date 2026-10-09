@@ -71,6 +71,17 @@ function json(body: unknown, status: number, extraHeaders: Record<string, string
 
 // --- Strava proxy handlers --------------------------------------------------
 
+// Strava kann bei 5xx/Wartung HTML liefern; ein ungefangenes json() wuerde als Cloudflare-Fehlerseite
+// ohne CORS-Header enden (P-10). null = kein JSON-Objekt.
+async function readUpstreamJson(upstream: Response): Promise<Record<string, unknown> | null> {
+  try {
+    const d = await upstream.json()
+    return d && typeof d === 'object' && !Array.isArray(d) ? d as Record<string, unknown> : null
+  } catch {
+    return null
+  }
+}
+
 async function handleStravaToken(req: Request, env: Env, cors: Record<string, string>): Promise<Response> {
   let body: Record<string, string>
   try {
@@ -96,7 +107,8 @@ async function handleStravaToken(req: Request, env: Env, cors: Record<string, st
     }),
   })
 
-  const data: Record<string, unknown> = await upstream.json()
+  const data = await readUpstreamJson(upstream)
+  if (!data) return json({ error: 'upstream_non_json', status: upstream.status }, 502, cors)
 
   // Strip client_secret from response body in case Strava ever echoes it back
   delete data['client_secret']
@@ -128,7 +140,8 @@ async function handleStravaRefresh(req: Request, env: Env, cors: Record<string, 
     }),
   })
 
-  const data: Record<string, unknown> = await upstream.json()
+  const data = await readUpstreamJson(upstream)
+  if (!data) return json({ error: 'upstream_non_json', status: upstream.status }, 502, cors)
   delete data['client_secret']
 
   return json(data, upstream.status, cors)
@@ -180,7 +193,8 @@ async function handleClaude(req: Request, env: Env, cors: Record<string, string>
     }),
   })
 
-  const data: Record<string, unknown> = await upstream.json()
+  const data = await readUpstreamJson(upstream)
+  if (!data) return json({ error: 'upstream_non_json', status: upstream.status }, 502, cors)
 
   // Strip the API key from response in case it ever appears (defensive)
   delete data['x-api-key']
