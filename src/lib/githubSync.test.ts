@@ -340,3 +340,45 @@ describe('fetchSync — UTF-8-Roundtrip (T-208)', () => {
     expect(result?.data.settings?.note).toBe('Läufe über 30 km')
   })
 })
+
+// ── T-260 Fix-Loop 1 (Bug 3): pushSync muss den 60-s-fetchSync-Cache nachziehen ────────────────
+// Sonst liefert ein Remount < 60 s nach dem Push den Stand VOR dem Push; seit T-260 ist Remote
+// SSoT für nicht-pending Wochen → lokaler Tausch würde verworfen und beim nächsten Tausch remote überschrieben.
+describe('pushSync → fetchSync-Cache (T-260 Fix-Loop 1)', () => {
+  beforeEach(() => {
+    localStorage.setItem('github_sync_token', 'test-token-xyz')
+    vi.resetAllMocks()
+  })
+  afterEach(() => {
+    localStorage.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('nach erfolgreichem Push liefert fetchSync() (TTL) den gepushten Stand + neue sha, nicht den alten', async () => {
+    const d0: SyncData = { weekOverrides: {} }
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PUT') return { ok: true, status: 200, json: async () => ({ content: { sha: 'sha-new' } }) }
+      return getResponse(d0, 'sha-old')
+    }))
+    const fresh = await fetchSync(true)
+    expect(fresh?.sha).toBe('sha-old')
+    await pushSync({ ...fresh!.data, weekOverrides: { '2026-10-05': { Di: 'Mi' } } }, fresh!.sha)
+    const after = await fetchSync()
+    expect(after?.data.weekOverrides).toEqual({ '2026-10-05': { Di: 'Mi' } })
+    expect(after?.sha).toBe('sha-new')
+  })
+
+  it('Push-Antwort ohne sha → Cache invalidiert (nächster fetchSync geht ans Netz)', async () => {
+    let gets = 0
+    vi.stubGlobal('fetch', vi.fn(async (_url: string, opts?: RequestInit) => {
+      if (opts?.method === 'PUT') return putResponse(200)
+      gets++
+      return getResponse({}, 'sha-x')
+    }))
+    await fetchSync(true)
+    expect(gets).toBe(1)
+    await pushSync({ settings: {} }, 'sha-x')
+    await fetchSync()
+    expect(gets).toBe(2)
+  })
+})

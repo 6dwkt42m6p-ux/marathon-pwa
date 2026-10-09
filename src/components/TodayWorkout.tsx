@@ -11,7 +11,7 @@ import {
   type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
-import { resolvePreRaceEnabled, safeSetItem } from '../lib/storage'
+import { resolvePreRaceEnabled, safeSetItem, applyRemoteWeekOverrides, markWeekOverridePending, clearWeekOverridePending } from '../lib/storage'
 import {
   hasToken, fetchSync, pushSync,
   type SyncData, type SyncedPlan, type SyncedPlanSession,
@@ -128,7 +128,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
           setSyncSettings(result.data.settings ?? null)
           setPlanRecomputeRequested(result.data.planRecomputeRequested ?? false)
           setSyncedActivityTemps(result.data.activityTemps)
-          setSyncedWeekOverrides(result.data.weekOverrides)
+          // T-260 P-06: `{}` for a fetched sync.json without the field — undefined means "not fetched".
+          setSyncedWeekOverrides(result.data.weekOverrides ?? {})
         }
       })
       .catch(() => { /* offline — keep null, show hint screen */ })
@@ -237,6 +238,9 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // week or the synced plan itself changes, so a genuinely-saved override is picked up instead
   // of staying stuck on the 'noweek' initial value forever.
   useEffect(() => {
+    // T-260 P-06: remote is SSoT for weeks/days that are not locally pending — a Desktop reset
+    // (week popped) or single undo (day popped) must take back the stale local swap.
+    if (syncedWeekOverrides !== undefined) applyRemoteWeekOverrides(syncedWeekOverrides)
     setAssignments(loadOverrides(wKey) ?? defaultAssignments)
     // T-231 (Fix-Loop 1): resolve a pending reset once Desktop has demonstrably rebuilt the plan
     // SINCE the reset click — primary signal is `generatedAt` differing from the fingerprint
@@ -260,11 +264,16 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
       setResetPending(false)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [wKey, syncedPlan])
+  }, [wKey, syncedPlan, syncedWeekOverrides])
   const [swapping, setSwapping] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(todayTag)
 
-  async function pushOverridesToGitHub(overrides: DayAssignment[]) {
+  // T-260 P-06: pending = "not yet successfully pushed". Cleared on push success via stamp (a newer
+  // edit re-marks the week, so a late-resolving older push cannot clear it). Clearing only on an
+  // exact remote confirmation (Fix-Loop 1) left the marker forever once Desktop changed the week
+  // and then re-pushed over the Desktop on every start (Re-Review P1). A remount within the
+  // fetchSync TTL is covered by pushSync seeding the cache with the pushed state.
+  async function pushOverridesToGitHub(overrides: DayAssignment[], stamp: string) {
     if (!hasToken()) return
     try {
       const current = await fetchSync(true)  // force: need fresh sha before push
@@ -277,7 +286,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
         weekOverrides: { ...(base.weekOverrides ?? {}), [wKey]: map },
       })
       await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
-    } catch { /* sync failure is non-critical */ }
+      clearWeekOverridePending(wKey, stamp)
+    } catch { /* sync failure is non-critical — week stays pending, re-pushed on next App start */ }
   }
 
   function handleSwap(originalDay: string, targetDay: string) {
@@ -288,9 +298,10 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     moving.currentDay = targetDay
     setAssignments(next)
     saveOverrides(wKey, next)
+    const stamp = markWeekOverridePending(wKey)
     setSwapping(null)
     setExpanded(targetDay)
-    pushOverridesToGitHub(next)
+    pushOverridesToGitHub(next, stamp)
   }
 
   // T-231 Variante 2 (Coordinator-Entscheidung): "Zurücksetzen" heißt für den Nutzer "alle
@@ -305,7 +316,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     // Fix-Loop 1: fingerprint the plan AS OF this click — resolved once a later synced plan
     // carries a different generatedAt (see reconciliation effect above).
     saveResetPending(wKey, syncedPlan?.generatedAt ?? new Date().toISOString())
-    pushOverridesToGitHub(defaultAssignments)
+    pushOverridesToGitHub(defaultAssignments, markWeekOverridePending(wKey))
   }
 
   // Apply assignments to synced sessions and sort.
@@ -324,14 +335,16 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
         }
         const local           = assignments.find(a => a.originalDay === identity)
         const localIsSwap     = !!local && local.originalDay !== local.currentDay
-        const alreadyOnDesktop = localIsSwap &&
-          syncedWeekOverrides?.[wKey]?.[local!.originalDay] === local!.currentDay
+        // T-260 Fix-Loop 2: "on Desktop" means BAKED into `tag`, not merely present in the remote
+        // weekOverrides — right after a PWA push the map carries the swap while the plan is not
+        // rebuilt yet (since pushSync seeds the fetch cache this is visible immediately on remount).
+        const alreadyOnDesktop = localIsSwap && s.tag === local!.currentDay
         const tag       = localIsSwap && !alreadyOnDesktop ? local!.currentDay : s.tag
         const isShifted = tag !== (s.original_tag ?? tag)
         return { ...s, tag, originalTag: identity, isShifted }
       })
       .sort((a, b) => DAYS_ORDER.indexOf(a.tag) - DAYS_ORDER.indexOf(b.tag))
-  }, [rawSyncedSessions, assignments, syncedWeekOverrides, wKey, resetPending])
+  }, [rawSyncedSessions, assignments, resetPending])
 
   // T-217 AC2/AC3: reset button must also surface a still-pending local swap that the
   // per-session `isShifted` formula can mask (old sync.json without `original_tag`, see

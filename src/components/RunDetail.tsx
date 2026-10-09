@@ -17,7 +17,7 @@ import {
 import { fetchSync, pushSync, type SyncData } from '../lib/githubSync'
 import {
   buildSaveNoteMutation, buildDeleteNoteMutation,
-  appendPendingNoteMutation, loadPendingNoteMutations,
+  appendPendingNoteMutation, loadPendingNoteMutations, mergeNoteMutationQueue, markNoteMutationsPushed,
   resolveNote,
   type SyncedNote,
 } from '../lib/notesSync'
@@ -306,12 +306,12 @@ export default function RunDetail({
       const allPending = queued ? loadPendingNoteMutations() : [...loadPendingNoteMutations(), mutation]
       // rebuildFn: append ALL local pending mutations to the fresh remote queue, deduped by ts.
       // (T-151 pattern: on 409-retry, re-apply own mutations against the freshly fetched state.)
-      const buildPayload = (base: SyncData): SyncData => {
-        const existingTs = new Set((base.noteMutations ?? []).map(m => m.ts))
-        const toAdd = allPending.filter(m => !existingTs.has(m.ts))
-        return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
-      }
+      // T-260 P-04: merge is compacted per activity_id — an older remote entry for the same
+      // activity is dropped so Desktop can never apply it after (or instead of) this one.
+      const buildPayload = (base: SyncData): SyncData =>
+        ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, allPending) })
       await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
+      if (fresh) markNoteMutationsPushed(allPending.map(m => m.ts))
     } catch {
       // Offline or conflict — mutation stays in pending list for next flush (if it was queued;
       // if queuing itself failed above, it is lost until the user re-saves — the App-level

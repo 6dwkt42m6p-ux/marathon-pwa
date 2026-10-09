@@ -221,6 +221,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   useEffect(() => {
     if (!hasStrava) return
     let mounted = true
+    // T-260 P-03: a re-run (e.g. syncedActivityTemps resolving) used to start a second loop while
+    // the first kept fetching — abort the old loop on cleanup.
+    const ctrl = new AbortController()
 
     async function bulkFetch() {
       setAnalyticsLoading(true)
@@ -234,7 +237,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
         )
         const qualityRuns = runs.filter(r => qualityIds.has(r.id))
 
-        const result = await loadAnalyticsStreams(runs, qualityRuns, effectiveVdot)
+        const result = await loadAnalyticsStreams(runs, qualityRuns, effectiveVdot, ctrl.signal)
         if (!mounted) return
 
         setLocalStrideData(result.strideDataById)
@@ -250,7 +253,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
     }
 
     bulkFetch()
-    return () => { mounted = false }
+    return () => { mounted = false; ctrl.abort() }
   // effectiveVdot change = new VDOT from sync → re-run to recalculate adherence thresholds.
   // syncedActivityTemps (T-184): a resolved sync must re-run durability signals with °C.
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -15,10 +15,9 @@ import {
   type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
 } from '../lib/injury'
 import {
-  loadPendingNoteMutations,
-  removePendingNoteMutations,
-  resolvePendingNoteMutation,
-  type NoteMutation,
+  reconcilePendingNoteMutations,
+  mergeNoteMutationQueue,
+  markNoteMutationsPushed,
 } from '../lib/notesSync'
 import { GLOSSARY, label as glossaryLabel } from '../lib/glossary'
 
@@ -147,22 +146,14 @@ export default function Settings({ settings, onUpdate }: Props) {
           }
         }
         // T-156: resolve and re-push pending note mutations on manual sync.
-        const notePending = loadPendingNoteMutations()
-        if (notePending.length > 0) {
-          const syncInfo = { noteMutations: result.data.noteMutations, notes: result.data.plan?.notes }
-          const appliedTs = notePending
-            .filter((m: NoteMutation) => resolvePendingNoteMutation(m, syncInfo) === 'applied')
-            .map((m: NoteMutation) => m.ts)
-          if (appliedTs.length > 0) removePendingNoteMutations(appliedTs)
-          const stillPending = loadPendingNoteMutations()
-          if (stillPending.length > 0) {
-            const buildPayload = (base: SyncData): SyncData => {
-              const existingTs = new Set((base.noteMutations ?? []).map((m: NoteMutation) => m.ts))
-              const toAdd = stillPending.filter((m: NoteMutation) => !existingTs.has(m.ts))
-              return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
-            }
-            pushSync(buildPayload(result.data), result.sha, buildPayload).catch(() => { /* best-effort */ })
-          }
+        // T-260 P-04: shared reconcile/merge helpers (compaction + pushed marker), see notesSync.ts.
+        const stillPending = reconcilePendingNoteMutations({ noteMutations: result.data.noteMutations, notes: result.data.plan?.notes })
+        if (stillPending.length > 0) {
+          const buildPayload = (base: SyncData): SyncData =>
+            ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, stillPending) })
+          pushSync(buildPayload(result.data), result.sha, buildPayload)
+            .then(() => { markNoteMutationsPushed(stillPending.map(m => m.ts)) })
+            .catch(() => { /* best-effort */ })
         }
       } else {
         setGhMsg('Noch keine Sync-Daten vorhanden.')
