@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { loadSettings, saveSettings, isUsingDefaultSettings, mergeRemoteSettings } from './lib/storage'
+import { loadSettings, saveSettings, isUsingDefaultSettings, mergeRemoteSettings, applyRemoteWeekOverrides } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
@@ -146,21 +146,7 @@ export default function App() {
       }
       // Apply week overrides from remote into localStorage
       if (data.weekOverrides) {
-        Object.entries(data.weekOverrides).forEach(([weekKey, map]) => {
-          const lsKey = `week_override_${weekKey}`
-          // Convert map {originalDay -> currentDay} back to DayAssignment array
-          // We need to know all days — re-build from existing or skip if already set
-          const existing = localStorage.getItem(lsKey)
-          const arr: Array<{ originalDay: string; currentDay: string }> = existing ? JSON.parse(existing) : []
-          const days = ['Mo','Di','Mi','Do','Fr','Sa','So']
-          const updated = days
-            .filter(d => arr.some(a => a.originalDay === d) || map[d])
-            .map(d => {
-              const found = arr.find(a => a.originalDay === d)
-              return { originalDay: d, currentDay: map[d] ?? found?.currentDay ?? d }
-            })
-          if (updated.length > 0) localStorage.setItem(lsKey, JSON.stringify(updated))
-        })
+        applyRemoteWeekOverrides(data.weekOverrides)
       }
       // T-156: Flush pending note mutations — resolve applied ones, re-push remaining.
       // Best-effort: one attempt, no retry, no new timer/poll.

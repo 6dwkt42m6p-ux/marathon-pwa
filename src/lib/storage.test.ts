@@ -10,6 +10,7 @@ import {
   resolveRaceTargets,
 } from './storage'
 import { vdotFromRace } from './vdot'
+import { localISODate } from './strava'
 
 // jsdom environment provides localStorage
 
@@ -209,7 +210,10 @@ describe('mergeRemoteSettings — T-182 Phase B review fix (Bug 2)', () => {
   })
 
   it('raceDate1: null does not corrupt hmWeeks into an epoch-derived 0 (T-182 review repro)', () => {
-    const local = { ...loadSettings(), raceDate1: '2026-10-11' }
+    // Relativ zu heute (P-01): ein fixes Datum wurde zur Zeitbombe, sobald es < 1 Woche entfernt war.
+    const future = new Date(); future.setDate(future.getDate() + 60)
+    const futureISO = localISODate(future)
+    const local = { ...loadSettings(), raceDate1: futureISO }
     const merged = mergeRemoteSettings(local, { raceDate1: null })
     const weeksUntil = Math.floor((new Date(merged.raceDate1).getTime() - Date.now()) / (7 * 24 * 3600 * 1000))
     expect(weeksUntil).toBeGreaterThan(0)

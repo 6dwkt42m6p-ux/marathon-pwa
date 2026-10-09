@@ -227,13 +227,6 @@ export function saveSettings(s: AppSettings): boolean {
   return safeSetItem(KEY, JSON.stringify(s))
 }
 
-export function updateSettings(partial: Partial<AppSettings>): AppSettings {
-  const current = loadSettings()
-  const next = { ...current, ...partial }
-  saveSettings(next)
-  return next
-}
-
 // T-158(b): True when the user has never saved custom settings (coach_settings absent).
 // On a fresh install the app renders with DEFAULTS.vdot=47.9 — a personal value that
 // suggests false precision. Call sites use this to show a "Standardwert" notice.
@@ -269,4 +262,28 @@ export function saveNote(activityId: number, text: string, rating: number): bool
 
 export function deleteNote(activityId: number): void {
   localStorage.removeItem(`note_${activityId}`)
+}
+
+// Remote-weekOverrides (Desktop) additiv in localStorage uebernehmen. Je Woche isoliert (P-11):
+// ein korruptes week_override_* oder ein Quota-Fehler darf weder die uebrigen Wochen noch den
+// nachfolgenden Notiz-Flush im Startup-Sync abbrechen.
+export function applyRemoteWeekOverrides(weekOverrides: Record<string, Record<string, string>>): void {
+  const days = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
+  for (const [weekKey, map] of Object.entries(weekOverrides)) {
+    try {
+      const lsKey = `week_override_${weekKey}`
+      let arr: Array<{ originalDay: string; currentDay: string }> = []
+      try {
+        const parsed = JSON.parse(localStorage.getItem(lsKey) ?? '[]')
+        if (Array.isArray(parsed)) arr = parsed
+      } catch { /* korrupt -> aus Remote neu aufbauen */ }
+      const updated = days
+        .filter(d => arr.some(a => a.originalDay === d) || map[d])
+        .map(d => {
+          const found = arr.find(a => a.originalDay === d)
+          return { originalDay: d, currentDay: map[d] ?? found?.currentDay ?? d }
+        })
+      if (updated.length > 0) safeSetItem(lsKey, JSON.stringify(updated))
+    } catch { /* naechste Woche */ }
+  }
 }

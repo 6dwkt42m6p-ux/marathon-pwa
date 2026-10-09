@@ -67,7 +67,7 @@ export default function TrainingPlan({ settings, activitiesVersion = 0 }: Props)
 
   // Staleness check
   const stale = syncedPlan
-    ? isPlanStale(syncedPlan, settings.vdot, settings.raceDate1, settings.raceDate2, syncSettings)
+    ? isPlanStale(syncedPlan, settings.raceDate1, settings.raceDate2, syncSettings)
     : false
 
   if (syncLoading) {

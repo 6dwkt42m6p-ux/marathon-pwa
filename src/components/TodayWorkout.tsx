@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   assessDeviation, assessDeviationForRestDay,
-  syncedCurrentWeek, isPlanStale, weekHasSessionError,
+  syncedCurrentWeek, isPlanStale, daysUntil, weekHasSessionError,
   type PlanDeviation,
 } from '../lib/plan'
 import { buildPaceTable } from '../lib/vdot'
@@ -177,7 +177,7 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // ── T-024: Render from synced plan ──────────────────────────────────────────
   const syncedCurrentW = syncedPlan ? syncedCurrentWeek(syncedPlan) : null
   const stale = syncedPlan
-    ? isPlanStale(syncedPlan, settings.vdot, settings.raceDate1, settings.raceDate2, syncSettings)
+    ? isPlanStale(syncedPlan, settings.raceDate1, settings.raceDate2, syncSettings)
     : false
   // T-182 Phase B: Event 1 (prep race) is desktop-controlled via the sync `settings` block.
   const preRaceActive = resolvePreRaceEnabled(settings.preRaceEnabled, syncSettings)
@@ -726,12 +726,7 @@ function PaceRow({ label, range, color }: { label: string; range: string; color:
 }
 
 function RaceCountdownCard({ name, badge, date }: { name: string; badge: string; date: Date }) {
-  const today    = new Date()
-  today.setHours(0, 0, 0, 0)
-  const raceDay  = new Date(date)
-  raceDay.setHours(0, 0, 0, 0)
-  const diffMs   = raceDay.getTime() - today.getTime()
-  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+  const diffDays = daysUntil(date)
   const isPast   = diffDays < 0
   const isToday  = diffDays === 0
   const dateStr  = date.toLocaleDateString('de-AT', { day: '2-digit', month: 'short', year: 'numeric' })
