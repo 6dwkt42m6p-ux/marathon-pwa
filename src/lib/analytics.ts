@@ -21,6 +21,15 @@ function _hrZoneCode(hrPct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
   return 'Z5'
 }
 
+// T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds
+export const LTHR_EASY_FRAC = 0.90
+export const LTHR_QUALITY_FRAC = 0.95
+export function intensityBounds(maxHr: number, restHr: number, lthr?: number | null): [number, number] {
+  if (lthr && lthr > 0) return [LTHR_EASY_FRAC * lthr, LTHR_QUALITY_FRAC * lthr]
+  const hrr = maxHr - restHr
+  return [restHr + 0.70 * hrr, restHr + 0.80 * hrr]
+}
+
 // ── intensityDistribution ─────────────────────────────────────────────────────
 // Ports coach_activity.py:intensity_distribution() — Path B only (avg-HR whole-activity bucket).
 // Path A (per-second HR stream) is not available on the PWA without on-demand stream fetch,
@@ -61,6 +70,8 @@ export function intensityDistribution(
   maxHr  = 190,
   restHr = 50,
   weeks  = 12,
+  // T-269: >0 → Grenzen 0.90/0.95·LTHR (aerobe Schwelle), sonst Karvonen 70/80 % HRR.
+  lthr?: number | null,
 ): IntensityResult {
   const empty: IntensityResult = {
     weekly: [], totals: { easyMin: 0, greyMin: 0, qualityMin: 0, totalMin: 0, easyPct: 0, greyPct: 0, qualityPct: 0 },
@@ -85,7 +96,10 @@ export function intensityDistribution(
 
     let bucket: ZoneBucket | null = null
 
-    if (hrr > 0 && r.avgHr && r.avgHr > 0) {
+    if (r.avgHr && r.avgHr > 0 && lthr && lthr > 0) {
+      bucket = r.avgHr < LTHR_EASY_FRAC * lthr ? 'easy'
+             : r.avgHr < LTHR_QUALITY_FRAC * lthr ? 'grey' : 'quality'
+    } else if (hrr > 0 && r.avgHr && r.avgHr > 0) {
       const hrPct = (r.avgHr - restHr) / hrr * 100
       const zcode = _hrZoneCode(hrPct)
       if (zcode === 'Z1' || zcode === 'Z2') bucket = 'easy'
@@ -158,9 +172,9 @@ export function intensityDistribution(
   if (totAll >= 60) {  // minimum 1h data
     const { greyPct, easyPct, qualityPct } = totals
     if (greyPct >= 30) {
-      warning = `Graue Zone dominiert (${Math.round(greyPct)}% der Trainingszeit). Z3-Intensität ist weder Easy genug für Erholung noch hart genug für Anpassung — reduziere M-Tempo-Läufe und ersetze sie durch echte Easy-Läufe (Z1–Z2) oder echte Qualitätseinheiten (T/I).`
+      warning = `Graue Zone dominiert (${Math.round(greyPct)}% der Trainingszeit). Z3-Intensität ist weder Easy genug für Erholung noch hart genug für Anpassung — reduziere M-Tempo-Läufe und ersetze sie durch echte Easy-Läufe (Easy) oder echte Qualitätseinheiten (T/I).`
     } else if (greyPct >= 20) {
-      warning = `Graue Zone erhöht (${Math.round(greyPct)}%). Ziel: <15% Z3. Zu viele Läufe im Marathon-Tempo-Bereich ohne klare Intensitätsstruktur.`
+      warning = `Graue Zone erhöht (${Math.round(greyPct)}%). Ziel: <15% Grau. Zu viele Läufe im Marathon-Tempo-Bereich ohne klare Intensitätsstruktur.`
     } else if (easyPct < 65) {
       warning = `Easy-Anteil zu niedrig (${Math.round(easyPct)}%, Ziel ≥80%). Zu wenig regenerative Belastung — Verletzungsrisiko und Plateaugefahr steigen.`
     } else if (qualityPct > 30) {
@@ -209,6 +223,7 @@ export function stagnationCheck(
   // suppressed even above the baseline floor — a simultaneous "overload" + "underload"
   // verdict would be incoherent. Default undefined preserves pre-T-168 behaviour.
   acwrZone?: 'underload' | 'sweet' | 'caution' | 'high' | null,
+  lthr?: number | null,
 ): StagnationResult | null {
   if (trendInfo === null) return null
 
@@ -220,13 +235,13 @@ export function stagnationCheck(
 
   // Cause A: Intensity distribution (grey zone / quality deficit)
   try {
-    const intdist = intensityDistribution(runs, maxHr, restHr, weeks)
+    const intdist = intensityDistribution(runs, maxHr, restHr, weeks, lthr)
     if (intdist.hasData && intdist.totals.totalMin > 0) {
       const { greyPct, qualityPct, easyPct, totalMin } = intdist.totals
       if (greyPct >= 25) {
         causes.push({
-          label:    'Zu viel Graue Zone (Z3)',
-          detail:   `${Math.round(greyPct)}% der Trainingszeit in Z3 — weder Easy noch hart genug für Anpassung (80/20-Ziel: <15% Z3).`,
+          label:    'Zu viel Graue Zone',
+          detail:   `${Math.round(greyPct)}% der Trainingszeit im Grau-Bereich — weder Easy noch hart genug für Anpassung (80/20-Ziel: <15% Grau).`,
           severity: greyPct >= 30 ? 'error' : 'warn',
         })
       } else if (qualityPct < 8 && totalMin >= 60) {
@@ -307,7 +322,7 @@ export function stagnationCheck(
 
   // Build recommendation
   const recParts: string[] = causes.map(c => {
-    if (c.label === 'Zu viel Graue Zone (Z3)') return 'Ersetze 1–2 Marathon-Tempo-Läufe durch echte Easy-Läufe (Z1–Z2) oder echte Qualitätseinheiten (Schwelle/Intervall).'
+    if (c.label === 'Zu viel Graue Zone') return 'Ersetze 1–2 Marathon-Tempo-Läufe durch echte Easy-Läufe (Easy) oder echte Qualitätseinheiten (Schwelle/Intervall).'
     if (c.label === 'Zu wenig Qualitätseinheiten') return 'Füge eine gezielte Qualitätseinheit pro Woche ein (z.B. 5×1000 m Intervall oder 20 min Schwellenlauf).'
     if (c.label === 'Easy-Anteil zu niedrig') return 'Erhöhe den Easy-Anteil auf ≥80% — harte Einheiten auf 1–2 pro Woche begrenzen.'
     if (c.label === 'Volumen zu schnell gestiegen') return 'Reduziere das Volumen für 1 Woche auf ~80% des aktuellen Niveaus (Deload-Woche).'

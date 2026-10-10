@@ -17,6 +17,9 @@ import {
   sessionExecutionQuality,
   dataQualityScore,
   matchBlocksToPlan,
+  intensityBounds,
+  LTHR_EASY_FRAC,
+  LTHR_QUALITY_FRAC,
 } from './analytics'
 import { trainingPaces } from './vdot'
 import { dailyLoadSeries, classifyWorkoutStructure } from './strava'
@@ -726,5 +729,45 @@ describe('aggregateStrideTrend', () => {
     expect(result).toHaveLength(2)
     expect(result[0].strideCount).toBe(2) // older week
     expect(result[1].strideCount).toBe(3) // newer week
+  })
+})
+
+// T-269 Golden-Parität — gespiegelt in tests/test_t269_intensity_lthr.py
+// (test_t269_golden_parity_values_desktop_side). Werte nur gemeinsam ändern.
+describe('T-269 Golden-Parität', () => {
+  const day = 24 * 3600 * 1000
+  const mk = (i: number, avgHr: number, min: number): RunSummary => ({
+    id: i + 1, name: `Run ${i + 1}`, date: new Date(Date.now() - (i + 1) * day),
+    distanceKm: 10, durationSec: min * 60, paceSec: 300, paceFmt: '5:00', avgHr, elevationM: 0,
+  })
+  const runs = [mk(0, 140, 60), mk(1, 152, 40), mk(2, 165, 40)]
+
+  it('LTHR-Faktoren 0.90/0.95', () => {
+    expect([LTHR_EASY_FRAC, LTHR_QUALITY_FRAC]).toEqual([0.90, 0.95])
+  })
+  it('intensityBounds', () => {
+    const [e, q] = intensityBounds(190, 45, 171)
+    expect(e).toBeCloseTo(153.9, 6); expect(q).toBeCloseTo(162.45, 6)
+    expect(intensityBounds(190, 45)).toEqual([146.5, 161])
+    expect(intensityBounds(190, 45, null)).toEqual([146.5, 161])
+  })
+  it('mit LTHR 171', () => {
+    const t = intensityDistribution(runs, 190, 45, 12, 171).totals
+    expect([t.easyPct, t.greyPct, t.qualityPct]).toEqual([71.4, 0, 28.6])
+  })
+  it('ohne LTHR (Karvonen, unverändert)', () => {
+    const t = intensityDistribution(runs, 190, 45, 12).totals
+    expect([t.easyPct, t.greyPct, t.qualityPct]).toEqual([42.9, 28.6, 28.6])
+    const tn = intensityDistribution(runs, 190, 45, 12, null).totals
+    expect([tn.easyPct, tn.greyPct, tn.qualityPct]).toEqual([42.9, 28.6, 28.6])
+  })
+  it('stagnationCheck reicht LTHR durch (152 bpm: Karvonen grau, LTHR 171 easy)', () => {
+    const grey = [mk(0, 152, 60), mk(1, 152, 60), mk(2, 140, 60)]
+    const trend = { delta: 0.0, insufficientEffortRuns: false }
+    const old = stagnationCheck(grey, trend, 190, 45)!
+    const neu = stagnationCheck(grey, trend, 190, 45, 8, 0.3, null, null, 171)!
+    expect(old.causes.some(c => c.label === 'Zu viel Graue Zone')).toBe(true)
+    expect(old.causes.find(c => c.label === 'Zu viel Graue Zone')!.detail).toContain('im Grau-Bereich')
+    expect(neu.causes.some(c => c.label.includes('Graue Zone'))).toBe(false)
   })
 })
