@@ -95,6 +95,8 @@ export interface SyncData {
   // window as the activity cache. Read-only for the PWA — never re-derive weather here
   // (D-031 coordinate-rounding privacy guarantee stays in exactly one place: Desktop).
   activityTemps?:         Record<string, number>
+  // T-270: Desktop-HF-Histogramme (Sekunden je bpm) der letzten 12 Wochen, read-only.
+  intensityHist?:         Record<string, { hist: Record<string, number>; durMin: number }>
   // T-196/D-047: Desktop-resolved test-run results (id-as-string → result), Weg B. Read-only
   // for the PWA — presence of the key IS the test-run marker (no separate isTestRun flag).
   // `text` is display-ready (rendered by coach.test_run_badge_text on the Desktop) — the PWA

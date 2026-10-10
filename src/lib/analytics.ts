@@ -26,6 +26,36 @@ export function intensityBounds(maxHr: number, restHr: number, lthr?: number | n
   return [restHr + 0.70 * hrr, restHr + 0.80 * hrr]
 }
 
+// T-270: Zwilling von coach_activity._intensity_bucket / zone_minutes_from_hist (Python = Referenz).
+export type IntensityHist = Record<string, { hist: Record<string, number>; durMin: number }>
+type ZoneBucket = 'easy' | 'grey' | 'quality'
+
+function _intensityBucket(bpm: number, restHr: number, hrr: number, lthr?: number | null): ZoneBucket | null {
+  if (!(bpm > 0)) return null
+  if (lthr && lthr > 0) return bpm < LTHR_EASY_FRAC * lthr ? 'easy' : bpm < LTHR_QUALITY_FRAC * lthr ? 'grey' : 'quality'
+  if (hrr <= 0) return null
+  const z = _hrZoneCode((bpm - restHr) / hrr * 100)
+  return z === 'Z1' || z === 'Z2' ? 'easy' : z === 'Z3' ? 'grey' : 'quality'
+}
+
+export function zoneMinutesFromHist(
+  hist: Record<string, number> | null | undefined,
+  restHr: number,
+  hrr: number,
+  lthr: number | null | undefined,
+  durMin: number,
+): [number, number, number] | null {
+  const s = { easy: 0, grey: 0, quality: 0 }
+  for (const [k, sec] of Object.entries(hist ?? {})) {
+    const b = _intensityBucket(Number(k), restHr, hrr, lthr)
+    if (b && sec) s[b] += Number(sec)
+  }
+  const total = s.easy + s.grey + s.quality
+  if (!(total > 0)) return null
+  const scale = durMin * 60 / total
+  return [s.easy * scale / 60, s.grey * scale / 60, s.quality * scale / 60]
+}
+
 // ── intensityDistribution ─────────────────────────────────────────────────────
 // Ports coach_activity.py:intensity_distribution() — Path B only (avg-HR whole-activity bucket).
 // Path A (per-second HR stream) is not available on the PWA without on-demand stream fetch,
@@ -59,6 +89,9 @@ export interface IntensityResult {
   skippedCount: number
   warning:      string | null
   hasData:      boolean
+  // T-270: Läufe im Fenster mit Desktop-Histogramm / alle Läufe im Fenster
+  histCount:    number
+  totalCount:   number
 }
 
 export function intensityDistribution(
@@ -68,10 +101,12 @@ export function intensityDistribution(
   weeks  = 12,
   // T-269: >0 → Grenzen 0.90/0.95·LTHR (aerobe Schwelle), sonst Karvonen 70/80 % HRR.
   lthr?: number | null,
+  // T-270: Desktop-HF-Histogramme (id → Sekunden je bpm) haben Vorrang vor Ø-HF.
+  intensityHist?: IntensityHist | null,
 ): IntensityResult {
   const empty: IntensityResult = {
     weekly: [], totals: { easyMin: 0, greyMin: 0, qualityMin: 0, totalMin: 0, easyPct: 0, greyPct: 0, qualityPct: 0 },
-    skippedCount: 0, warning: null, hasData: false,
+    skippedCount: 0, warning: null, hasData: false, histCount: 0, totalCount: 0,
   }
   if (!runs.length) return empty
 
@@ -80,15 +115,23 @@ export function intensityDistribution(
   const inWindow = runs.filter(r => r.date >= cutoff)
   if (!inWindow.length) return empty
 
-  type ZoneBucket = 'easy' | 'grey' | 'quality'
   const records: { weekStart: Date; easy: number; grey: number; quality: number }[] = []
   let skipped = 0
+  let histCount = 0
 
   for (const r of inWindow) {
     if (!r.durationSec || r.durationSec <= 0) { skipped++; continue }
     const durMin = r.durationSec / 60
 
     const weekStart = mondayOf(r.date)
+
+    const h = intensityHist?.[String(r.id)]
+    const zm = h ? zoneMinutesFromHist(h.hist, restHr, hrr, lthr, h.durMin) : null
+    if (zm) {
+      histCount++
+      records.push({ weekStart, easy: zm[0], grey: zm[1], quality: zm[2] })
+      continue
+    }
 
     let bucket: ZoneBucket | null = null
 
@@ -116,7 +159,7 @@ export function intensityDistribution(
     })
   }
 
-  if (!records.length) return { ...empty, skippedCount: skipped }
+  if (!records.length) return { ...empty, skippedCount: skipped, totalCount: inWindow.length }
 
   // Weekly aggregation (group by Monday key)
   const weekMap = new Map<string, { weekStart: Date; easy: number; grey: number; quality: number }>()
@@ -178,7 +221,7 @@ export function intensityDistribution(
     }
   }
 
-  return { weekly, totals, skippedCount: skipped, warning, hasData: true }
+  return { weekly, totals, skippedCount: skipped, warning, hasData: true, histCount, totalCount: inWindow.length }
 }
 
 // ── stagnationCheck ───────────────────────────────────────────────────────────
@@ -220,6 +263,7 @@ export function stagnationCheck(
   // verdict would be incoherent. Default undefined preserves pre-T-168 behaviour.
   acwrZone?: 'underload' | 'sweet' | 'caution' | 'high' | null,
   lthr?: number | null,
+  intensityHist?: IntensityHist | null,
 ): StagnationResult | null {
   if (trendInfo === null) return null
 
@@ -231,7 +275,7 @@ export function stagnationCheck(
 
   // Cause A: Intensity distribution (grey zone / quality deficit)
   try {
-    const intdist = intensityDistribution(runs, maxHr, restHr, weeks, lthr)
+    const intdist = intensityDistribution(runs, maxHr, restHr, weeks, lthr, intensityHist)
     if (intdist.hasData && intdist.totals.totalMin > 0) {
       const { greyPct, qualityPct, easyPct, totalMin } = intdist.totals
       if (greyPct >= 25) {
