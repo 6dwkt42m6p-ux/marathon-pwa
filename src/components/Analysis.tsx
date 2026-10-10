@@ -295,8 +295,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
 
   // T-124: four new analytics — each independent signal with its own guard
   const intDist = useMemo(
-    () => hasStrava ? intensityDistribution(runs, settings.maxHr, settings.restHr) : null,
-    [hasStrava, runs, settings.maxHr, settings.restHr],
+    // T-269: LTHR verschiebt die Easy-Grenze auf die aerobe Schwelle (0.90·LTHR).
+    () => hasStrava ? intensityDistribution(runs, settings.maxHr, settings.restHr, 12, syncedThreshold?.lthr ?? null) : null,
+    [hasStrava, runs, settings.maxHr, settings.restHr, syncedThreshold],
   )
   const stagnation = useMemo(
     () => hasStrava && trend ? stagnationCheck(
@@ -306,8 +307,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
       efTrend ? { deltaPct: efTrend.deltaPct ?? undefined, noHrData: efTrend.noHrData } : undefined,
       // T-168: Kohärenz-Guard — injuryRisk-ACWR-Zone unterdrückt Cause B bei "underload".
       injury?.acwrZone,
+      syncedThreshold?.lthr ?? null,
     ) : null,
-    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr, injury],
+    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr, injury, syncedThreshold],
   )
   // T-124-fix: use local bulk-fetched state; props serve as optional external override.
   const workSplits     = localWorkSplits     ?? workSplitsProp     ?? null
@@ -697,9 +699,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
             {/* Zone bars */}
             {(
               [
-                { label: 'Easy (Z1–Z2)', pct: intDist.totals.easyPct,    min: intDist.totals.easyMin,    color: '#4CAF50', target: '≥80%' },
-                { label: 'Grau (Z3)',    pct: intDist.totals.greyPct,    min: intDist.totals.greyMin,    color: '#FFC107', target: '<15%' },
-                { label: 'Qualität (Z4–Z5)', pct: intDist.totals.qualityPct, min: intDist.totals.qualityMin, color: '#e53935', target: '~20%' },
+                { label: 'Easy', pct: intDist.totals.easyPct,    min: intDist.totals.easyMin,    color: '#4CAF50', target: '≥80%' },
+                { label: 'Grau',    pct: intDist.totals.greyPct,    min: intDist.totals.greyMin,    color: '#FFC107', target: '<15%' },
+                { label: 'Qualität', pct: intDist.totals.qualityPct, min: intDist.totals.qualityMin, color: '#e53935', target: '~20%' },
               ] as { label: string; pct: number; min: number; color: string; target: string }[]
             ).map(z => (
               <div key={z.label} style={{ marginBottom: '8px' }}>
