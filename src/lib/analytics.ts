@@ -172,7 +172,7 @@ export function intensityDistribution(
   if (totAll >= 60) {  // minimum 1h data
     const { greyPct, easyPct, qualityPct } = totals
     if (greyPct >= 30) {
-      warning = `Graue Zone dominiert (${Math.round(greyPct)}% der Trainingszeit). Z3-Intensität ist weder Easy genug für Erholung noch hart genug für Anpassung — reduziere M-Tempo-Läufe und ersetze sie durch echte Easy-Läufe (Easy) oder echte Qualitätseinheiten (T/I).`
+      warning = `Graue Zone dominiert (${Math.round(greyPct)}% der Trainingszeit). Grau-Intensität ist weder Easy genug für Erholung noch hart genug für Anpassung — reduziere M-Tempo-Läufe und ersetze sie durch echte Easy-Läufe oder echte Qualitätseinheiten (T/I).`
     } else if (greyPct >= 20) {
       warning = `Graue Zone erhöht (${Math.round(greyPct)}%). Ziel: <15% Grau. Zu viele Läufe im Marathon-Tempo-Bereich ohne klare Intensitätsstruktur.`
     } else if (easyPct < 65) {
@@ -322,7 +322,7 @@ export function stagnationCheck(
 
   // Build recommendation
   const recParts: string[] = causes.map(c => {
-    if (c.label === 'Zu viel Graue Zone') return 'Ersetze 1–2 Marathon-Tempo-Läufe durch echte Easy-Läufe (Easy) oder echte Qualitätseinheiten (Schwelle/Intervall).'
+    if (c.label === 'Zu viel Graue Zone') return 'Ersetze 1–2 Marathon-Tempo-Läufe durch echte Easy-Läufe oder echte Qualitätseinheiten (Schwelle/Intervall).'
     if (c.label === 'Zu wenig Qualitätseinheiten') return 'Füge eine gezielte Qualitätseinheit pro Woche ein (z.B. 5×1000 m Intervall oder 20 min Schwellenlauf).'
     if (c.label === 'Easy-Anteil zu niedrig') return 'Erhöhe den Easy-Anteil auf ≥80% — harte Einheiten auf 1–2 pro Woche begrenzen.'
     if (c.label === 'Volumen zu schnell gestiegen') return 'Reduziere das Volumen für 1 Woche auf ~80% des aktuellen Niveaus (Deload-Woche).'
