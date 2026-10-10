@@ -45,6 +45,8 @@ export function zoneMinutesFromHist(
   lthr: number | null | undefined,
   durMin: number,
 ): [number, number, number] | null {
+  // Ungültige Dauer (kaputter Sync-Eintrag) → null = Rückfall auf Ø-HF statt NaN-Summen (T-270 Review).
+  if (!Number.isFinite(durMin) || durMin <= 0) return null
   const s = { easy: 0, grey: 0, quality: 0 }
   for (const [k, sec] of Object.entries(hist ?? {})) {
     const b = _intensityBucket(Number(k), restHr, hrr, lthr)

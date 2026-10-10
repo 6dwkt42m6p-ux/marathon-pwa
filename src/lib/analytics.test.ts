@@ -775,6 +775,12 @@ describe('T-269 Golden-Parität', () => {
 
 // T-270 Golden-Parität — gespiegelt mit Python coach_activity.zone_minutes_from_hist.
 // Werte nur gemeinsam ändern.
+describe('T-270 durMin-Guard', () => {
+  it('ungültige Dauer → null (Rückfall auf Ø-HF statt NaN)', () => {
+    for (const d of [0, -1, NaN, Infinity]) expect(zoneMinutesFromHist({ '150': 60 }, 45, 145, 171, d)).toBeNull()
+  })
+})
+
 describe('T-270 Golden-Parität', () => {
   const GOLDEN_HIST = { '125': 599.5, '149': 599.5, '170': 1200 }
   it('zoneMinutesFromHist mit LTHR 171', () => {
