@@ -674,6 +674,1665 @@
   }
  ],
  "description": "T-218: VDOT {40,49,55} x Zonengrenze (I/T/M/E, +-1s) x Phase (Basis, Aufbau) -> zone_code + Verdikt-Klasse aus coach.analyze_run.",
+ "hr_cases": [
+  {
+   "case_id": "hr_E_avg143.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z1",
+    "max_hr_pct": 88,
+    "max_hr_zone": "Z2",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 149.7,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg143.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 71,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 149.7,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg144.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 89,
+    "max_hr_zone": "Z2",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 150.7,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg144.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 72,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 150.7,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg145.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 89,
+    "max_hr_zone": "Z2",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 151.7,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg145.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 73,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 151.7,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg152.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 93,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 158.2,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg152.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 77,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 158.2,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg153.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 94,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 159.2,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg153.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 78,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 159.2,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg154.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 94,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 160.2,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg154.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 79,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 160.2,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg160.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 98,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 166.7,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg160.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 83,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 166.7,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg161.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 99,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 167.7,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg161.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 84,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 167.7,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg162.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 99,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 168.7,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg162.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 85,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 168.7,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg169.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 103,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 175.2,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg169.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 89,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 175.2,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg170.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 104,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 176.2,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg170.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 90,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 176.2,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg171.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 104,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 177.2,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_E_avg171.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 91,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 177.2,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg143.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z1",
+    "max_hr_pct": 100,
+    "max_hr_zone": "Z4",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 169.3,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg143.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 85,
+    "max_hr_zone": "Z4",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 169.3,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg144.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 100,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 170.3,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg144.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 86,
+    "max_hr_zone": "Z4",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 170.3,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg145.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 101,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 171.3,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg145.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 87,
+    "max_hr_zone": "Z4",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 171.3,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg152.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 105,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 177.8,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg152.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 91,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 177.8,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg153.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 105,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 178.8,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg153.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 92,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 178.8,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg154.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 106,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 179.8,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg154.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 93,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 179.8,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg160.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 110,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 186.3,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg160.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 97,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 186.3,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg161.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 110,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 187.3,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg161.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 98,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 187.3,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg162.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 111,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 188.3,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg162.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 99,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 188.3,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg169.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 115,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 194.8,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg169.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 103,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 194.8,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg170.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 115,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 195.8,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg170.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 104,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 195.8,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg171.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 116,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 196.8,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_Estride_avg171.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 105,
+    "max_hr_zone": "Z5",
+    "stride_detected": true,
+    "verdict_class": "⚡",
+    "zone_code": "E"
+   },
+   "input": {
+    "activity_max_hr": 196.8,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 321.051313,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg143.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z1",
+    "max_hr_pct": 90,
+    "max_hr_zone": "Z2",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 152.5,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg143.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 73,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 152.5,
+    "avg_hr": 143.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg144.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 90,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 153.5,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg144.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 74,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 153.5,
+    "avg_hr": 144.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg145.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 91,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 154.5,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg145.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 75,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 154.5,
+    "avg_hr": 145.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg152.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z2",
+    "max_hr_pct": 95,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 161.0,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg152.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 79,
+    "max_hr_zone": "Z3",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 161.0,
+    "avg_hr": 152.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg153.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 95,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 162.0,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg153.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 80,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 162.0,
+    "avg_hr": 153.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg154.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 96,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 163.0,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg154.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 81,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 163.0,
+    "avg_hr": 154.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg160.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 100,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 169.5,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg160.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 85,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 169.5,
+    "avg_hr": 160.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg161.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 100,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 170.5,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg161.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z3",
+    "max_hr_pct": 86,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 170.5,
+    "avg_hr": 161.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg162.5_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 101,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 171.5,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg162.5_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 87,
+    "max_hr_zone": "Z4",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 171.5,
+    "avg_hr": 162.5,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg169.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 105,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 178.0,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg169.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 91,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 178.0,
+    "avg_hr": 169.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg170.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 105,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 179.0,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg170.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 92,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 179.0,
+    "avg_hr": 170.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg171.0_lthr170",
+   "expected": {
+    "hr_basis": "LTHR",
+    "hr_zone": "Z5",
+    "max_hr_pct": 106,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 180.0,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": 170,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  },
+  {
+   "case_id": "hr_T_avg171.0_karvonen",
+   "expected": {
+    "hr_basis": "HFR",
+    "hr_zone": "Z4",
+    "max_hr_pct": 93,
+    "max_hr_zone": "Z5",
+    "stride_detected": false,
+    "verdict_class": "✅",
+    "zone_code": "T"
+   },
+   "input": {
+    "activity_max_hr": 180.0,
+    "avg_hr": 171.0,
+    "distance_km": 12.0,
+    "lthr": null,
+    "max_hr": 190,
+    "pace_sec_km": 259.404556,
+    "phase": "Aufbau",
+    "rest_hr": 50,
+    "vdot": 49
+   }
+  }
+ ],
+ "hr_description": "T-271: Ø-HF an den Friel-Grenzen (LTHR 170) x {LTHR, Karvonen} x {E-Pace, E-Pace+Spike, T-Pace} -> HF-Zone, HF-Max-Zone, % (LTHR|HFR), Stride.",
  "kind": "analyze_run_golden",
  "name": "analyze_run_golden",
  "source": "coach.analyze_run (Referenz)"

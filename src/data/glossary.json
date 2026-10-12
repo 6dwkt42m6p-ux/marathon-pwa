@@ -56,7 +56,7 @@
   },
   "Graue Zone": {
     "name": "Graue Zone",
-    "short": "Z3 (70–80 % HRR / M-Tempo): weder klar locker noch klar hart. Sollte laut 80/20-Prinzip möglichst gering gehalten werden."
+    "short": "Z3 = 90–95 % LTHR (Friel; ohne LTHR 70–80 % HRR): weder klar locker noch klar hart. Laut 80/20-Prinzip möglichst gering halten."
   },
   "HF": {
     "name": "Herzfrequenz (HF)",
@@ -88,7 +88,7 @@
   },
   "LTHR": {
     "name": "Lactate Threshold Heart Rate (LTHR)",
-    "short": "Herzfrequenz an der Laktatschwelle (Friel); Basis für HF-Zonen und hrTSS-Berechnung.",
+    "short": "Herzfrequenz an der Laktatschwelle (Friel): Ø-HF der letzten 20 min eines Testlaufs, sonst ~0,90 × HFmax. Basis für Z1–Z5, 80/20-Grenzen und hrTSS.",
     "unit": "bpm"
   },
   "Load": {
@@ -163,23 +163,23 @@
   },
   "Z1": {
     "name": "Z1 — Regeneration",
-    "short": "< 60 % HRR (Karvonen). Lockere Regeneration, sehr niedrige Belastung."
+    "short": "< 85 % LTHR (Friel; ohne LTHR < 60 % HRR). Lockere Regeneration, sehr niedrige Belastung."
   },
   "Z2": {
     "name": "Z2 — Grundlage",
-    "short": "60–70 % HRR (Karvonen). Aerobe Grundlagenzone, Easy-Läufe."
+    "short": "85–89 % LTHR (Friel; ohne LTHR 60–70 % HRR). Aerobe Grundlagenzone, Easy-Läufe."
   },
   "Z3": {
-    "name": "Z3 — Aerob intensiv",
-    "short": "70–80 % HRR (Karvonen). Graue Zone — weder klar Easy noch klar Quality, möglichst gering halten (80/20-Prinzip)."
+    "name": "Z3 — Tempo / Marathon",
+    "short": "90–94 % LTHR (Friel; ohne LTHR 70–80 % HRR). Graue Zone — weder klar Easy noch klar Quality, möglichst gering halten (80/20-Prinzip)."
   },
   "Z4": {
     "name": "Z4 — Schwelle",
-    "short": "80–90 % HRR (Karvonen). Schwellenbereich, Tempoläufe (T)."
+    "short": "95–99 % LTHR (Friel; ohne LTHR 80–90 % HRR). Schwellenbereich, Tempoläufe (T)."
   },
   "Z5": {
     "name": "Z5 — Maximal",
-    "short": "≥ 90 % HRR (Karvonen). Maximale Anstrengung, Intervalle/Repetitions."
+    "short": "≥ 100 % LTHR (Friel; ohne LTHR ≥ 90 % HRR). Maximale Anstrengung, Intervalle/Repetitions."
   },
   "Zonen": {
     "name": "Trainingszonen",

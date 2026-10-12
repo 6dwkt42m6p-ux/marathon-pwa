@@ -160,6 +160,45 @@ export interface RunAnalysis {
   hrSpikeBpm:     number | null
   tempNote:       string | null  // temp adjustment info, null when < 1.5% impact
   adjPaceSec:     number | null  // heat/cold-corrected pace used for zone classification
+  hrBasis:        'LTHR' | 'HFR'  // T-271: Bezug von maxHrPct / HF-Hinweisen
+}
+
+// T-269/T-271: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / FRIEL_Z2_FRAC
+export const LTHR_EASY_FRAC = 0.90
+export const LTHR_QUALITY_FRAC = 0.95
+export const FRIEL_Z2_FRAC = 0.85
+
+/** Friel-Laufzone relativ zur LTHR (Zwilling coach_activity.hr_zone_code_lthr, T-271):
+ *  Z1 < 85 %, Z2 85–89, Z3 90–94, Z4 95–99, Z5 >= 100 % LTHR; null bei ungültigen Werten. */
+export function hrZoneCodeLthr(bpm: number, lthr: number | null | undefined): string | null {
+  if (!Number.isFinite(bpm) || bpm <= 0 || lthr == null || !Number.isFinite(lthr) || lthr <= 0) return null
+  if (bpm < FRIEL_Z2_FRAC * lthr) return 'Z1'
+  if (bpm < LTHR_EASY_FRAC * lthr) return 'Z2'
+  if (bpm < LTHR_QUALITY_FRAC * lthr) return 'Z3'
+  return bpm < lthr ? 'Z4' : 'Z5'
+}
+
+export interface LthrZoneRow {
+  code:  string
+  zone:  string
+  bpmLo: number          // kleinste ganze bpm der Zone (ceil), Z1: 0
+  bpmHi: number | null   // größte ganze bpm der Zone, Z5: offen
+  pct:   string
+}
+
+/** Friel-Zonentabelle; Grenzen per ceil, damit jede Zeile exakt hrZoneCodeLthr entspricht (T-271). */
+export function lthrZones(lthr: number): LthrZoneRow[] {
+  if (!Number.isFinite(lthr) || lthr <= 0) return []
+  const fracs = [FRIEL_Z2_FRAC, LTHR_EASY_FRAC, LTHR_QUALITY_FRAC, 1.0]
+  const lows = [0, ...fracs.map(f => Math.ceil(f * lthr))]
+  const meta: Array<[string, string, string]> = [
+    ['Z1', 'Z1 — Regeneration', '< 85 %'], ['Z2', 'Z2 — Grundlage', '85–89 %'],
+    ['Z3', 'Z3 — Tempo / Marathon', '90–94 %'], ['Z4', 'Z4 — Schwelle', '95–99 %'],
+    ['Z5', 'Z5 — VO2max', '≥ 100 %'],
+  ]
+  return meta.map(([code, zone, pct], i) => ({
+    code, zone, pct, bpmLo: lows[i], bpmHi: i < 4 ? lows[i + 1] - 1 : null,
+  }))
 }
 
 // T-218 Fix-Loop 1: Strava workout_type: 1=Race, 2=Long Run, 3=Workout. Nur 3 zählt als
@@ -183,8 +222,13 @@ export function analyzeRun(
   isWorkout = false,
   isTrail = false,
   tempC?: number,
+  lthr?: number | null,
 ): RunAnalysis {
   const p = trainingPaces(vdot)
+  // T-271: mit LTHR Friel (% LTHR), sonst Karvonen (% HFR) — Zwilling coach.analyze_run(lthr=…)
+  const useLthr = lthr != null && Number.isFinite(lthr) && lthr > 0
+  const hrBasis: 'LTHR' | 'HFR' = useLthr ? 'LTHR' : 'HFR'
+
   const TOL = 0.02
 
   // Temperature-adjusted pace: what this effort equals at the optimal 10–15°C range.
@@ -209,12 +253,17 @@ export function analyzeRun(
   // Trail runs: pace is not comparable to road pace — use HR-based zone if available,
   // otherwise flag as trail and skip pace-zone classification
   if (isTrail) {
-    if (avgHr && avgHr > 0 && maxHr > restHr) {
-      const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
-      if      (hrPct < 60) { zoneCode = 'Z1'; zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5' }
-      else if (hrPct < 70) { zoneCode = 'E';  zoneName = 'Easy (E)';          zoneColor = '#4CAF50' }
-      else if (hrPct < 80) { zoneCode = 'M';  zoneName = 'Aerob (Z3)';        zoneColor = '#FFC107' }
-      else if (hrPct < 90) { zoneCode = 'T';  zoneName = 'Schwelle (Z4)';     zoneColor = '#FF9800' }
+    if (avgHr && avgHr > 0 && (useLthr || maxHr > restHr)) {
+      let hz: string
+      if (useLthr) hz = hrZoneCodeLthr(avgHr, lthr)!
+      else {
+        const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
+        hz = hrPct < 60 ? 'Z1' : hrPct < 70 ? 'Z2' : hrPct < 80 ? 'Z3' : hrPct < 90 ? 'Z4' : 'Z5'
+      }
+      if      (hz === 'Z1') { zoneCode = 'Z1'; zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5' }
+      else if (hz === 'Z2') { zoneCode = 'E';  zoneName = 'Easy (E)';          zoneColor = '#4CAF50' }
+      else if (hz === 'Z3') { zoneCode = 'M';  zoneName = 'Aerob (Z3)';        zoneColor = '#FFC107' }
+      else if (hz === 'Z4') { zoneCode = 'T';  zoneName = 'Schwelle (Z4)';     zoneColor = '#FF9800' }
       else                  { zoneCode = 'I/R'; zoneName = 'Intensiv (Z5)';   zoneColor = '#e53935' }
     } else {
       zoneCode = 'E'; zoneName = 'Trail (kein HF)'; zoneColor = '#4CAF50'
@@ -225,7 +274,7 @@ export function analyzeRun(
     const verdict = '🏔️ Trailrun'
     const note    = `Geländekorrigierte Auswertung — Pace nicht mit Straßenlauf vergleichbar. ${distanceKm >= 20 ? 'Tolle Langstrecke!' : 'Gute Einheit.'}`
     const hrZone  = zoneCode === 'I/R' ? 'Z5' : zoneCode === 'T' ? 'Z4' : zoneCode === 'M' ? 'Z3' : zoneCode === 'E' ? 'Z2' : 'Z1'
-    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null, tempNote, adjPaceSec: adjPace }
+    return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote: null, strideDetected: false, maxHrZone: null, maxHrPct: null, hrSpikeBpm: null, tempNote, adjPaceSec: adjPace, hrBasis }
   }
 
   // Zone boundaries — must match coach.analyze_run exactly (T-218): a 2% tolerance
@@ -291,9 +340,10 @@ export function analyzeRun(
   let maxHrPct:       number | null = null
   let hrSpikeBpm:     number | null = null
 
-  if (avgHr && avgHr > 0 && maxHr > restHr) {
-    const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
-    if      (hrPct < 60) hrZone = 'Z1'
+  if (avgHr && avgHr > 0 && (useLthr || maxHr > restHr)) {
+    const hrPct = useLthr ? avgHr / lthr! * 100 : (avgHr - restHr) / (maxHr - restHr) * 100
+    if (useLthr)          hrZone = hrZoneCodeLthr(avgHr, lthr)
+    else if (hrPct < 60) hrZone = 'Z1'
     else if (hrPct < 70) hrZone = 'Z2'
     else if (hrPct < 80) hrZone = 'Z3'
     else if (hrPct < 90) hrZone = 'Z4'
@@ -304,9 +354,10 @@ export function analyzeRun(
 
     // HF-max zone
     if (activityMaxHr && activityMaxHr > 0) {
-      const mPct = (activityMaxHr - restHr) / (maxHr - restHr) * 100
+      const mPct = useLthr ? activityMaxHr / lthr! * 100 : (activityMaxHr - restHr) / (maxHr - restHr) * 100
       maxHrPct = Math.round(mPct)
-      if      (mPct < 60) maxHrZone = 'Z1'
+      if (useLthr)        maxHrZone = hrZoneCodeLthr(activityMaxHr, lthr)
+      else if (mPct < 60) maxHrZone = 'Z1'
       else if (mPct < 70) maxHrZone = 'Z2'
       else if (mPct < 80) maxHrZone = 'Z3'
       else if (mPct < 90) maxHrZone = 'Z4'
@@ -330,19 +381,19 @@ export function analyzeRun(
     if (!strideDetected) {
       if ((zoneCode === 'E' || zoneCode === 'Z1') && (hrZone === 'Z4' || hrZone === 'Z5') && !hasSpikes) {
         hrNote = heatHrBpm >= 3
-          ? `HF ${Math.round(hrPct)}% HFR — bei ${Math.round(tempC!)}°C normal erhöht (+${heatHrBpm} bpm Hitzeeinfluss erwartet).`
-          : `HF ${Math.round(hrPct)}% HFR — höher als Pace andeutet. Hitze, Ermüdung oder Stress?`
+          ? `HF ${Math.round(hrPct)}% ${hrBasis} — bei ${Math.round(tempC!)}°C normal erhöht (+${heatHrBpm} bpm Hitzeeinfluss erwartet).`
+          : `HF ${Math.round(hrPct)}% ${hrBasis} — höher als Pace andeutet. Hitze, Ermüdung oder Stress?`
       } else if ((zoneCode === 'I/R' || zoneCode === 'T') && (hrZone === 'Z1' || hrZone === 'Z2')) {
-        hrNote = `HF ${Math.round(hrPct)}% HFR — niedriger als Pace andeutet. Kurze Einheit?`
+        hrNote = `HF ${Math.round(hrPct)}% ${hrBasis} — niedriger als Pace andeutet. Kurze Einheit?`
       } else if (zoneCode === 'M' && hrZone === 'Z2') {
-        hrNote = `HF ${Math.round(hrPct)}% HFR — sehr kontrolliert bei M-Pace. Guter Fitnessstand.`
+        hrNote = `HF ${Math.round(hrPct)}% ${hrBasis} — sehr kontrolliert bei M-Pace. Guter Fitnessstand.`
       } else if (hrZone && hasSpikes) {
         hrNote = `Ø ${Math.round(avgHr)} bpm (${hrZone}) mit Spitzen — Workout oder Intervalle enthalten.`
       }
     }
   }
 
-  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote, strideDetected, maxHrZone, maxHrPct, hrSpikeBpm, tempNote, adjPaceSec: adjPace }
+  return { zoneCode, zoneName, zoneColor, verdict, note, devSec, devStr, hrZone, hrNote, strideDetected, maxHrZone, maxHrPct, hrSpikeBpm, tempNote, adjPaceSec: adjPace, hrBasis }
 }
 
 export interface RideAnalysis {

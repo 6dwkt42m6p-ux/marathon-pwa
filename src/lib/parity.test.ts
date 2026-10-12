@@ -273,3 +273,43 @@ describe('T-218 analyzeRun-Parität', () => {
     })
   }
 })
+
+// T-271 — HF-Zonen-Raster: Ø-HF an den Friel-Grenzen (LTHR 170) mit LTHR (Friel) und ohne
+// (Karvonen). Golden-Werte aus coach.analyze_run(..., lthr=…), gleiche Datei wie oben.
+interface AnalyzeRunHrCase {
+  case_id: string
+  input: {
+    vdot: number; pace_sec_km: number; distance_km: number; phase: string
+    avg_hr: number; activity_max_hr: number; max_hr: number; rest_hr: number; lthr: number | null
+  }
+  expected: {
+    zone_code: string; verdict_class: string; hr_zone: string; max_hr_zone: string
+    max_hr_pct: number; stride_detected: boolean; hr_basis: string
+  }
+}
+
+const hrCases = (analyzeRunFixture as unknown as { hr_cases?: AnalyzeRunHrCase[] }).hr_cases ?? []
+
+describe('T-271 analyzeRun-Parität: HF-Zonen (Friel/Karvonen)', () => {
+  it('Fixture enthält HF-Fälle mit und ohne LTHR', () => {
+    expect(hrCases.length).toBeGreaterThan(0)
+    expect(new Set(hrCases.map(c => c.expected.hr_basis))).toEqual(new Set(['LTHR', 'HFR']))
+  })
+
+  for (const c of hrCases) {
+    it(`${c.case_id}: hrZone + maxHrZone + maxHrPct + Stride`, () => {
+      const i = c.input
+      const res = analyzeRun(
+        i.pace_sec_km, i.distance_km, i.avg_hr, i.activity_max_hr, i.vdot,
+        i.max_hr, i.rest_hr, i.phase, false, false, undefined, i.lthr,
+      )
+      expect(res.zoneCode).toBe(c.expected.zone_code)
+      expect(verdictClass(res.verdict)).toBe(c.expected.verdict_class)
+      expect(res.hrZone, `hrZone ${res.hrZone} != ${c.expected.hr_zone}`).toBe(c.expected.hr_zone)
+      expect(res.maxHrZone).toBe(c.expected.max_hr_zone)
+      expect(res.maxHrPct).toBe(c.expected.max_hr_pct)
+      expect(res.strideDetected).toBe(c.expected.stride_detected)
+      expect(res.hrBasis).toBe(c.expected.hr_basis)
+    })
+  }
+})

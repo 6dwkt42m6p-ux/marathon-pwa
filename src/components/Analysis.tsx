@@ -888,6 +888,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               isWorkout,
               act.isTrail,
               act.tempC,
+              syncedThreshold?.lthr ?? null,  // T-271: Friel-Zonen, sobald der Desktop eine LTHR synct
             )
             const ra = analysis as ReturnType<typeof analyzeRun>
             zoneBadgeColor = ra.zoneColor

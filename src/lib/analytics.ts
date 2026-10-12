@@ -6,7 +6,7 @@
 //   IntervalBlock/TempoBlock ergaenzt, faithful port von streams._pace_zone) statt workoutType.
 // Cross-app guardrail: coach.py is SSoT. Any change to coach.py thresholds must be mirrored here.
 
-import { trainingPaces, formatPace } from './vdot'
+import { trainingPaces, formatPace, LTHR_EASY_FRAC, LTHR_QUALITY_FRAC } from './vdot'
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
 import type { WorkoutStrukturDaten } from './plan'
@@ -21,9 +21,9 @@ function _hrZoneCode(hrPct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
   return 'Z5'
 }
 
-// T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds
-export const LTHR_EASY_FRAC = 0.90
-export const LTHR_QUALITY_FRAC = 0.95
+// T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds.
+// T-271: Konstanten leben in vdot.ts (hrZoneCodeLthr braucht sie; vdot darf analytics nicht importieren).
+export { LTHR_EASY_FRAC, LTHR_QUALITY_FRAC }
 export function intensityBounds(maxHr: number, restHr: number, lthr?: number | null): [number, number] {
   if (lthr && lthr > 0) return [LTHR_EASY_FRAC * lthr, LTHR_QUALITY_FRAC * lthr]
   const hrr = maxHr - restHr

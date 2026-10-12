@@ -27,7 +27,7 @@ const ZONE_COLORS: Record<string, string> = {
 }
 
 const ZONE_LABELS_SHORT: Record<string, string> = {
-  Z1: 'Z1 · Regeneration', Z2: 'Z2 · Grundlage', Z3: 'Z3 · Aerob',
+  Z1: 'Z1 · Regeneration', Z2: 'Z2 · Grundlage', Z3: 'Z3 · Tempo / Marathon',
   Z4: 'Z4 · Schwelle', Z5: 'Z5 · Maximal',
 }
 
@@ -467,7 +467,7 @@ export default function RunDetail({
           <div style={{ fontSize: '10px', color: 'var(--text-2)', marginBottom: '2px' }}>HF-Max</div>
           <div style={{ fontSize: '13px', fontWeight: 700 }}>{act.maxHr ? `${Math.round(act.maxHr)} bpm` : '—'}</div>
           <div style={{ fontSize: '10px', color: analysis.maxHrZone ? (ZONE_COLORS[analysis.maxHrZone] ?? 'var(--text-2)') : 'var(--text-2)' }}>
-            {analysis.maxHrZone ? `${ZONE_LABELS_SHORT[analysis.maxHrZone] ?? analysis.maxHrZone} · ${analysis.maxHrPct}% HFR` : '—'}
+            {analysis.maxHrZone ? `${ZONE_LABELS_SHORT[analysis.maxHrZone] ?? analysis.maxHrZone} · ${analysis.maxHrPct}% ${analysis.hrBasis}` : '—'}
           </div>
         </div>
       </div>
