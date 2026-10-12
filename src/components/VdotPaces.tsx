@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, racePredictor, type RacePredictorResult } from '../lib/vdot'
+import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, lthrZones, racePredictor, type RacePredictorResult } from '../lib/vdot'
 import { getCachedActivities, computeAtlCtl, ctlRising, type SyncedThreshold } from '../lib/strava'
 import { durabilityTrend, loadAllDurability } from '../lib/durability'
 import type { AppSettings } from '../lib/storage'
@@ -126,8 +126,27 @@ export default function VdotPaces({ settings, effectiveVdot, syncedFtp, syncedTh
         <PredictorCard title="Prognose Marathon" pred={marPred} />
       </div>
 
-      <div className="section-title">Herzfrequenzzonen (Karvonen)</div>
-      <HrZonesTable maxHr={settings.maxHr} restHr={settings.restHr} />
+      {syncedThreshold?.lthr ? (
+        <>
+          {/* T-271: Friel ist das eine Zonenmodell (Aktivitätskarten, 80/20); Karvonen nur als Alternative */}
+          <div className="section-title">Herzfrequenzzonen (LTHR {Math.round(syncedThreshold.lthr)} bpm, Friel)</div>
+          {syncedThreshold.is_fallback && (
+            <p style={{ fontSize: 12, color: 'var(--text-2)', margin: '0 0 6px' }}>
+              LTHR ist nur eine Formel-Schätzung (0,90 × HFmax) — ein Testlauf macht die Zonen genauer.
+            </p>
+          )}
+          <LthrZonesTable lthr={syncedThreshold.lthr} />
+          <details style={{ marginTop: 8 }}>
+            <summary style={{ fontSize: 13, color: 'var(--text-2)', cursor: 'pointer' }}>Alternative: Karvonen-Zonen (% HRR)</summary>
+            <HrZonesTable maxHr={settings.maxHr} restHr={settings.restHr} />
+          </details>
+        </>
+      ) : (
+        <>
+          <div className="section-title">Herzfrequenzzonen (Karvonen)</div>
+          <HrZonesTable maxHr={settings.maxHr} restHr={settings.restHr} />
+        </>
+      )}
     </div>
   )
 }
@@ -225,6 +244,22 @@ function FeasCard({ title, date, weeks, currentVdot, targetVdot, feas }:
 }
 
 const HR_ZONE_COLORS = ['#42A5F5', '#4CAF50', '#FFC107', '#FF9800', '#e53935']
+
+function LthrZonesTable({ lthr }: { lthr: number }) {
+  const zones = lthrZones(lthr)
+  return (
+    <div className="hr-zones-table">
+      {zones.map((z, i) => (
+        <div key={z.code} className="hr-zone-row">
+          <div className="hz-dot" style={{ background: HR_ZONE_COLORS[i] }} />
+          <span className="hz-name">{z.zone}</span>
+          <span className="hz-bpm">{z.bpmHi == null ? `≥ ${z.bpmLo}` : i === 0 ? `≤ ${z.bpmHi}` : `${z.bpmLo}–${z.bpmHi}`} bpm</span>
+          <span className="hz-jd">{z.pct} LTHR</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function HrZonesTable({ maxHr, restHr }: { maxHr: number; restHr: number }) {
   const zones = hrZones(maxHr, restHr)
