@@ -1,6 +1,6 @@
 // Inhalt: Jack-Daniels-VDOT-Methodik und Laufanalyse — Port aus coach.py (Python = Referenz).
 // Einstieg: vdotFromRace, trainingPaces, buildPaceTable, formatPace, effortNormalizationFactor
-//   (GAP + Hitze), hrZones/lthrZones, analyzeRun, analyzeRide, analyzeWorkoutLaps,
+//   (GAP + Hitze), hrrZoneCode (Karvonen-Leiter, T-288), hrZones/lthrZones, analyzeRun, analyzeRide, analyzeWorkoutLaps,
 //   racePredictor, selectEffectiveVdot, feasibilityCheck, RACE_TARGETS.
 // Abschnitte: Zonen/Paces · Normalisierung · Pace-Tabelle · HF-Zonen · Lauf/Rad-Analyse
 //   · Laps · Prognose/Ziele.
@@ -169,6 +169,16 @@ export interface RunAnalysis {
   hrBasis:        'LTHR' | 'HFR'  // T-271: Bezug von maxHrPct / HF-Hinweisen
 }
 
+/** Karvonen-Zone aus %HRR (= (HF-Ruhe)/(Max-Ruhe)*100): Z1 <60, Z2 <70, Z3 <80, Z4 <90, sonst Z5.
+ *  Zwilling coach_activity._hr_zone_code; einzige Zonenleiter der PWA (T-288). */
+export function hrrZoneCode(pct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
+  if (pct < 60) return 'Z1'
+  if (pct < 70) return 'Z2'
+  if (pct < 80) return 'Z3'
+  if (pct < 90) return 'Z4'
+  return 'Z5'
+}
+
 // T-269/T-271: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / FRIEL_Z2_FRAC
 export const LTHR_EASY_FRAC = 0.90
 export const LTHR_QUALITY_FRAC = 0.95
@@ -264,7 +274,7 @@ export function analyzeRun(
       if (useLthr) hz = hrZoneCodeLthr(avgHr, lthr)!
       else {
         const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
-        hz = hrPct < 60 ? 'Z1' : hrPct < 70 ? 'Z2' : hrPct < 80 ? 'Z3' : hrPct < 90 ? 'Z4' : 'Z5'
+        hz = hrrZoneCode(hrPct)
       }
       if      (hz === 'Z1') { zoneCode = 'Z1'; zoneName = 'Regeneration (Z1)'; zoneColor = '#42A5F5' }
       else if (hz === 'Z2') { zoneCode = 'E';  zoneName = 'Easy (E)';          zoneColor = '#4CAF50' }
@@ -349,11 +359,7 @@ export function analyzeRun(
   if (avgHr && avgHr > 0 && (useLthr || maxHr > restHr)) {
     const hrPct = useLthr ? avgHr / lthr! * 100 : (avgHr - restHr) / (maxHr - restHr) * 100
     if (useLthr)          hrZone = hrZoneCodeLthr(avgHr, lthr)
-    else if (hrPct < 60) hrZone = 'Z1'
-    else if (hrPct < 70) hrZone = 'Z2'
-    else if (hrPct < 80) hrZone = 'Z3'
-    else if (hrPct < 90) hrZone = 'Z4'
-    else                  hrZone = 'Z5'
+    else                  hrZone = hrrZoneCode(hrPct)
 
     const spikeBpm = (activityMaxHr ?? 0) - avgHr
     const hasSpikes = isWorkout || spikeBpm >= 22
@@ -363,11 +369,7 @@ export function analyzeRun(
       const mPct = useLthr ? activityMaxHr / lthr! * 100 : (activityMaxHr - restHr) / (maxHr - restHr) * 100
       maxHrPct = Math.round(mPct)
       if (useLthr)        maxHrZone = hrZoneCodeLthr(activityMaxHr, lthr)
-      else if (mPct < 60) maxHrZone = 'Z1'
-      else if (mPct < 70) maxHrZone = 'Z2'
-      else if (mPct < 80) maxHrZone = 'Z3'
-      else if (mPct < 90) maxHrZone = 'Z4'
-      else                 maxHrZone = 'Z5'
+      else                maxHrZone = hrrZoneCode(mPct)
       hrSpikeBpm = Math.round(spikeBpm)
     }
 
@@ -413,6 +415,10 @@ export interface RideAnalysis {
   color:           string
 }
 
+const RIDE_ZONE_LABEL: Record<string, string> = {
+  Z1: 'Erholung', Z2: 'Grundlage', Z3: 'Tempo', Z4: 'Schwelle', Z5: 'VO2max',
+}
+
 export function analyzeRide(
   durationSec: number,
   speedKmh: number,
@@ -427,11 +433,8 @@ export function analyzeRide(
 
   if (avgHr && avgHr > 0 && maxHr > restHr) {
     const hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
-    if      (hrPct < 60) { hrZone = 'Z1 (Erholung)';    hrZoneCode = 'Z1' }
-    else if (hrPct < 70) { hrZone = 'Z2 (Grundlage)';   hrZoneCode = 'Z2' }
-    else if (hrPct < 80) { hrZone = 'Z3 (Tempo)';        hrZoneCode = 'Z3' }
-    else if (hrPct < 90) { hrZone = 'Z4 (Schwelle)';    hrZoneCode = 'Z4' }
-    else                  { hrZone = 'Z5 (VO2max)';      hrZoneCode = 'Z5' }
+    hrZoneCode = hrrZoneCode(hrPct)
+    hrZone = `${hrZoneCode} (${RIDE_ZONE_LABEL[hrZoneCode]})`
   } else {
     // Fallback to speed
     if      (speedKmh < 18) { hrZone = 'Z1 (Erholung)';  hrZoneCode = 'Z1' }
