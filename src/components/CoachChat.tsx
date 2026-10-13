@@ -1,3 +1,6 @@
+// Inhalt: Coach-Chat-Ansicht (Verlauf, Eingabe, Offline-Hinweis).
+// Einstieg: default export CoachChat. Logik in lib/coachChat.ts.
+
 import { useState, useEffect, useRef } from 'react'
 import type { AppSettings } from '../lib/storage'
 import { getCachedActivities } from '../lib/strava'

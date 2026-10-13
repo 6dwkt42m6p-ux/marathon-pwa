@@ -1,4 +1,6 @@
-// Coach Chat — worker proxy call and localStorage history
+// Inhalt: Coach-Chat — Worker-Proxy-Aufruf und localStorage-Verlauf.
+// Einstieg: sendChatMessage, buildSystemPrompt, load/save/clearChatHistory, COACH_HISTORY_KEY.
+// Regeln: importiert ./storage, ./vdot, Typen aus ./strava. Kein Secret im Bundle (Worker-Proxy).
 
 import type { AppSettings } from './storage'
 import { safeSetItem } from './storage'

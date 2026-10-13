@@ -1,8 +1,11 @@
-// SSoT for the training plan is sync.json (Desktop build_plan_payload, T-024/T-078).
-// T-169: the local Pfitzinger-fork generator (generatePlan) was removed — it had
-// drifted badly from the Desktop periodization (missing T-055/T-066/T-087/T-102/T-131)
-// and produced invalid plans (no taper, inverted periodization). No local fallback
-// planner is kept; consumers show an explicit empty state instead.
+// Inhalt: Trainingsplan-Sicht der PWA auf den Desktop-Plan aus sync.json (T-024/T-078).
+// Zweck: aktuelle Woche/Session finden, Staleness, Plan-Abweichung (T-014), Countdown.
+// Einstieg: syncedCurrentWeek, syncedWeekForDate, syncedSessionForTag, isPlanStale,
+//   weeklyPlanStatus, assessDeviation, assessDeviationForRestDay, daysUntil.
+// T-169: kein lokaler Plan-Generator mehr (driftete vom Desktop ab) — fehlt der Plan,
+//   zeigen Konsumenten einen expliziten Leerzustand.
+// Regeln: importiert ./strava (Index) und Typen aus ./githubSync.
+
 import { mondayOf, localISODate, type ActivitySummary, type WorkoutClassification } from './strava'
 import type { SyncedPlan, SyncedPlanWeek, SyncedPlanSession } from './githubSync'
 

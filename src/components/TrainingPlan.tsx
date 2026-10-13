@@ -1,3 +1,6 @@
+// Inhalt: Plan-Tab — Wochentabelle des Desktop-Plans mit Ist-Km.
+// Einstieg: default export TrainingPlan; SyncedPlanTable/SyncedPlanRow (verbatim, T-024).
+
 import { useState, useEffect, useMemo } from 'react'
 import { weekHasSessionError, isPlanStale } from '../lib/plan'
 import { getCachedActivities, parseRuns, computeWeeklyStats, mondayOf, localISODate } from '../lib/strava'

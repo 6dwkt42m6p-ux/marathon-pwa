@@ -1,10 +1,15 @@
-// T-124: Analytics functions ported from coach.py (faithful port — same formulas/thresholds).
-// Functions: intensityDistribution, stagnationCheck, vdotAdherenceCheck, aggregateStrideTrend.
-// T-144: injuryRisk added — faithful port of coach.injury_risk (ACWR + CTL-Ramp).
-// T-148: executionQuality, sessionExecutionQuality, dataQualityScore — faithful port of T-147.
-// T-193/D-040: asymmetrische Toleranz + Zielzone aus Block-`zone` (jetzt in strava.ts
-//   IntervalBlock/TempoBlock ergaenzt, faithful port von streams._pace_zone) statt workoutType.
-// Cross-app guardrail: coach.py is SSoT. Any change to coach.py thresholds must be mirrored here.
+// Inhalt: Trainingsanalysen der PWA — Ports aus coach_activity.py/coach_load.py (T-124 ff.).
+// Zweck: gleiche Formeln/Schwellen wie der Desktop; coach.py ist SSoT, Aenderungen dort
+//   muessen hier gespiegelt werden.
+// Einstieg: intensityDistribution, stagnationCheck, vdotAdherenceCheck,
+//   aggregateStrideTrend, injuryRisk/rampZone (T-144), executionQuality,
+//   sessionExecutionQuality, executionBadgeParts (T-148/T-193), matchBlocksToPlan (T-247),
+//   dataQualityScore.
+// Abschnitte: HR-Zonen-Helfer · 80/20 · Stagnation · Adherence · Stride-Trend · Injury
+//   · Execution/Data Quality · plan-first Auswertung.
+// T-193/D-040: Toleranz asymmetrisch, Zielzone aus Block-`zone` (strava/classify.ts).
+// Paritaet (T-171): sessionExecutionQuality/dataQualityScore laufen gegen parity.test.ts.
+// Regeln: importiert ./vdot, ./strava (Index), Typen aus ./plan; keine Komponenten.
 
 import { trainingPaces, formatPace, LTHR_EASY_FRAC, LTHR_QUALITY_FRAC } from './vdot'
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'

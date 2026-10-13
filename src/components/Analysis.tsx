@@ -1,3 +1,12 @@
+// Inhalt: Analyse-Tab — Strava-Daten, CSS-Charts und Coach-Auswertung.
+// Einstieg: default export Analysis (State + Bulk-Laden der Streams, loadAnalyticsStreams).
+// Abschnitte (Render-Reihenfolge): Diese Woche · Trainingsform (TSB) + Verletzungsrisiko
+//   · Fitnesstrend (VDOT/EF/Easy-HF) · Durability · 80/20 · Stagnation · Adherence
+//   · Stride-Trend · Coach-Auswertung · Woechentliche Km · Langzeit-Statistik
+//   · Trainingsverteilung · Pace/HF-Tabelle · Wandern; danach RideDetail.
+// Regeln: nur UI — Rechenlogik in lib/ (strava, vdot, analytics, durability); kein Plotly.
+// Hinweis: Aufteilung in components/analysis/* folgt nach Merge von T-264/T-270 (T-275 AC2).
+
 import { useState, useEffect, useMemo } from 'react'
 import {
   getCachedActivities,

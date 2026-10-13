@@ -1,3 +1,8 @@
+// Inhalt: Detailansicht einer Aktivitaet (Lauf) mit Plan-Abgleich und Notiz.
+// Einstieg: default export RunDetail; planCheck, executionSlot (getestet in RunDetail.test.ts).
+// Abschnitte: Helfer · planCheck/executionSlot · WorkoutBadge · PlanMatchPanel · RunDetail.
+// Regeln: nur UI; Streams/Laps via lib/strava, Analyse via lib/vdot + lib/analytics.
+
 import { useState } from 'react'
 import {
   fetchActivityStreams,

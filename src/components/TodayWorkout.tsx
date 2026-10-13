@@ -1,3 +1,9 @@
+// Inhalt: Heute-Tab — Wochenplan aus sync.json, Tausch der Tage, Abweichung, Race-Countdown.
+// Einstieg: default export TodayWorkout; buildSettingsPushPayload (T-221).
+// Abschnitte: weekOverride-/Reset-Persistenz · TodayWorkout · Fallback ohne Plan
+//   · geteilte Unterkomponenten (PaceRow, RaceCountdownCard).
+// Regeln: Plan verbatim rendern (T-024); Tausch als weekOverrides an den Desktop (T-217/T-231).
+
 import { useState, useMemo, useEffect, useRef } from 'react'
 import {
   assessDeviation, assessDeviationForRestDay,
