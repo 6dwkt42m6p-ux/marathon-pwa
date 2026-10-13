@@ -5,26 +5,16 @@
 //   aggregateStrideTrend, injuryRisk/rampZone (T-144), executionQuality,
 //   sessionExecutionQuality, executionBadgeParts (T-148/T-193), matchBlocksToPlan (T-247),
 //   dataQualityScore.
-// Abschnitte: HR-Zonen-Helfer · 80/20 · Stagnation · Adherence · Stride-Trend · Injury
+// Abschnitte: 80/20 · Stagnation · Adherence · Stride-Trend · Injury
 //   · Execution/Data Quality · plan-first Auswertung.
 // T-193/D-040: Toleranz asymmetrisch, Zielzone aus Block-`zone` (strava/classify.ts).
 // Paritaet (T-171): sessionExecutionQuality/dataQualityScore laufen gegen parity.test.ts.
 // Regeln: importiert ./vdot, ./strava (Index), Typen aus ./plan; keine Komponenten.
 
-import { trainingPaces, formatPace, LTHR_EASY_FRAC, LTHR_QUALITY_FRAC } from './vdot'
+import { trainingPaces, formatPace, hrrZoneCode, LTHR_EASY_FRAC, LTHR_QUALITY_FRAC } from './vdot'
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
 import type { WorkoutStrukturDaten } from './plan'
-
-// ── Karvonen HR zone helper (mirrors coach_activity.py:_hr_zone_code) ─────────────────
-// hrPct = (avgHr - restHr) / (maxHr - restHr) * 100
-function _hrZoneCode(hrPct: number): 'Z1' | 'Z2' | 'Z3' | 'Z4' | 'Z5' {
-  if (hrPct < 60) return 'Z1'
-  if (hrPct < 70) return 'Z2'
-  if (hrPct < 80) return 'Z3'
-  if (hrPct < 90) return 'Z4'
-  return 'Z5'
-}
 
 // T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds.
 // T-271: Konstanten leben in vdot.ts (hrZoneCodeLthr braucht sie; vdot darf analytics nicht importieren).
@@ -106,7 +96,7 @@ export function intensityDistribution(
              : r.avgHr < LTHR_QUALITY_FRAC * lthr ? 'grey' : 'quality'
     } else if (hrr > 0 && r.avgHr && r.avgHr > 0) {
       const hrPct = (r.avgHr - restHr) / hrr * 100
-      const zcode = _hrZoneCode(hrPct)
+      const zcode = hrrZoneCode(hrPct)
       if (zcode === 'Z1' || zcode === 'Z2') bucket = 'easy'
       else if (zcode === 'Z3')              bucket = 'grey'
       else                                   bucket = 'quality'

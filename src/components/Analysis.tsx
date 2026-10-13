@@ -4,6 +4,7 @@
 //   · Fitnesstrend (VDOT/EF/Easy-HF) · Durability · 80/20 · Stagnation · Adherence
 //   · Stride-Trend · Coach-Auswertung · Woechentliche Km · Langzeit-Statistik
 //   · Trainingsverteilung · Pace/HF-Tabelle · Wandern; danach RideDetail.
+// Pace-Format: nur vdot.formatPace (T-288).
 // Regeln: nur UI — Rechenlogik in lib/ (strava, vdot, analytics, durability); kein Plotly.
 // Hinweis: Aufteilung in components/analysis/* folgt nach Merge von T-264/T-270 (T-275 AC2).
 
@@ -78,11 +79,6 @@ interface Props {
   workSplits?: Record<string, number[]> | null
   // T-124: stride data by activity id, for stride trend.
   strideDataById?: Record<string, { strideCount: number; strides: { peakPaceSec: number }[]; avgPeakPaceSec?: number }> | null
-}
-
-function fmt(s: number) {
-  const m = Math.floor(s / 60); const sec = Math.round(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 function isoWeek(d: Date): string {
@@ -1207,7 +1203,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                         <td style={{ padding: '4px', color: isCurrent ? 'var(--accent)' : 'var(--text-2)', fontWeight: isCurrent ? 700 : 400 }}>{isoWeek(w.weekStart)}</td>
                         <td style={{ padding: '4px', textAlign: 'right', fontWeight: 600 }}>{w.actualKm}</td>
                         <td style={{ padding: '4px', textAlign: 'right', color: 'var(--text-2)' }}>{w.runs}</td>
-                        <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgPaceSec ? fmt(w.avgPaceSec) : '—'}</td>
+                        <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgPaceSec ? formatPace(w.avgPaceSec) : '—'}</td>
                         <td style={{ padding: '4px', textAlign: 'right' }}>{w.avgHr ? Math.round(w.avgHr) : '—'}</td>
                       </tr>
                     )

@@ -1,6 +1,6 @@
 // Inhalt: Detailansicht einer Aktivitaet (Lauf) mit Plan-Abgleich und Notiz.
 // Einstieg: default export RunDetail; planCheck, executionSlot (getestet in RunDetail.test.ts).
-// Abschnitte: Helfer · planCheck/executionSlot · WorkoutBadge · PlanMatchPanel · RunDetail.
+// Abschnitte: Helfer (Pace-Anzeige via vdot.formatPace, T-288) · planCheck/executionSlot · WorkoutBadge · PlanMatchPanel · RunDetail.
 // Regeln: nur UI; Streams/Laps via lib/strava, Analyse via lib/vdot + lib/analytics.
 
 import { useState } from 'react'
@@ -12,7 +12,7 @@ import {
   type WorkoutClassification,
   type ActivityStreams,
 } from '../lib/strava'
-import { analyzeRun, analyzeWorkoutLaps, type WorkoutLapAnalysis } from '../lib/vdot'
+import { analyzeRun, analyzeWorkoutLaps, formatPace, type WorkoutLapAnalysis } from '../lib/vdot'
 import { loadNote, saveNote, deleteNote, type ActivityNote } from '../lib/storage'
 import type { WorkoutSession, PlanDeviation, WorkoutStrukturDaten } from '../lib/plan'
 import {
@@ -34,11 +34,6 @@ const ZONE_COLORS: Record<string, string> = {
 const ZONE_LABELS_SHORT: Record<string, string> = {
   Z1: 'Z1 · Regeneration', Z2: 'Z2 · Grundlage', Z3: 'Z3 · Tempo / Marathon',
   Z4: 'Z4 · Schwelle', Z5: 'Z5 · Maximal',
-}
-
-function fmt(s: number) {
-  const m = Math.floor(s / 60); const sec = Math.round(s % 60)
-  return `${m}:${sec.toString().padStart(2, '0')}`
 }
 
 // T-221: exported (no RTL in this repo, see the `executionSlot` note above) — planCheck used to
@@ -145,7 +140,7 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
               <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center' }}>
                 <span style={{ color: '#FF9800', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
                 <span>{s.durationSec} s</span>
-                {peakPaceSec > 0 && <span style={{ color: 'var(--text-1)' }}>⚡ {fmt(peakPaceSec)} /km</span>}
+                {peakPaceSec > 0 && <span style={{ color: 'var(--text-1)' }}>⚡ {formatPace(peakPaceSec)} /km</span>}
               </div>
             )
           })}
@@ -164,7 +159,7 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
               <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center' }}>
                 <span style={{ color: '#e53935', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
                 <span>{durLabel}</span>
-                <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{fmt(b.avgPaceSec)} /km</span>
+                <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{formatPace(b.avgPaceSec)} /km</span>
                 {b.avgHr && <span>♡ {b.avgHr}</span>}
               </div>
             )
@@ -178,7 +173,7 @@ function WorkoutBadge({ classification }: { classification: WorkoutClassificatio
             <div key={i} style={{ display: 'flex', gap: '8px', fontSize: '11px', color: 'var(--text-2)', alignItems: 'center', flexWrap: 'wrap' }}>
               <span style={{ color: '#3b82f6', fontWeight: 700, minWidth: '18px' }}>#{i + 1}</span>
               <span>{Math.round(t.durationSec / 60)} min</span>
-              <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{fmt(t.avgPaceSec)} /km</span>
+              <span style={{ color: 'var(--text-1)', fontWeight: 600 }}>{formatPace(t.avgPaceSec)} /km</span>
               {t.paceDeviation !== 0 && (
                 <span style={{ color: Math.abs(t.paceDeviation) > 5 ? '#FFC107' : 'var(--text-2)' }}>
                   Drift: {t.paceDeviation > 0 ? '+' : ''}{t.paceDeviation}%
@@ -240,8 +235,8 @@ function PlanMatchPanel({ match, planned }: { match: MatchBlocksToPlanResult; pl
               <tr key={i} style={{ color: 'var(--text-1)' }}>
                 <td style={{ padding: '2px 6px 2px 0', fontWeight: 700 }}>{i + 1}</td>
                 <td style={{ padding: '2px 6px' }}>{rep.distanceM != null ? `${Math.round(rep.distanceM)} m` : '—'}</td>
-                <td style={{ padding: '2px 6px' }}>{fmt(rep.durationSec)} min</td>
-                <td style={{ padding: '2px 6px' }}>{fmt(rep.paceSec)} /km</td>
+                <td style={{ padding: '2px 6px' }}>{formatPace(rep.durationSec)} min</td>
+                <td style={{ padding: '2px 6px' }}>{formatPace(rep.paceSec)} /km</td>
                 <td style={{ padding: '2px 6px', color: rep.deltaSec == null ? undefined : (rep.deltaSec > 0 ? '#e53935' : '#4CAF50') }}>
                   {rep.deltaSec != null ? `${rep.deltaSec >= 0 ? '+' : '-'}${Math.abs(rep.deltaSec)} s` : '—'}
                 </td>

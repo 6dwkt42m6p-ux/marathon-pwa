@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   timeForVdot, racePredictor, vdotFromRace, isWorkoutActivity,
-  analyzeRun, hrZoneCodeLthr, lthrZones, trainingPaces,
+  analyzeRun, hrZoneCodeLthr, lthrZones, trainingPaces, formatPace, hrrZoneCode,
 } from './vdot'
 import { LTHR_EASY_FRAC, LTHR_QUALITY_FRAC } from './analytics'
 
@@ -171,5 +171,28 @@ describe('racePredictor', () => {
     const rNeg  = racePredictor(50, HM, { weeksToRace: -2 })
     const rZero = racePredictor(50, HM, { weeksToRace: 0 })
     expect(rNeg.bandPct).toBe(rZero.bandPct)
+  })
+})
+
+describe('T-288 formatPace (ersetzt lokale fmt, kein "x:60")', () => {
+  it('rundet Sekunden vor der Aufteilung', () => {
+    expect(formatPace(299.6)).toBe('5:00')
+    expect(formatPace(59.6)).toBe('1:00')
+    expect(formatPace(299.4)).toBe('4:59')
+    expect(formatPace(0)).toBe('0:00')
+    expect(formatPace(3599.6)).toBe('60:00')
+  })
+  it('NaN/Infinity -> Strich', () => {
+    expect(formatPace(NaN)).toBe('—')
+    expect(formatPace(Infinity)).toBe('—')
+  })
+})
+
+describe('T-288 hrrZoneCode (Karvonen %HRR)', () => {
+  it.each([
+    [0, 'Z1'], [59.99, 'Z1'], [60, 'Z2'], [69.99, 'Z2'], [70, 'Z3'],
+    [79.99, 'Z3'], [80, 'Z4'], [89.99, 'Z4'], [90, 'Z5'], [120, 'Z5'],
+  ])('%f -> %s', (pct, z) => {
+    expect(hrrZoneCode(pct)).toBe(z)
   })
 })
