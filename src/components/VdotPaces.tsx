@@ -1,3 +1,7 @@
+// Inhalt: Paces-Tab — Pace-Tabelle, HF-Zonen (Friel/Karvonen), Prognose, Machbarkeit, Last.
+// Einstieg: default export VdotPaces; Unterkomponenten PredictorCard, PaceSection, FeasCard,
+//   LthrZonesTable, HrZonesTable.
+
 import { useState, useEffect } from 'react'
 import { buildPaceTable, feasibilityCheck, vdotFromRace, hrZones, lthrZones, racePredictor, type RacePredictorResult } from '../lib/vdot'
 import { getCachedActivities, computeAtlCtl, ctlRising, type SyncedThreshold } from '../lib/strava'

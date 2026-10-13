@@ -1,4 +1,10 @@
-// Jack Daniels VDOT methodology — ported from coach.py
+// Inhalt: Jack-Daniels-VDOT-Methodik und Laufanalyse — Port aus coach.py (Python = Referenz).
+// Einstieg: vdotFromRace, trainingPaces, buildPaceTable, formatPace, effortNormalizationFactor
+//   (GAP + Hitze), hrZones/lthrZones, analyzeRun, analyzeRide, analyzeWorkoutLaps,
+//   racePredictor, selectEffectiveVdot, feasibilityCheck, RACE_TARGETS.
+// Abschnitte: Zonen/Paces · Normalisierung · Pace-Tabelle · HF-Zonen · Lauf/Rad-Analyse
+//   · Laps · Prognose/Ziele.
+// Regeln: Blatt-Modul ohne lib-Importe; neue Analysefunktionen hier exportieren.
 
 export const ZONES = {
   E_low:  0.62,

@@ -1,5 +1,11 @@
-// T-142: PWA-Parität zum Desktop-Durability-Trend (T-141, SSoT streams.py/coach.py).
-// HR-Decoupling + GAP-bereinigter Pace-Fade pro Longrun → Trend-Regression + Verdikt.
+// Inhalt: Durability (T-142) — PWA-Paritaet zum Desktop-Trend (T-141, SSoT streams.py/coach.py).
+// Zweck: HR-Decoupling + GAP-bereinigter Pace-Fade pro Longrun -> Trend-Regression + Verdikt.
+// Einstieg: durabilitySignals, durabilityTrend, durabilityRecordForRun, cardiacDriftPct,
+//   upsertDurability/loadAllDurability (eigener localStorage-Store).
+// Abschnitte: Cardiac Drift · Halb-Pace flach-aequivalent · Longrun-Signal · Trend · Store.
+// Paritaet (T-171): durabilitySignals laeuft gegen die Golden-Fixtures (parity.test.ts).
+// Regeln: importiert ./vdot und ./strava (Index; Modulzyklus mit strava/bulk.ts, T-173).
+
 import { gapFactorForGrade } from './vdot'
 import { localISODate } from './strava'
 import type { ActivityStreams, RunSummary } from './strava'

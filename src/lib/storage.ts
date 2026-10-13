@@ -1,4 +1,8 @@
-// Persistent user settings via localStorage
+// Inhalt: AppSettings + localStorage-Helfer (inkl. Notizen und weekOverrides).
+// Einstieg: safeSetItem (quota-sicher, T-170), loadSettings/saveSettings, mergeSettingsForPush,
+//   mergeRemoteSettings, resolvePreRaceEnabled, resolveRaceTargets, load/save/deleteNote,
+//   applyRemoteWeekOverrides, mark/clear/isWeekOverridePending, STORAGE_WARNING_KEY.
+// Regeln: neutrale Basis — importiert KEINE andere lib-Datei (Evict per registerEvictCallback).
 
 // ── T-170: quota-safe write helper ──────────────────────────────────────────
 // Folgebefund zu T-163: T-163 haertete nur den Activity-Cache + Stream/Laps-Caches gegen

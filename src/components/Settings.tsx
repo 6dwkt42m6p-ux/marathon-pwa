@@ -1,3 +1,7 @@
+// Inhalt: Einstellungen — Strava-OAuth, GitHub-Sync, Verletzungspause, VDOT-Rechner, Glossar.
+// Einstieg: default export Settings.
+// Regeln: Aktions-Buttons persistieren sofort (saveSettings + onUpdate im selben Handler).
+
 import { useState, useEffect } from 'react'
 import type { AppSettings } from '../lib/storage'
 import { saveSettings, resolvePreRaceEnabled, mergeSettingsForPush } from '../lib/storage'

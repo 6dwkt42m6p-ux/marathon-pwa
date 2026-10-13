@@ -1,9 +1,8 @@
-// src/lib/glossary.ts — PWA-Port des Desktop-Glossars (T-244).
-//
-// glossary.json wird aus glossary.py generiert (Desktop-Repo: `python3
-// tools/gen_glossary_json.py`) — NICHT von Hand editieren, sonst driftet die
-// PWA-Erklärung vom Desktop weg (siehe glossary.py-Docstring, T-234). Python
-// bleibt die Referenz (CLAUDE.md Cross-Plattform-Parität).
+// Inhalt: PWA-Port des Desktop-Glossars (T-244) fuer Abkuerzungs-Erklaerungen.
+// Einstieg: GLOSSARY, helpText, label.
+// Regeln: glossary.json wird aus glossary.py generiert (Desktop: `python3
+//   tools/gen_glossary_json.py`) — NICHT von Hand editieren, sonst driftet die PWA vom
+//   Desktop weg (T-234). Python bleibt die Referenz (Cross-Plattform-Paritaet).
 
 import glossaryData from '../data/glossary.json'
 

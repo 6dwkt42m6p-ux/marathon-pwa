@@ -13,7 +13,13 @@ src/
     VdotPaces.tsx   Paces tab
     Settings.tsx    Settings + Strava OAuth + GitHub Sync
   lib/
-    strava.ts       Strava API, OAuth, parsing, localStorage cache
+    strava.ts       Re-Export-Index (T-275) — Importe bleiben `from './strava'`
+    strava/         types · cache (localStorage) · auth (OAuth/Tokens) · api (Sync, Streams/Laps)
+                    · parse (Parsing, Wochen, mondayOf/localISODate) · trend (VDOT/EF, T-194)
+                    · load (TSS, ATL/CTL) · bulk (loadAnalyticsStreams) · classify (Workout/Strides, T-171)
+                    Graph zyklenfrei; neues öffentliches Symbol → Fachmodul + Eintrag im Index
+    analytics.ts    80/20, Stagnation, Adherence, Injury, Execution/Data Quality (coach.py-Ports)
+    durability.ts   Durability-Trend (T-142) · plan.ts Plan-Sicht · injury.ts/notesSync.ts Write-back
     vdot.ts         Jack Daniels VDOT logic, pace zones, analysis
     plan.ts         Training plan generation
     storage.ts      AppSettings interface + localStorage helpers (incl. notes)
@@ -25,10 +31,13 @@ src/
 Vor dem ersten Read einer großen Datei `../Trainingscoach/docs/SYMBOLS.md` konsultieren →
 gezielt `Read` mit offset/limit. Der Index wird zentral im Trainingscoach-Repo gepflegt
 (`python3 tools/gen_symbol_index.py` dort ausführen; das dortige Test-Gate prüft Aktualität).
+Jede Datei unter `src/lib` + `src/components` beginnt mit einem `// Inhalt:`-Kopf (≤ 20 Zeilen:
+Zweck, Einstieg, Abschnitte, Regeln) — Gate `src/lib/orientation.test.ts` (T-275). Erst den Kopf
+lesen, dann gezielt springen.
 
 ## Coding Rules
 
-- **Logic in lib/, never inline in components** — new calculations → `vdot.ts` or `strava.ts`
+- **Logic in lib/, never inline in components** — new calculations → `vdot.ts` or the matching `strava/*.ts` module (re-exported via `strava.ts`)
 - **No Plotly** — mobile-first, CSS bar charts only (`div` with percentage `width`)
 - **No `any` without a comment explaining why**
 - **localStorage keys** — define as constants near usage or in `storage.ts`

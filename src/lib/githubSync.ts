@@ -1,3 +1,11 @@
+// Inhalt: Geraete-Sync ueber data/sync.json im GitHub-Repo (Desktop <-> PWA).
+// Zweck: sync.json lesen (TTL-Cache, UTF-8-sicher, T-208) und schreiben (pushSync);
+//   Typen des Desktop-Plans (T-024: PWA rendert verbatim, rechnet nie neu).
+// Einstieg: fetchSync, pushSync, SyncData, SyncedPlan/SyncedPlanWeek/SyncedPlanSession,
+//   getToken/setToken/clearToken/hasToken (GitHub-PAT).
+// Regeln: importiert ./storage (safeSetItem) und Typen aus ./plan; Write-back-Queues
+//   (Injury/Notes/weekOverrides) sind PWA->Desktop, Desktop bleibt SSoT.
+
 import { safeSetItem } from './storage'
 import type { WorkoutStrukturDaten } from './plan'
 

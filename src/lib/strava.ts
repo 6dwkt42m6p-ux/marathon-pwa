@@ -7,7 +7,7 @@
 // Graph (zyklenfrei): types <- cache <- auth <- api <- bulk; types <- parse <- trend/load;
 //   classify <- bulk. Einzige Fremdkante zurueck: durability.ts -> Index (T-173, s. bulk.ts).
 // Regeln: hier nur explizite Re-Exports der oeffentlichen API (keine Logik, kein export *),
-//   damit interne Helfer (_loadCachedStream, _fetchStreams429 …) nicht oeffentlich werden.
+//   damit interne Helfer (_loadCachedStream, _fetchStreams429 ...) nicht oeffentlich werden.
 //   Neues oeffentliches Symbol -> im Fachmodul exportieren UND hier eintragen.
 // T-170: STORAGE_WARNING_KEY/getStorageWarning/clearStorageWarning leben in storage.ts und
 //   werden fuer bestehende Importe (App.tsx, strava.test.ts) hier weitergereicht.

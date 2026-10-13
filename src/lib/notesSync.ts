@@ -1,6 +1,11 @@
-// T-156: PWA note-sync helpers — pure functions (no network), testable in Vitest.
-// Notes flow: PWA enqueues noteMutations in sync.json → Desktop SSoT applies to notes.json
-// + exports plan.notes back → PWA resolves display via resolveNote.
+// Inhalt: Notiz-Sync der PWA (T-156) — reine Funktionen, kein Netzwerk.
+// Fluss: PWA reiht noteMutations in sync.json ein -> Desktop (SSoT notes.json) wendet an
+//   und exportiert plan.notes zurueck -> PWA loest die Anzeige per resolveNote auf.
+// Einstieg: buildSaveNoteMutation/buildDeleteNoteMutation, appendPendingNoteMutation,
+//   compactNoteMutations, mergeNoteMutationQueue, reconcilePendingNoteMutations,
+//   resolveNote, resolvePendingNoteMutation.
+// Abschnitte: Mutation-Builder · Pending-Liste (localStorage) · resolveNote · Pending-Aufloesung.
+// Regeln: importiert nur ./storage.
 
 import type { ActivityNote } from './storage'
 import { safeSetItem } from './storage'

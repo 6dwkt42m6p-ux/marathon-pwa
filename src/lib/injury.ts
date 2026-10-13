@@ -1,5 +1,8 @@
-// T-132: PWA-Eingabe + Write-back für Verletzungspausen (Desktop-SSoT injury.py, T-131).
-// Reine Funktionen (Datum-Logik + Mutation-Builder + Optimistic-Overlay), keine Netzwerk-Calls.
+// Inhalt: Verletzungspausen — PWA-Eingabe + Write-back (T-132, Desktop-SSoT injury.py, T-131).
+// Zweck: reine Funktionen (Datumslogik, Mutation-Builder, Optimistic-Overlay), kein Netzwerk.
+// Einstieg: activeInjuryBreak, effectiveWindow, buildStartMutation/buildEndMutation,
+//   load/save/clearPendingMutation, resolvePendingMutation, isPendingMutationApplied.
+// Regeln: importiert keine lib-Datei; Versand ueber sync.json (githubSync.ts).
 
 export type InjurySeverity = 'minor' | 'moderate' | 'major'
 
