@@ -47,7 +47,7 @@
     {"python": "coach_load.injury_risk", "ts": "src/lib/analytics.ts#injuryRisk", "guard": "none", "note": ""},
     {"python": "coach_load._ramp_zone", "ts": "src/lib/analytics.ts#rampZone", "guard": "none", "note": ""},
     {"python": null, "ts": "src/lib/strava/load.ts#ctlRising", "guard": "none", "note": "Python-Seite inline in app_tabs/paces.py (_ctl_rising, kein Symbol)"},
-    {"python": "coach_sessions.assess_deviation", "ts": "src/lib/plan.ts#assessDeviation", "guard": "none", "note": ""},
+    {"python": "coach_export.assess_deviation", "ts": "src/lib/plan.ts#assessDeviation", "guard": "none", "note": ""},
     {"python": "glossary.help_text", "ts": "src/lib/glossary.ts#helpText", "guard": "fixture", "note": "glossary.json aus glossary.py generiert (tools gen_glossary_json --check, T-234)"},
     {"python": "glossary.label", "ts": "src/lib/glossary.ts#label", "guard": "fixture", "note": "wie help_text — gleiche generierte Datenbasis"},
     {"python": "notes.export_notes_for_sync", "ts": "src/lib/notesSync.ts#reconcilePendingNoteMutations", "guard": "none", "note": "PWA-intern desktopText/normRating spiegeln save_note (strip, [:500] Codepoints, rating clamp [1,5]); kein Golden (T-283-Review)"},
