@@ -44,14 +44,9 @@ describe('T-283 Twin-Registry', () => {
 // it.fails: wird der PWA-Port korrigiert, wird der Test rot und der Eintrag MUSS raus.
 // Die Liste darf nur schrumpfen (wie KNOWN_DIVERGENCES in parity.test.ts).
 // ---------------------------------------------------------------------------
-// Alle Eintraege beim ersten Lauf von T-283 gefunden und an den Coordinator gemeldet
-// (Ticket-Entscheidung offen, siehe memory/tickets/T-283_impl.md).
-const GOLDEN_DIVERGENCES: Record<string, string> = {
-  'race_predictor/m_fatigued':
-    'bandPct: Math.round(x*1e4)/1e4 rundet .5 auf, Python round(x, 4) half-to-even ' +
-    '(0.03125 -> 0.0313 vs 0.0312). Betrifft jede ungerade Wochenzahl bis Rennen.',
-  'race_predictor/5k_taper_fresh': 'wie race_predictor/m_fatigued (0.01875 -> 0.0188 vs 0.0187).',
-}
+// T-283 fand 8 Eintraege; T-292 hat alle behoben (Hike-Filter, Rundungsreihenfolge, Python-round,
+// deltaPct null). Neue Divergenz -> Eintrag + Ticket.
+const GOLDEN_DIVERGENCES: Record<string, string> = {}
 
 const gold = load('twin_goldens.json')
 const TOL = 1e-9
