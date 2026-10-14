@@ -15,7 +15,7 @@ import { trainingPaces, formatPace, hrrZoneCode, LTHR_EASY_FRAC, LTHR_QUALITY_FR
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
 import type { WorkoutStrukturDaten } from './plan'
-import { pyRoundHalfEven } from './pyRound'
+import { pyRound, pyRoundHalfEven } from './pyRound'
 
 // T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds.
 // T-271: Konstanten leben in vdot.ts (hrZoneCodeLthr braucht sie; vdot darf analytics nicht importieren).
@@ -677,7 +677,7 @@ export function injuryRisk(
   }
 
   // ── ACWR ──
-  const acwr = chronic > 0 ? Math.round((acute / chronic) * 100) / 100 : null
+  const acwr = chronic > 0 ? pyRound(acute / chronic, 2) : null  // Python round(), T-294
   let acwrZone: InjuryRiskResult['acwrZone'], acwrColor: string, acwrLabel: string
   if (acwr === null) {
     acwrZone = null; acwrColor = '#888888'; acwrLabel = 'Keine chronische Last'
@@ -698,7 +698,7 @@ export function injuryRisk(
   // ── CTL-Ramp (7 calendar days = ctl42[-1] − ctl42[-8]) ──
   let rampPerWeek: number | null = null
   if (ctl42Series.length >= 8) {
-    rampPerWeek = Math.round((ctl42Series[ctl42Series.length - 1] - ctl42Series[ctl42Series.length - 8]) * 10) / 10
+    rampPerWeek = pyRound(ctl42Series[ctl42Series.length - 1] - ctl42Series[ctl42Series.length - 8], 1)  // T-294
   }
   const { color: rampColor, label: rampLabel } = rampZone(rampPerWeek)
 

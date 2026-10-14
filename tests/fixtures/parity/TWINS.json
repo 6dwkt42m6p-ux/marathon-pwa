@@ -44,7 +44,7 @@
     {"python": "coach_load.run_rtss", "ts": "src/lib/strava/load.ts#runRtss", "guard": "golden", "note": "T-283 twin_goldens.json tss"},
     {"python": "coach_load.run_hrtss", "ts": "src/lib/strava/load.ts#runHrtss", "guard": "golden", "note": "T-283 twin_goldens.json tss"},
     {"python": "coach_multisport.bike_tss", "ts": "src/lib/strava/load.ts#bikeTss", "guard": "golden", "note": "T-283 twin_goldens.json tss"},
-    {"python": "coach_load.injury_risk", "ts": "src/lib/analytics.ts#injuryRisk", "guard": "none", "note": ""},
+    {"python": "coach_load.injury_risk", "ts": "src/lib/analytics.ts#injuryRisk", "guard": "golden", "note": "T-294 twin_goldens.json injury_risk (ACWR/Ramp an Zonengrenzen, Python-round)"},
     {"python": "coach_load._ramp_zone", "ts": "src/lib/analytics.ts#rampZone", "guard": "none", "note": ""},
     {"python": null, "ts": "src/lib/strava/load.ts#ctlRising", "guard": "none", "note": "Python-Seite inline in app_tabs/paces.py (_ctl_rising, kein Symbol)"},
     {"python": "coach_export.assess_deviation", "ts": "src/lib/plan.ts#assessDeviation", "guard": "none", "note": ""},

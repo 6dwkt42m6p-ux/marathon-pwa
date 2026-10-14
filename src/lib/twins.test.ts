@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url'
 import { computeAtlCtl, runRtss, runHrtss, bikeTss, parseRuns, efficiencyFactorTrend, localISODate } from './strava'
 import type { StravaActivity } from './strava'
 import { racePredictor, formatPace } from './vdot'
+import { injuryRisk } from './analytics'
 
 const HERE = dirname(fileURLToPath(import.meta.url))
 const REPO = resolve(HERE, '../..')
@@ -99,6 +100,20 @@ describe('T-283 Golden-Paritaet: computeAtlCtl', () => {
   for (const c of gold.atl_ctl as { name: string; ftp: number | null; threshold: Thr; activities: Acts; expected: unknown }[]) {
     const thr = c.threshold ? { ...c.threshold, is_fallback: false, source: 'golden' } : undefined
     goldenIt(`atl_ctl/${c.name}`, () => computeAtlCtl(materialize(c.activities), c.ftp ?? undefined, thr), c.expected)
+  }
+})
+
+describe('T-294 Golden-Paritaet: injuryRisk', () => {
+  for (const c of gold.injury_risk as { name: string; ftp: number | null; threshold: Thr; activities: Acts; expected: unknown }[]) {
+    const thr = c.threshold ? { ...c.threshold, is_fallback: false, source: 'golden' } : undefined
+    goldenIt(`injury_risk/${c.name}`, () => {
+      const r = injuryRisk(materialize(c.activities), c.ftp ?? undefined, thr)
+      return {
+        acwr: r.acwr, acwr_zone: r.acwrZone, acwr_label: r.acwrLabel, acwr_color: r.acwrColor,
+        ramp_per_week: r.rampPerWeek, ramp_label: r.rampLabel, ramp_color: r.rampColor,
+        risk_level: r.riskLevel, risk_emoji: r.riskEmoji, enough_data: r.enoughData,
+      }
+    }, c.expected)
   }
 })
 
