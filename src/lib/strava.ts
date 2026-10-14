@@ -5,7 +5,8 @@
 //   · trend (VDOT-/EF-Trend, T-194-Golden) · load (TSS, ATL/CTL) · bulk (Analyse-Bulk-Loader)
 //   · classify (Workout-Struktur + Strides, Paritaets-Zwilling zu streams.py, T-171).
 // Graph (zyklenfrei): types <- cache <- auth <- api <- bulk; types <- parse <- trend/load;
-//   classify <- bulk. Einzige Fremdkante zurueck: durability.ts -> Index (T-173, s. bulk.ts).
+//   classify <- bulk. Keine Fremdkante zurueck in den Index (durability.ts -> strava/parse, T-287;
+//   Gate: importGraph.test.ts).
 // Regeln: hier nur explizite Re-Exports der oeffentlichen API (keine Logik, kein export *),
 //   damit interne Helfer (_loadCachedStream, _fetchStreams429 ...) nicht oeffentlich werden.
 //   Neues oeffentliches Symbol -> im Fachmodul exportieren UND hier eintragen.

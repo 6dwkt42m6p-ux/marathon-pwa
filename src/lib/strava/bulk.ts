@@ -4,8 +4,7 @@
 // Einstieg: loadAnalyticsStreams, ANALYTICS_RESULT_KEY, ANALYTICS_ALGO_VERSION,
 //   StrideDataEntry, BulkAnalyticsResult.
 // Regeln: importiert ./auth, ./cache, ./api, ./classify, ../vdot, ../durability, ../storage.
-// T-173: durability.ts importiert localISODate ueber den Index src/lib/strava.ts — echter
-// Modulzyklus, unkritisch, weil keine Seite die andere beim Laden aufruft (ESM live bindings).
+// T-287: durability.ts importiert aus ./strava/parse (nicht dem Index) — kein Modulzyklus mehr.
 import { analyzeWorkoutLaps } from '../vdot'
 import { durabilityRecordForRun, upsertDurability } from '../durability'
 import { safeSetItem } from '../storage'
