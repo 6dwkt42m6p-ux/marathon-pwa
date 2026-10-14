@@ -1,5 +1,6 @@
 {
  "fixtures": {
+  "TWINS.json": "e525a365c19ef145d3baa6b7014a976f73d8cfbced428a4db43db91c86879a94",
   "analyze_run_golden.json": "c520eb406c9e477d148b9ddbc08aa0a82541ea5d823ad1e814ee5a960db224b5",
   "edge_empty.json": "8ecb8189ff067a25f6fbe0427fc7b07854468ec72fc0f036aefbb22ce58e91b6",
   "real_5km_test_zone_bug.json": "459f70fba015c613ccc3dde209e61fac753c0a6763bda6e8bca456a20fe8ff26",
@@ -9,6 +10,7 @@
   "real_tempo_2x10min.json": "aec5851de2a9bfdb700f88b2cd11c5006b37d9f93b191146bad2eeefa28ea85d",
   "synthetic_easy.json": "0b5d32b640bfac5e067f4948f4f322884633a79f0c55602dd44476f6aa24969c",
   "synthetic_frozen.json": "ec70beed272590a466e606d877496aed6a4d518e388ab2776b27e3ad383b1cdb",
-  "synthetic_strides.json": "464616d05675ae54eac561f3ad03b01a2bb09d21dd6523a8a8d46da606fc1903"
+  "synthetic_strides.json": "464616d05675ae54eac561f3ad03b01a2bb09d21dd6523a8a8d46da606fc1903",
+  "twin_goldens.json": "e1d31ee03b870531758255b6d135034abf3e42c0463a43c9e83765ddd788ce92"
  }
 }
