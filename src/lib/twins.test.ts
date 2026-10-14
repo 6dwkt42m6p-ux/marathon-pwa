@@ -50,9 +50,6 @@ const GOLDEN_DIVERGENCES: Record<string, string> = {
   'atl_ctl/threshold_runs':
     'activityLoad rundet rTSS/hrTSS/Faktor-Last je Aktivitaet (Math.round), coach_load._daily_load ' +
     'nicht; dazu ist pace_sec_km in Python auf 0.1 s gerundet. ATL 20.4 statt 20.3.',
-  'atl_ctl/walk_recovery':
-    'PWA kennt classify_hike nicht (T-134): kurze Walks/Hikes ("spaziergang") zaehlen als Last, ' +
-    'Desktop ueberspringt sie. ATL 5.8 statt 3.3.',
   'ef_trend/rising':
     'efSmooth = Median der bereits auf 4 Stellen gerundeten Wochenmediane; Python glaettet die ' +
     'ungerundeten Werte und rundet danach (Abweichung 1e-4 an 2er-Randfenstern).',

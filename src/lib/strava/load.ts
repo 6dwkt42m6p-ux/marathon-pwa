@@ -2,10 +2,11 @@
 // Zweck: Ports von coach_load.py (_daily_load, compute_atl_ctl, run_rtss/run_hrtss)
 //   und coach_multisport.py (bike_tss) — Python ist die Referenz.
 // Einstieg: activityLoad, dailyLoadSeries (auch von injuryRisk genutzt), computeAtlCtl,
-//   ctlRising, bikeTss, runRtss, runHrtss, SyncedThreshold.
+//   ctlRising, bikeTss, runRtss, runHrtss, classifyHike, SyncedThreshold.
 // Abschnitte: Faktor-Tabellen · TSS-Formeln · activityLoad · Tagesreihe · EWMA.
-// Regeln: importiert ./parse, ./types.
+// Regeln: importiert ./parse, ./types, ../pyRound.
 import { localISODate } from './parse'
+import { pyRound } from '../pyRound'
 import type { StravaActivity } from './types'
 
 export interface AtlCtlResult {
@@ -81,6 +82,27 @@ export function runHrtss(
   return (d / TSS_REF_SEC) * intf * intf * 100
 }
 
+// T-134-Zwilling (coach_load.py): Schwellen fuer Bergtour vs. Recovery-Spaziergang.
+export const HIKE_ENDURANCE_MIN_ELEV_M = 400
+export const HIKE_ENDURANCE_MIN_DURATION_MIN = 150
+
+/** Zwilling von coach_load.classify_hike: 'bergtour' bei Hoehenmetern ODER Dauer ueber der
+ * Schwelle, sonst 'spaziergang'. Hoehenmeter wie parse_to_df auf ganze Meter gerundet
+ * (Python-round), fehlende Werte -> 0. Hintergrund: T-134 / T-292 */
+export function classifyHike(a: StravaActivity): 'bergtour' | 'spaziergang' {
+  const elevM = pyRound(Number(a.total_elevation_gain) || 0)
+  const durMin = (Number(a.moving_time) || 0) / 60
+  return elevM >= HIKE_ENDURANCE_MIN_ELEV_M || durMin >= HIKE_ENDURANCE_MIN_DURATION_MIN
+    ? 'bergtour' : 'spaziergang'
+}
+
+/** _daily_load ueberspringt Recovery-Spaziergaenge (kein Eintrag, auch nicht fuer den Serienstart).
+ * Typ wie parse_to_df: legacy `type` vor `sport_type`. Hintergrund: T-134 / T-292 */
+function isRecoveryWalk(a: StravaActivity): boolean {
+  const t = a.type || a.sport_type || ''
+  return (t === 'Hike' || t === 'Walk') && classifyHike(a) === 'spaziergang'
+}
+
 export interface SyncedThreshold {
   lthr: number
   threshold_pace_sec: number
@@ -152,9 +174,11 @@ export function dailyLoadSeries(
   if (!activities.length) return []
   const dayMap = new Map<string, number>()
   for (const a of activities) {
+    if (isRecoveryWalk(a)) continue
     const day = (a.start_date_local || a.start_date).slice(0, 10)
     dayMap.set(day, (dayMap.get(day) ?? 0) + activityLoad(a, ftp, threshold))
   }
+  if (!dayMap.size) return []
   const dates = Array.from(dayMap.keys()).sort()
   // Lokal parsen: new Date('YYYY-MM-DD') ist UTC-Mitternacht und schloss in UTC+ den heutigen Tag aus (P-02).
   const [sy, sm, sd] = dates[0].split('-').map(Number)
