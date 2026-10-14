@@ -132,14 +132,16 @@ export function activityLoad(a: StravaActivity, ftp?: number, threshold?: Synced
   // T-138: Smart Run-TSS (rTSS steady / hrTSS structured) — before suffer_score.
   if (threshold && (sportType === 'Run' || sportType === 'TrailRun' || sportType === 'VirtualRun')) {
     const durSec = a.moving_time || 0
-    const paceSec = a.distance && a.distance > 0 ? durSec / (a.distance / 1000) : null
+    // Wie parse_to_df: pace_sec_km auf 0.1 s (Python-round), nur bei > 100 m.
+    const distKm = (a.distance || 0) / 1000
+    const paceSec = distKm > 0.1 ? pyRound(durSec / distKm, 1) : null
     const rtss = runRtss(durSec, paceSec, threshold.threshold_pace_sec)
     const hrtss = runHrtss(durSec, a.average_heartrate, threshold.lthr, threshold.rest_hr)
     const structured = a.workout_type === 3 ||
       (rtss != null && hrtss != null && hrtss >= rtss * STRUCTURED_DIVERGENCE)
-    if (structured && hrtss != null) return Math.round(hrtss)
-    if (rtss != null) return Math.round(rtss)
-    if (hrtss != null) return Math.round(hrtss)
+    if (structured && hrtss != null) return hrtss
+    if (rtss != null) return rtss
+    if (hrtss != null) return hrtss
     // Both null → fall through to suffer_score/factor path
   }
 
@@ -163,7 +165,8 @@ export function activityLoad(a: StravaActivity, ftp?: number, threshold?: Synced
     factor = _WORKOUT_TYPE_FACTOR[wt] ?? 1.0
   }
 
-  return Math.round(durationMin * factor)
+  // Ungerundet wie _daily_load; gerundet wird nur das Ergebnis (ATL/CTL/TSB, ACWR).
+  return durationMin * factor
 }
 
 // T-144: per-Kalendertag-Last oldest→today (gefüllt 0). Geteilt von computeAtlCtl + injuryRisk,
@@ -211,9 +214,9 @@ export function computeAtlCtl(activities: StravaActivity[], ftp?: number, thresh
   }
 
   return {
-    atl: Math.round(atl * 10) / 10,
-    ctl: Math.round(ctl * 10) / 10,
-    tsb: Math.round((ctl - atl) * 10) / 10,
+    atl: pyRound(atl, 1),
+    ctl: pyRound(ctl, 1),
+    tsb: pyRound(ctl - atl, 1),
   }
 }
 

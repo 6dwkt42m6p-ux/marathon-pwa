@@ -47,9 +47,6 @@ describe('T-283 Twin-Registry', () => {
 // Alle Eintraege beim ersten Lauf von T-283 gefunden und an den Coordinator gemeldet
 // (Ticket-Entscheidung offen, siehe memory/tickets/T-283_impl.md).
 const GOLDEN_DIVERGENCES: Record<string, string> = {
-  'atl_ctl/threshold_runs':
-    'activityLoad rundet rTSS/hrTSS/Faktor-Last je Aktivitaet (Math.round), coach_load._daily_load ' +
-    'nicht; dazu ist pace_sec_km in Python auf 0.1 s gerundet. ATL 20.4 statt 20.3.',
   'ef_trend/rising':
     'efSmooth = Median der bereits auf 4 Stellen gerundeten Wochenmediane; Python glaettet die ' +
     'ungerundeten Werte und rundet danach (Abweichung 1e-4 an 2er-Randfenstern).',
