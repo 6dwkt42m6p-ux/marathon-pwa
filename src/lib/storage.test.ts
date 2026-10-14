@@ -375,7 +375,7 @@ describe('resolveRaceTargets — T-220', () => {
 // on the FeasCard. This wires the actual AC: `raceTargetSec2 = 10740` fed through the same
 // `vdotFromRace()` the component calls must match `coach.vdot_from_race(42195, 10740)` (Python
 // golden value, T-194-style golden pair). Mirrored in
-// tests/test_coach.py::test_t220_golden_target_vdot (Trainingscoach repo).
+// tests/test_coach_common.py::test_t220_golden_target_vdot (Trainingscoach repo).
 describe('T-220 Golden-Parität: vdotFromRace(42195, raceTargetSec2) ↔ coach.vdot_from_race', () => {
   it('raceTargetSec2 = 10740 → Ziel-VDOT identisch zu coach.vdot_from_race(42195, 10740) = 53.881819724935866 (±0.1)', () => {
     const r = resolveRaceTargets({ raceTargetSec2: 10740 })

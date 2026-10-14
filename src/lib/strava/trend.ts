@@ -4,7 +4,7 @@
 // Einstieg: vdotTrendFromActivities, MIN_TREND_EFFORT_RUNS, bestVdotFromActivities,
 //   efficiencyFactorTrend.
 // Paritaet: vdotTrendFromActivities <-> coach.vdot_trend ist per T-194-Golden-Paar
-//   gespiegelt (strava.test.ts / test_coach.py) — Aenderung nur mit beiden Seiten.
+//   gespiegelt (strava.test.ts / test_coach_analysis.py) — Aenderung nur mit beiden Seiten.
 // Regeln: importiert ../vdot, ./parse, ./types.
 import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor } from '../vdot'
 import { mondayOf, localISODate } from './parse'

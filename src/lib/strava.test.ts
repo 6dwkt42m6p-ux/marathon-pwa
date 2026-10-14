@@ -123,7 +123,7 @@ describe('vdotTrendFromActivities — VDOT aggregation = median (T-120, T-194)',
     expect(Math.abs(result!.delta)).toBeLessThan(0.3)
   })
 
-  // ── T-194: Paritaet zu tests/test_coach.py::test_t194_* ───────────────────
+  // ── T-194: Paritaet zu tests/test_coach_analysis.py::test_t194_* ───────────────────
 
   it('meldet keinen Trend bei weniger als 3 Effort-Laeufen je Haelfte', () => {
     const tooFew = [
@@ -1450,7 +1450,7 @@ describe('detectStrides — T-052-Invariante: Nenner == Anzahl gueltiger Peak-Pa
 })
 
 // ── T-194 Golden-Parität: Desktop ↔ PWA ──────────────────────────────────────
-// Zwilling zu tests/test_coach.py::test_t194_golden_parity_values_desktop_side.
+// Zwilling zu tests/test_coach_analysis.py::test_t194_golden_parity_values_desktop_side.
 // `vdotTrendFromActivities` passt nicht ins Stream-Fixture-Harness aus T-171
 // (gleitendes Zeitfenster statt zeitunabhängiger Streams), deshalb dieses
 // hand­gepflegte Wertepaar: DIESELBE Eingabe, DIESELBEN Erwartungswerte.
@@ -1482,7 +1482,7 @@ describe('vdotTrendFromActivities — T-194 Golden-Parität zu coach.vdot_trend'
 })
 
 // ── T-194-Nachzug: Golden-Parität auf mehrere Fälle verbreitert ──────────────
-// Zwilling zu tests/test_coach.py::test_t194_golden_parity_extended_cases.
+// Zwilling zu tests/test_coach_analysis.py::test_t194_golden_parity_extended_cases.
 // Ein einzelnes Wertepaar schützt nur den Pfad, den es berührt: eine Änderung an
 // der GAP-Formel für steile Anstiege oder an der Median-Randbehandlung bei gerader
 // Stichprobengröße könnte eine neue Divergenz einführen, ohne rot zu werden —
