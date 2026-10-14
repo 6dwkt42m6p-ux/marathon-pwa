@@ -144,7 +144,8 @@ const manifest = JSON.parse(readFileSync(resolve(FIXTURE_DIR, 'MANIFEST.json'), 
 // sie trotzdem ab (Datei bleibt Teil von `files`).
 const streamFiles = files.filter((f: string) => {
   const raw = JSON.parse(readFileSync(resolve(FIXTURE_DIR, f), 'utf-8'))
-  return raw.kind !== 'analyze_run_golden'
+  // T-283: Stream-Fixtures haben kein `kind`; twin_registry/twin_goldens laufen in twins.test.ts.
+  return raw.kind === undefined
 })
 
 describe('T-171 Parity-Gate: Fixtures', () => {

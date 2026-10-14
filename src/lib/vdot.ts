@@ -58,7 +58,10 @@ export function trainingPaces(vdot: number): Record<ZoneKey, number> {
 
 export function formatPace(secPerKm: number): string {
   if (!isFinite(secPerKm) || isNaN(secPerKm)) return '—'
-  const total = Math.round(secPerKm)
+  // T-283: .5 rundet half-to-even wie Python round() in coach_common.format_pace (Referenz);
+  // Math.round rundete 300.5 auf 301 ("5:01" statt "5:00"). Golden: twins.test.ts.
+  const r = Math.round(secPerKm)
+  const total = (r - secPerKm === 0.5 && r % 2 !== 0) ? r - 1 : r
   const m = Math.floor(total / 60)
   const s = total % 60
   return `${m}:${s.toString().padStart(2, '0')}`

@@ -1,0 +1,1126 @@
+{
+ "atl_ctl": [
+  {
+   "activities": [
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 45,
+     "distance": 10000,
+     "id": 1,
+     "moving_time": 3000,
+     "name": "A1",
+     "sport_type": "Run",
+     "suffer_score": 80,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 21,
+     "distance": 10000,
+     "id": 2,
+     "moving_time": 3000,
+     "name": "A2",
+     "sport_type": "Run",
+     "suffer_score": 55,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 2.7777777777777777,
+     "days_ago": 14,
+     "distance": 10000,
+     "id": 3,
+     "moving_time": 3600,
+     "name": "A3",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run",
+     "workout_type": 3
+    },
+    {
+     "average_speed": 0.8333333333333334,
+     "days_ago": 9,
+     "distance": 2500,
+     "id": 4,
+     "moving_time": 3000,
+     "name": "A4",
+     "sport_type": "Swim",
+     "total_elevation_gain": 0,
+     "type": "Swim"
+    },
+    {
+     "average_speed": 7.407407407407407,
+     "days_ago": 5,
+     "distance": 40000,
+     "id": 5,
+     "moving_time": 5400,
+     "name": "A5",
+     "sport_type": "Ride",
+     "total_elevation_gain": 0,
+     "type": "Ride"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 2,
+     "distance": 10000,
+     "id": 6,
+     "moving_time": 3000,
+     "name": "A6",
+     "sport_type": "Run",
+     "suffer_score": 120,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 1,
+     "distance": 10000,
+     "id": 7,
+     "moving_time": 3000,
+     "name": "A7",
+     "sport_type": "Run",
+     "suffer_score": 60,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 1,
+     "distance": 10000,
+     "id": 8,
+     "moving_time": 3000,
+     "name": "A8",
+     "sport_type": "Run",
+     "suffer_score": 40,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "atl": 33.8,
+    "ctl": 10.5,
+    "tsb": -23.4
+   },
+   "ftp": null,
+   "name": "suffer_and_factor",
+   "threshold": null
+  },
+  {
+   "activities": [
+    {
+     "average_heartrate": 165,
+     "average_speed": 3.703611111111111,
+     "days_ago": 30,
+     "distance": 13333,
+     "id": 11,
+     "moving_time": 3600,
+     "name": "A11",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 140,
+     "average_speed": 3.3333333333333335,
+     "days_ago": 10,
+     "distance": 10000,
+     "id": 12,
+     "moving_time": 3000,
+     "name": "A12",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 160,
+     "average_speed": 3.3333333333333335,
+     "days_ago": 6,
+     "distance": 10000,
+     "id": 13,
+     "moving_time": 3000,
+     "name": "A13",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run",
+     "workout_type": 3
+    },
+    {
+     "average_heartrate": 158,
+     "average_speed": 2.7777777777777777,
+     "days_ago": 3,
+     "distance": 8000,
+     "id": 14,
+     "moving_time": 2880,
+     "name": "A14",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 1,
+     "distance": 10000,
+     "id": 15,
+     "moving_time": 3000,
+     "name": "A15",
+     "sport_type": "Run",
+     "suffer_score": 44,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "atl": 20.3,
+    "ctl": 6.9,
+    "tsb": -13.4
+   },
+   "ftp": null,
+   "name": "threshold_runs",
+   "threshold": {
+    "lthr": 170,
+    "rest_hr": 50,
+    "threshold_pace_sec": 270
+   }
+  },
+  {
+   "activities": [
+    {
+     "average_speed": 10.0,
+     "days_ago": 12,
+     "device_watts": true,
+     "distance": 36000,
+     "id": 21,
+     "moving_time": 3600,
+     "name": "A21",
+     "sport_type": "Ride",
+     "total_elevation_gain": 0,
+     "type": "Ride",
+     "weighted_average_watts": 200
+    },
+    {
+     "average_speed": 8.333333333333334,
+     "days_ago": 8,
+     "distance": 30000,
+     "id": 22,
+     "moving_time": 3600,
+     "name": "A22",
+     "sport_type": "Ride",
+     "suffer_score": 70,
+     "total_elevation_gain": 0,
+     "type": "Ride"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 4,
+     "distance": 10000,
+     "id": 23,
+     "moving_time": 3000,
+     "name": "A23",
+     "sport_type": "Run",
+     "suffer_score": 65,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "atl": 9.4,
+    "ctl": 3.9,
+    "tsb": -5.4
+   },
+   "ftp": 250,
+   "name": "power_ride",
+   "threshold": null
+  },
+  {
+   "activities": [
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 5,
+     "distance": 10000,
+     "id": 31,
+     "moving_time": 3000,
+     "name": "A31",
+     "sport_type": "Run",
+     "suffer_score": 50,
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 1.6666666666666667,
+     "days_ago": 2,
+     "distance": 3000,
+     "id": 32,
+     "moving_time": 1800,
+     "name": "A32",
+     "sport_type": "Walk",
+     "total_elevation_gain": 20,
+     "type": "Walk"
+    }
+   ],
+   "expected": {
+    "atl": 3.3,
+    "ctl": 1.1,
+    "tsb": -2.2
+   },
+   "ftp": null,
+   "name": "walk_recovery",
+   "threshold": null
+  }
+ ],
+ "description": "T-283: gespiegelte Golden-Werte (Python-Referenz). Erzeugt von tests/parity_generate_twins.py; geprueft von tests/test_t283_twins.py und marathon-pwa src/lib/twins.test.ts.",
+ "ef_trend": [
+  {
+   "activities": [
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.0303030303030303,
+     "days_ago": 52,
+     "distance": 10000,
+     "id": 41,
+     "moving_time": 3300,
+     "name": "A41",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 136,
+     "average_speed": 3.0211480362537766,
+     "days_ago": 45,
+     "distance": 10000,
+     "id": 42,
+     "moving_time": 3310,
+     "name": "A42",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 134,
+     "average_speed": 3.0395136778115504,
+     "days_ago": 38,
+     "distance": 10000,
+     "id": 43,
+     "moving_time": 3290,
+     "name": "A43",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.048780487804878,
+     "days_ago": 31,
+     "distance": 10000,
+     "id": 44,
+     "moving_time": 3280,
+     "name": "A44",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.1446540880503147,
+     "days_ago": 17,
+     "distance": 10000,
+     "id": 45,
+     "moving_time": 3180,
+     "name": "A45",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 134,
+     "average_speed": 3.1746031746031744,
+     "days_ago": 10,
+     "distance": 10000,
+     "id": 46,
+     "moving_time": 3150,
+     "name": "A46",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 138,
+     "average_speed": 3.125,
+     "days_ago": 10,
+     "distance": 10000,
+     "id": 47,
+     "moving_time": 3200,
+     "name": "A47",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.2051282051282053,
+     "days_ago": 3,
+     "distance": 10000,
+     "id": 48,
+     "moving_time": 3120,
+     "name": "A48",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "color": "#28a745",
+    "delta_ef": 0.0552,
+    "delta_pct": 4.1,
+    "direction": "↑",
+    "early_ef": 1.3489,
+    "label": "EF +4.1% — aerobe Effizienz steigt",
+    "no_hr_data": false,
+    "recent_ef": 1.4041,
+    "weekly": [
+     {
+      "ef_median": 1.3468,
+      "ef_smooth": 1.3398,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3329,
+      "ef_smooth": 1.3468,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.361,
+      "ef_smooth": 1.355,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.355,
+      "ef_smooth": 1.361,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3976,
+      "ef_smooth": 1.3901,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3901,
+      "ef_smooth": 1.3976,
+      "run_count": 2
+     },
+     {
+      "ef_median": 1.4245,
+      "ef_smooth": 1.4073,
+      "run_count": 1
+     }
+    ]
+   },
+   "name": "rising"
+  },
+  {
+   "activities": [
+    {
+     "average_heartrate": 132,
+     "average_speed": 2.9411764705882355,
+     "average_temp": 26,
+     "days_ago": 50,
+     "distance": 10000,
+     "id": 51,
+     "moving_time": 3400,
+     "name": "A51",
+     "sport_type": "Run",
+     "total_elevation_gain": 150,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 133,
+     "average_speed": 3.0303030303030303,
+     "days_ago": 43,
+     "distance": 10000,
+     "id": 52,
+     "moving_time": 3300,
+     "name": "A52",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 131,
+     "average_speed": 2.9239766081871346,
+     "average_temp": 12,
+     "days_ago": 36,
+     "distance": 10000,
+     "id": 53,
+     "moving_time": 3420,
+     "name": "A53",
+     "sport_type": "Run",
+     "total_elevation_gain": 220,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 134,
+     "average_speed": 3.0211480362537766,
+     "average_temp": 28,
+     "days_ago": 29,
+     "distance": 10000,
+     "id": 54,
+     "moving_time": 3310,
+     "name": "A54",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 133,
+     "average_speed": 2.985074626865672,
+     "days_ago": 15,
+     "distance": 10000,
+     "id": 55,
+     "moving_time": 3350,
+     "name": "A55",
+     "sport_type": "Run",
+     "total_elevation_gain": 90,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 134,
+     "average_speed": 3.0120481927710845,
+     "average_temp": 24,
+     "days_ago": 8,
+     "distance": 10000,
+     "id": 56,
+     "moving_time": 3320,
+     "name": "A56",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 132,
+     "average_speed": 3.003003003003003,
+     "average_temp": 18,
+     "days_ago": 1,
+     "distance": 10000,
+     "id": 57,
+     "moving_time": 3330,
+     "name": "A57",
+     "sport_type": "Run",
+     "total_elevation_gain": 40,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "color": "#e6a817",
+    "delta_ef": -0.0204,
+    "delta_pct": -1.5,
+    "direction": "→",
+    "early_ef": 1.4009,
+    "label": "EF stabil — aerobe Effizienz konstant",
+    "no_hr_data": false,
+    "recent_ef": 1.3805,
+    "weekly": [
+     {
+      "ef_median": 1.4245,
+      "ef_smooth": 1.3958,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3671,
+      "ef_smooth": 1.3714,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3714,
+      "ef_smooth": 1.3714,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.4407,
+      "ef_smooth": 1.3714,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3467,
+      "ef_smooth": 1.4094,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.4094,
+      "ef_smooth": 1.3855,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3855,
+      "ef_smooth": 1.3974,
+      "run_count": 1
+     }
+    ]
+   },
+   "name": "hilly_hot_stable"
+  },
+  {
+   "activities": [
+    {
+     "average_heartrate": 140,
+     "average_speed": 3.3333333333333335,
+     "days_ago": 49,
+     "distance": 10000,
+     "id": 61,
+     "moving_time": 3000,
+     "name": "A61",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 141,
+     "average_speed": 3.3222591362126246,
+     "days_ago": 42,
+     "distance": 10000,
+     "id": 62,
+     "moving_time": 3010,
+     "name": "A62",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 139,
+     "average_speed": 3.3333333333333335,
+     "days_ago": 35,
+     "distance": 10000,
+     "id": 63,
+     "moving_time": 3000,
+     "name": "A63",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 141,
+     "average_speed": 3.1746031746031744,
+     "days_ago": 21,
+     "distance": 10000,
+     "id": 64,
+     "moving_time": 3150,
+     "name": "A64",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 142,
+     "average_speed": 3.1446540880503147,
+     "days_ago": 14,
+     "distance": 10000,
+     "id": 65,
+     "moving_time": 3180,
+     "name": "A65",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 140,
+     "average_speed": 3.1645569620253164,
+     "days_ago": 7,
+     "distance": 10000,
+     "id": 66,
+     "moving_time": 3160,
+     "name": "A66",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "color": "#dc3545",
+    "delta_ef": -0.0817,
+    "delta_pct": -5.7,
+    "direction": "↓",
+    "early_ef": 1.427,
+    "label": "EF -5.7% — aerobe Effizienz sinkt",
+    "no_hr_data": false,
+    "recent_ef": 1.3453,
+    "weekly": [
+     {
+      "ef_median": 1.4286,
+      "ef_smooth": 1.4211,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.4137,
+      "ef_smooth": 1.4286,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.4388,
+      "ef_smooth": 1.4137,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3509,
+      "ef_smooth": 1.3509,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3287,
+      "ef_smooth": 1.3509,
+      "run_count": 1
+     },
+     {
+      "ef_median": 1.3562,
+      "ef_smooth": 1.3425,
+      "run_count": 1
+     }
+    ]
+   },
+   "name": "falling"
+  },
+  {
+   "activities": [
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.0303030303030303,
+     "days_ago": 40,
+     "distance": 10000,
+     "id": 71,
+     "moving_time": 3300,
+     "name": "A71",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.125,
+     "days_ago": 20,
+     "distance": 10000,
+     "id": 72,
+     "moving_time": 3200,
+     "name": "A72",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_heartrate": 135,
+     "average_speed": 3.1746031746031744,
+     "days_ago": 5,
+     "distance": 10000,
+     "id": 73,
+     "moving_time": 3150,
+     "name": "A73",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": null,
+   "name": "too_few_runs"
+  },
+  {
+   "activities": [
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 30,
+     "distance": 10000,
+     "id": 81,
+     "moving_time": 3000,
+     "name": "A81",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 20,
+     "distance": 10000,
+     "id": 82,
+     "moving_time": 3000,
+     "name": "A82",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 10,
+     "distance": 10000,
+     "id": 83,
+     "moving_time": 3000,
+     "name": "A83",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    },
+    {
+     "average_speed": 3.3333333333333335,
+     "days_ago": 3,
+     "distance": 10000,
+     "id": 84,
+     "moving_time": 3000,
+     "name": "A84",
+     "sport_type": "Run",
+     "total_elevation_gain": 0,
+     "type": "Run"
+    }
+   ],
+   "expected": {
+    "color": "#888888",
+    "delta_ef": null,
+    "delta_pct": null,
+    "direction": "→",
+    "early_ef": null,
+    "label": "Kein HF-Sensor — EF nicht berechenbar",
+    "no_hr_data": true,
+    "recent_ef": null,
+    "weekly": []
+   },
+   "name": "no_hr"
+  }
+ ],
+ "format_pace": [
+  {
+   "expected": "5:00",
+   "sec": 300.0
+  },
+  {
+   "expected": "4:59",
+   "sec": 299.4
+  },
+  {
+   "expected": "5:00",
+   "sec": 299.6
+  },
+  {
+   "expected": "5:00",
+   "sec": 300.5
+  },
+  {
+   "expected": "5:02",
+   "sec": 301.5
+  },
+  {
+   "expected": "4:00",
+   "sec": 240.5
+  },
+  {
+   "expected": "1:00",
+   "sec": 59.5
+  },
+  {
+   "expected": "0:00",
+   "sec": 0.5
+  },
+  {
+   "expected": "6:00",
+   "sec": 359.5
+  },
+  {
+   "expected": "4:32",
+   "sec": 272.49
+  },
+  {
+   "expected": "—",
+   "sec": null
+  }
+ ],
+ "kind": "twin_goldens",
+ "race_predictor": [
+  {
+   "dist": 10000,
+   "expected": {
+    "band_pct": 0.015,
+    "base_sec": 2480,
+    "confidence": "hoch",
+    "durability_mult": 1.0,
+    "eff_vdot": 50.0,
+    "fitness_gain_vdot": 0.0,
+    "notes": [],
+    "predicted_sec": 2480,
+    "range_high_sec": 2517,
+    "range_low_sec": 2443,
+    "taper_mult": 1.0
+   },
+   "name": "10k_neutral",
+   "opts": {},
+   "vdot": 50.0
+  },
+  {
+   "dist": 21097.5,
+   "expected": {
+    "band_pct": 0.0325,
+    "base_sec": 5658,
+    "confidence": "mittel",
+    "durability_mult": 1.0,
+    "eff_vdot": 48.7,
+    "fitness_gain_vdot": 0.4,
+    "notes": [
+     "Aufbau-Projektion +0.40 VDOT (CTL steigt)."
+    ],
+    "predicted_sec": 5618,
+    "range_high_sec": 5801,
+    "range_low_sec": 5435,
+    "taper_mult": 1.0
+   },
+   "name": "hm_build",
+   "opts": {
+    "ctl_rising": true,
+    "weeks_to_race": 10
+   },
+   "vdot": 48.3
+  },
+  {
+   "dist": 42195,
+   "expected": {
+    "band_pct": 0.0325,
+    "base_sec": 10874,
+    "confidence": "mittel",
+    "durability_mult": 0.97,
+    "eff_vdot": 51.51,
+    "fitness_gain_vdot": 0.0,
+    "notes": [
+     "Durability-Abschlag ×0.970 (Marathon-Renn-Historie).",
+     "Taper-Bonus ×0.990 (frisch, TSB +12)."
+    ],
+    "predicted_sec": 11050,
+    "range_high_sec": 11409,
+    "range_low_sec": 10691,
+    "taper_mult": 0.99
+   },
+   "name": "m_taper_durability",
+   "opts": {
+    "ctl_rising": false,
+    "durability_factor": 0.97,
+    "tsb": 12,
+    "weeks_to_race": 2
+   },
+   "vdot": 53.1
+  },
+  {
+   "dist": 42195,
+   "expected": {
+    "band_pct": 0.1,
+    "base_sec": 11250,
+    "confidence": "niedrig",
+    "durability_mult": 0.975,
+    "eff_vdot": 50.11,
+    "fitness_gain_vdot": 0.4,
+    "notes": [
+     "Aufbau-Projektion +0.40 VDOT (CTL steigt).",
+     "Durability-Abschlag −2.5% (Longrun-Pace-Fade)."
+    ],
+    "predicted_sec": 11418,
+    "range_high_sec": 12560,
+    "range_low_sec": 10276,
+    "taper_mult": 1.0
+   },
+   "name": "m_far_fade_lowdata",
+   "opts": {
+    "ctl_rising": true,
+    "low_data": true,
+    "pace_fade_recent": 5.0,
+    "weeks_to_race": 20
+   },
+   "vdot": 51.0
+  },
+  {
+   "dist": 42195,
+   "expected": {
+    "band_pct": 0.0312,
+    "base_sec": 11068,
+    "confidence": "mittel",
+    "durability_mult": 1.0,
+    "eff_vdot": 52.0,
+    "fitness_gain_vdot": 0.0,
+    "notes": [
+     "Ermüdungs-Malus ×1.012 (TSB -15)."
+    ],
+    "predicted_sec": 11200,
+    "range_high_sec": 11550,
+    "range_low_sec": 10850,
+    "taper_mult": 1.012
+   },
+   "name": "m_fatigued",
+   "opts": {
+    "durability_factor": 1.0,
+    "tsb": -15,
+    "weeks_to_race": 1
+   },
+   "vdot": 52.0
+  },
+  {
+   "dist": 5000,
+   "expected": {
+    "band_pct": 0.0187,
+    "base_sec": 1094,
+    "confidence": "hoch",
+    "durability_mult": 1.0,
+    "eff_vdot": 55.65,
+    "fitness_gain_vdot": 0.15,
+    "notes": [
+     "Aufbau-Projektion +0.15 VDOT (CTL steigt).",
+     "Taper-Bonus ×0.980 (frisch, TSB +30)."
+    ],
+    "predicted_sec": 1069,
+    "range_high_sec": 1089,
+    "range_low_sec": 1049,
+    "taper_mult": 0.98
+   },
+   "name": "5k_taper_fresh",
+   "opts": {
+    "ctl_rising": true,
+    "tsb": 30,
+    "weeks_to_race": 3
+   },
+   "vdot": 55.5
+  },
+  {
+   "dist": 42195,
+   "expected": {
+    "band_pct": 0.1,
+    "base_sec": null,
+    "confidence": "niedrig",
+    "durability_mult": 1.0,
+    "eff_vdot": null,
+    "fitness_gain_vdot": 0.0,
+    "notes": [
+     "Zu wenig Fitness-Daten für eine Prognose."
+    ],
+    "predicted_sec": null,
+    "range_high_sec": null,
+    "range_low_sec": null,
+    "taper_mult": 1.0
+   },
+   "name": "invalid_vdot",
+   "opts": {},
+   "vdot": null
+  }
+ ],
+ "tss": [
+  {
+   "args": [
+    3600,
+    270,
+    270
+   ],
+   "expected": 100.0,
+   "fn": "run_rtss"
+  },
+  {
+   "args": [
+    3000,
+    300,
+    270
+   ],
+   "expected": 67.5,
+   "fn": "run_rtss"
+  },
+  {
+   "args": [
+    5400,
+    330.5,
+    262
+   ],
+   "expected": 94.26509597844918,
+   "fn": "run_rtss"
+  },
+  {
+   "args": [
+    3000,
+    100,
+    270
+   ],
+   "expected": null,
+   "fn": "run_rtss"
+  },
+  {
+   "args": [
+    0,
+    300,
+    270
+   ],
+   "expected": null,
+   "fn": "run_rtss"
+  },
+  {
+   "args": [
+    3600,
+    170,
+    170,
+    50
+   ],
+   "expected": 100.0,
+   "fn": "run_hrtss"
+  },
+  {
+   "args": [
+    3000,
+    160,
+    170,
+    50
+   ],
+   "expected": 70.02314814814814,
+   "fn": "run_hrtss"
+  },
+  {
+   "args": [
+    2700,
+    148.5,
+    168,
+    48
+   ],
+   "expected": 52.60546875000001,
+   "fn": "run_hrtss"
+  },
+  {
+   "args": [
+    3000,
+    45,
+    170,
+    50
+   ],
+   "expected": null,
+   "fn": "run_hrtss"
+  },
+  {
+   "args": [
+    3000,
+    150,
+    50,
+    50
+   ],
+   "expected": null,
+   "fn": "run_hrtss"
+  },
+  {
+   "args": [
+    200,
+    3600,
+    250
+   ],
+   "expected": 64.00000000000001,
+   "fn": "bike_tss"
+  },
+  {
+   "args": [
+    231.7,
+    7380,
+    262
+   ],
+   "expected": 160.32577428471532,
+   "fn": "bike_tss"
+  },
+  {
+   "args": [
+    200,
+    3600,
+    0
+   ],
+   "expected": 0.0,
+   "fn": "bike_tss"
+  }
+ ]
+}
