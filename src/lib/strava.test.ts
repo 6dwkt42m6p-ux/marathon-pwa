@@ -250,6 +250,8 @@ describe('efficiencyFactorTrend (T-120)', () => {
     const result = efficiencyFactorTrend(runs, maxHr, restHr)
     expect(result).not.toBeNull()
     expect(result!.noHrData).toBe(true)
+    // T-292: wie Python delta_pct=None — „keine Daten" statt „0 %"
+    expect(result!.deltaPct).toBeNull()
   })
 
   it('rising EF trend returns ↑ direction', () => {
@@ -270,7 +272,7 @@ describe('efficiencyFactorTrend (T-120)', () => {
     const result = efficiencyFactorTrend(runs, maxHr, restHr)
     expect(result).not.toBeNull()
     expect(result!.direction).toBe('↑')
-    expect(result!.deltaPct).toBeGreaterThanOrEqual(2.0)
+    expect(result!.deltaPct!).toBeGreaterThanOrEqual(2.0)
     expect(result!.recentEf!).toBeGreaterThan(result!.earlyEf!)
   })
 
@@ -289,7 +291,7 @@ describe('efficiencyFactorTrend (T-120)', () => {
     const result = efficiencyFactorTrend(runs, maxHr, restHr)
     expect(result).not.toBeNull()
     expect(result!.direction).toBe('↓')
-    expect(result!.deltaPct).toBeLessThanOrEqual(-2.0)
+    expect(result!.deltaPct!).toBeLessThanOrEqual(-2.0)
   })
 
   it('stable EF returns → direction', () => {
@@ -305,7 +307,7 @@ describe('efficiencyFactorTrend (T-120)', () => {
     const result = efficiencyFactorTrend(runs, maxHr, restHr)
     expect(result).not.toBeNull()
     expect(result!.direction).toBe('→')
-    expect(Math.abs(result!.deltaPct)).toBeLessThan(2.0)
+    expect(Math.abs(result!.deltaPct!)).toBeLessThan(2.0)
   })
 
   it('filters out runs outside 50–80% HRR', () => {

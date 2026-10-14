@@ -1,7 +1,7 @@
 // Inhalt: Python-kompatibles round() fuer Paritaet mit der Desktop-Referenz.
 // Zweck: Python rundet half-to-even auf dem EXAKTEN Double-Wert (round(0.03125, 4) = 0.0312),
 //   JS Math.round(x*1e4)/1e4 rundet half-up auf einem bereits verfaelschten Produkt.
-// Einstieg: pyRound, pyRoundHalfEven.
+// Einstieg: pyRound, pyRoundHalfEven, npRound (pandas/numpy-Series-Rundung).
 // Regeln: Leaf-Modul ohne Importe (importGraph-Gate, T-287).
 
 /** Python `round(x)` (ndigits=0): half-to-even auf Ganzzahl. Hintergrund: T-247 / T-292 */
@@ -32,4 +32,12 @@ export function pyRound(x: number, ndigits = 0): number {
   const digits = (BigInt(kept) + (up ? 1n : 0n)).toString().padStart(ndigits + 1, '0')
   const v = Number(`${digits.slice(0, -ndigits)}.${digits.slice(-ndigits)}`)
   return x < 0 ? -v : v
+}
+
+/** pandas/numpy `.round(n)`: rint(x * 10**n) / 10**n (half-to-even auf dem SKALIERTEN Produkt,
+ * anders als Python-round auf Skalaren). Fuer Series-Rundungen der Referenz. Hintergrund: T-292 */
+export function npRound(x: number, ndigits = 0): number {
+  if (!Number.isFinite(x)) return x
+  const f = 10 ** ndigits
+  return pyRoundHalfEven(x * f) / f
 }

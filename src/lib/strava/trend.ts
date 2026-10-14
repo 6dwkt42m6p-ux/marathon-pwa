@@ -5,9 +5,10 @@
 //   efficiencyFactorTrend.
 // Paritaet: vdotTrendFromActivities <-> coach.vdot_trend ist per T-194-Golden-Paar
 //   gespiegelt (strava.test.ts / test_coach_analysis.py) — Aenderung nur mit beiden Seiten.
-// Regeln: importiert ../vdot, ./parse, ./types.
+// Regeln: importiert ../vdot, ../pyRound, ./parse, ./types.
 import { vdotFromRace as _vdotFromRace, trainingPaces, effortNormalizationFactor } from '../vdot'
 import { mondayOf, localISODate } from './parse'
+import { pyRound, npRound } from '../pyRound'
 import type { RunSummary } from './types'
 
 export interface EasyHrTrend {
@@ -239,7 +240,7 @@ export interface EfficiencyFactorTrendResult {
   earlyEf:   number | null
   recentEf:  number | null
   deltaEf:   number | null
-  deltaPct:  number
+  deltaPct:  number | null
   direction: '↑' | '↓' | '→'
   label:     string
   color:     string
@@ -271,7 +272,7 @@ export function efficiencyFactorTrend(
   const hasAnyHr = runs.some(r => r.avgHr != null && r.avgHr > 0)
   if (!hasAnyHr) {
     return {
-      weekly: [], earlyEf: null, recentEf: null, deltaEf: null, deltaPct: 0,
+      weekly: [], earlyEf: null, recentEf: null, deltaEf: null, deltaPct: null,
       direction: '→',
       label: 'Kein HF-Sensor — EF nicht berechenbar',
       color: '#888888',
@@ -327,18 +328,20 @@ export function efficiencyFactorTrend(
   }
 
   // Weekly medians array (sorted chronologically)
-  const weeklyMedians = sortedKeys.map(k => ({
+  // Glaetten auf den UNGERUNDETEN Medianen, danach runden — wie pandas rolling().median().round(4).
+  const rawMedians = sortedKeys.map(k => medianOf(weekMap.get(k)!))
+  const weeklyMedians = sortedKeys.map((k, i) => ({
     weekStart: weekDateMap.get(k)!,
-    efMedian:  Math.round(medianOf(weekMap.get(k)!) * 10000) / 10000,
+    efMedian:  npRound(rawMedians[i], 4),
     runCount:  weekMap.get(k)!.length,
   }))
 
   // ── 4. 3-week rolling median (center) ─────────────────────────────────────
   const weekly: EfWeeklyPoint[] = weeklyMedians.map((w, i) => {
-    const window = weeklyMedians.slice(Math.max(0, i - 1), i + 2).map(x => x.efMedian)
+    const window = rawMedians.slice(Math.max(0, i - 1), i + 2)
     return {
       ...w,
-      efSmooth: Math.round(medianOf(window) * 10000) / 10000,
+      efSmooth: npRound(medianOf(window), 4),
     }
   })
 
@@ -352,12 +355,12 @@ export function efficiencyFactorTrend(
   const meanEf = (arr: EfWeeklyPoint[]) =>
     arr.reduce((s, w) => s + w.efMedian, 0) / arr.length
 
-  const earlyEf  = Math.round(meanEf(earlyWeeks)  * 10000) / 10000
-  const recentEf = Math.round(meanEf(recentWeeks) * 10000) / 10000
+  const earlyEf  = pyRound(meanEf(earlyWeeks), 4)
+  const recentEf = pyRound(meanEf(recentWeeks), 4)
   if (earlyEf <= 0) return null
 
-  const deltaEf  = Math.round((recentEf - earlyEf) * 10000) / 10000
-  const deltaPct = Math.round((deltaEf / earlyEf) * 100 * 10) / 10
+  const deltaEf  = pyRound(recentEf - earlyEf, 4)
+  const deltaPct = pyRound(deltaEf / earlyEf * 100, 1)
 
   let direction: '↑' | '↓' | '→'
   let label: string

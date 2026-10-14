@@ -47,12 +47,6 @@ describe('T-283 Twin-Registry', () => {
 // Alle Eintraege beim ersten Lauf von T-283 gefunden und an den Coordinator gemeldet
 // (Ticket-Entscheidung offen, siehe memory/tickets/T-283_impl.md).
 const GOLDEN_DIVERGENCES: Record<string, string> = {
-  'ef_trend/rising':
-    'efSmooth = Median der bereits auf 4 Stellen gerundeten Wochenmediane; Python glaettet die ' +
-    'ungerundeten Werte und rundet danach (Abweichung 1e-4 an 2er-Randfenstern).',
-  'ef_trend/hilly_hot_stable': 'wie ef_trend/rising (efSmooth-Rundungsreihenfolge).',
-  'ef_trend/falling': 'wie ef_trend/rising (efSmooth-Rundungsreihenfolge).',
-  'ef_trend/no_hr': 'no_hr_data-Zweig: deltaPct 0 statt null (TS-Typ number).',
   'race_predictor/m_fatigued':
     'bandPct: Math.round(x*1e4)/1e4 rundet .5 auf, Python round(x, 4) half-to-even ' +
     '(0.03125 -> 0.0313 vs 0.0312). Betrifft jede ungerade Wochenzahl bis Rennen.',
