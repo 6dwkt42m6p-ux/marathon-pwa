@@ -1,3 +1,6 @@
+// Inhalt: Cloudflare-Worker als Secret-Proxy: Strava-Token-Tausch und -Refresh ohne Client-Secret im Bundle.
+// Einstieg: Routen POST /strava/token, POST /strava/refresh, OPTIONS (CORS); neue Endpunkte in der Route-Map.
+
 /**
  * Marathon Coach Token Proxy — Cloudflare Worker
  *

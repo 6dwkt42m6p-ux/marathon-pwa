@@ -1,5 +1,5 @@
-// Inhalt: Re-Export-Index der Strava-Schicht (T-275) — alle Importe `from './strava'` /
-//   `from '../lib/strava'` bleiben gueltig; der Code liegt in src/lib/strava/*.ts.
+// Inhalt: Re-Export-Index der Strava-Schicht (T-275); Code liegt in src/lib/strava/*.ts.
+// Zweck: alle Importe `from './strava'` / `from '../lib/strava'` bleiben gueltig.
 // Karte: types (Datentypen) · cache (localStorage-Caches) · auth (OAuth/Tokens)
 //   · api (Sync + Streams/Laps-Fetch) · parse (Parsing, Wochenstatistik, Datums-Helfer)
 //   · trend (VDOT-/EF-Trend, T-194-Golden) · load (TSS, ATL/CTL) · bulk (Analyse-Bulk-Loader)
