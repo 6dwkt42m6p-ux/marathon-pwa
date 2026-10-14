@@ -9,7 +9,6 @@ import {
   buildDeleteNoteMutation,
   loadPendingNoteMutations,
   appendPendingNoteMutation,
-  removePendingNoteMutations,
   resolveNote,
   resolvePendingNoteMutation,
   type NoteMutation,
@@ -118,57 +117,6 @@ describe('pending-note-list', () => {
     appendPendingNoteMutation(m)
     appendPendingNoteMutation(m)  // same ts
     expect(loadPendingNoteMutations()).toHaveLength(1)
-  })
-
-  it('removePendingNoteMutations removes all matching ts entries', () => {
-    const m1 = buildSaveNoteMutation(1, 'a', 3)
-    const m2 = buildDeleteNoteMutation(2)
-    appendPendingNoteMutation(m1)
-    appendPendingNoteMutation(m2)
-    removePendingNoteMutations([m1.ts, m2.ts])
-    expect(loadPendingNoteMutations()).toHaveLength(0)
-  })
-
-  it('removePendingNoteMutations removes only matching entries (partial)', () => {
-    const m1: NoteMutation = { type: 'save', activity_id: 1, text: 'a', rating: 3, ts: '2026-07-04T10:00:00.003Z' }
-    const m2: NoteMutation = { type: 'delete', activity_id: 2, ts: '2026-07-04T10:00:00.004Z' }
-    appendPendingNoteMutation(m1)
-    appendPendingNoteMutation(m2)
-    removePendingNoteMutations([m1.ts])
-    const remaining = loadPendingNoteMutations()
-    expect(remaining).toHaveLength(1)
-    expect(remaining[0]).toEqual(m2)
-  })
-
-  it('removePendingNoteMutations returns true on success', () => {
-    const m = buildSaveNoteMutation(1, 'abc', 3)
-    appendPendingNoteMutation(m)
-    expect(removePendingNoteMutations([m.ts])).toBe(true)
-  })
-
-  // T-170: quota exhausted mid-write must not throw and must not silently pretend the
-  // already-applied mutations were popped (they would otherwise re-trigger indefinitely).
-  it('removePendingNoteMutations: quota exhausted on partial-remaining write → false, never throws, list unchanged', () => {
-    const m1: NoteMutation = { type: 'save', activity_id: 1, text: 'a', rating: 3, ts: '2026-07-04T10:00:00.005Z' }
-    const m2: NoteMutation = { type: 'delete', activity_id: 2, ts: '2026-07-04T10:00:00.006Z' }
-    appendPendingNoteMutation(m1)
-    appendPendingNoteMutation(m2)
-
-    registerEvictCallback(() => { /* nothing to evict — storage genuinely full */ })
-    const origSetItem = Storage.prototype.setItem.bind(localStorage)
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(function (this: Storage, key: string, value: string) {
-      if (key === 'pending_note_mutations') throw new DOMException('QuotaExceededError', 'QuotaExceededError')
-      origSetItem(key, value)
-    })
-
-    let threw = false
-    let ok = true
-    try { ok = removePendingNoteMutations([m1.ts]) } catch { threw = true }
-    vi.restoreAllMocks()
-
-    expect(threw).toBe(false)
-    expect(ok).toBe(false)
-    expect(localStorage.getItem(STORAGE_WARNING_KEY)).not.toBeNull()
   })
 })
 

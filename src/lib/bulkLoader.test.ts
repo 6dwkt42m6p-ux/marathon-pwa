@@ -73,9 +73,6 @@ describe('loadAnalyticsStreams (T-124-fix)', () => {
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
 
-    // Also stub getValidToken to return a token
-    const stravaModule = await import('./strava')
-    vi.spyOn(stravaModule, 'getValidToken').mockResolvedValue('fake-token')
 
     const result = await loadAnalyticsStreams([run], [run], 48)
 
@@ -142,8 +139,6 @@ describe('loadAnalyticsStreams (T-124-fix)', () => {
     localStorage.setItem(STREAM_CACHE_KEY(qualityRunId), JSON.stringify(makeStreamPayload()))
     localStorage.setItem(LAPS_CACHE_KEY(qualityRunId), JSON.stringify(makeLapsPayload()))
 
-    const stravaModule = await import('./strava')
-    vi.spyOn(stravaModule, 'getValidToken').mockResolvedValue('fake-token')
     vi.stubGlobal('fetch', vi.fn()) // should not be called
 
     const result = await loadAnalyticsStreams([qualityRun], [qualityRun], 48)
@@ -182,8 +177,6 @@ describe('loadAnalyticsStreams (T-124-fix)', () => {
     }
     localStorage.setItem(STREAM_CACHE_KEY(strideRunId), JSON.stringify(streamPayload))
 
-    const stravaModule = await import('./strava')
-    vi.spyOn(stravaModule, 'getValidToken').mockResolvedValue('fake-token')
     vi.stubGlobal('fetch', vi.fn())
 
     const result = await loadAnalyticsStreams([run], [], 48)

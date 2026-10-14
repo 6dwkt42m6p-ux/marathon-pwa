@@ -102,12 +102,6 @@ export function effortNormalizationFactor(
   return (1 + heat) * (1 + gap)
 }
 
-export function parsePaceToSec(paceStr: string): number | null {
-  const match = paceStr.match(/^(\d+):(\d{2})$/)
-  if (!match) return null
-  return parseInt(match[1]) * 60 + parseInt(match[2])
-}
-
 export interface PaceTable {
   E_low:  string
   E_high: string

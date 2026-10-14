@@ -136,19 +136,6 @@ export function reconcilePendingNoteMutations(sync: NotesSyncInfo): NoteMutation
   return remaining
 }
 
-// T-170: `false` means the (now-shorter) queue could not be persisted — the applied mutations
-// stay in the list and will be considered again on the next flush. Not a data-loss path (unlike
-// append), but still must not throw or silently claim success.
-export function removePendingNoteMutations(tsList: string[]): boolean {
-  const tsSet = new Set(tsList)
-  const remaining = loadPendingNoteMutations().filter(m => !tsSet.has(m.ts))
-  if (remaining.length === 0) {
-    try { localStorage.removeItem(PENDING_KEY); return true }
-    catch { return false /* iOS private mode */ }
-  }
-  return safeSetItem(PENDING_KEY, JSON.stringify(remaining))
-}
-
 // ─── resolveNote ─────────────────────────────────────────────────────────────
 
 // Merge local pending note (localStorage note_{id}) with synced Desktop note (plan.notes[id]).
