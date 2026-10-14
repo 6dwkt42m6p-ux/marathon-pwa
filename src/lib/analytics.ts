@@ -15,6 +15,7 @@ import { trainingPaces, formatPace, hrrZoneCode, LTHR_EASY_FRAC, LTHR_QUALITY_FR
 import { mondayOf, localISODate, dailyLoadSeries } from './strava'
 import type { RunSummary, StravaActivity, SyncedThreshold, WorkoutClassification, ActivityStreams, IntervalBlock, TempoBlock } from './strava'
 import type { WorkoutStrukturDaten } from './plan'
+import { pyRoundHalfEven } from './pyRound'
 
 // T-269: mirrors coach_activity.py LTHR_EASY_FRAC / LTHR_QUALITY_FRAC / intensity_bounds.
 // T-271: Konstanten leben in vdot.ts (hrZoneCodeLthr braucht sie; vdot darf analytics nicht importieren).
@@ -883,19 +884,6 @@ export interface MatchBlocksToPlanResult {
   zone:          'I' | 'T' | 'M' | 'R'
   execution:     ExecutionQualityResult | null
   label:         string
-}
-
-/** Python's `round()` is round-half-to-even (banker's rounding); JS `Math.round` is
- * round-half-up. Needed for bit-identical `delta_sec`/label parity (T-247 Rundungs-Falle:
- * "(+17 s)" muss exakt Pythons `round(pace - target_pace_sec)` treffen). Beide Sprachen
- * nutzen IEEE-754 doubles -- auf demselben Double-Wert liefert dieselbe Rundungsregel
- * dasselbe Ergebnis, ohne dass Python ueber FFI aufgerufen werden muss. */
-function pyRoundHalfEven(x: number): number {
-  const floor = Math.floor(x)
-  const diff = x - floor
-  if (diff < 0.5) return floor
-  if (diff > 0.5) return floor + 1
-  return floor % 2 === 0 ? floor : floor + 1
 }
 
 /** `streams` bleibt ungenutzt -- Signatur-Vertrag mit dem Ticket/Aufrufer (Reserve fuer

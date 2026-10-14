@@ -621,7 +621,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
                   <div style={{ fontSize: '13px', color: 'var(--text-2)', marginTop: '8px', display: 'flex', gap: '16px' }}>
                     <span>Früher: EF {efTrend.earlyEf?.toFixed(3)}</span>
                     <span>Aktuell: EF {efTrend.recentEf?.toFixed(3)}</span>
-                    <span style={{ color: efTrend.color }}>Δ {(efTrend.deltaPct ?? 0) > 0 ? '+' : ''}{efTrend.deltaPct?.toFixed(1)}%</span>
+                    <span style={{ color: efTrend.color }}>Δ {efTrend.deltaPct == null ? '—' : `${efTrend.deltaPct > 0 ? '+' : ''}${efTrend.deltaPct.toFixed(1)}%`}</span>
                   </div>
                   <div style={{ fontSize: '11px', color: 'var(--text-2)', marginTop: '4px' }}>
                     EF = Geschwindigkeit / Puls — steigend = aerobe Adaptation (Friel)

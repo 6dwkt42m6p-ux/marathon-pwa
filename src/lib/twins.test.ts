@@ -44,26 +44,9 @@ describe('T-283 Twin-Registry', () => {
 // it.fails: wird der PWA-Port korrigiert, wird der Test rot und der Eintrag MUSS raus.
 // Die Liste darf nur schrumpfen (wie KNOWN_DIVERGENCES in parity.test.ts).
 // ---------------------------------------------------------------------------
-// Alle Eintraege beim ersten Lauf von T-283 gefunden und an den Coordinator gemeldet
-// (Ticket-Entscheidung offen, siehe memory/tickets/T-283_impl.md).
-const GOLDEN_DIVERGENCES: Record<string, string> = {
-  'atl_ctl/threshold_runs':
-    'activityLoad rundet rTSS/hrTSS/Faktor-Last je Aktivitaet (Math.round), coach_load._daily_load ' +
-    'nicht; dazu ist pace_sec_km in Python auf 0.1 s gerundet. ATL 20.4 statt 20.3.',
-  'atl_ctl/walk_recovery':
-    'PWA kennt classify_hike nicht (T-134): kurze Walks/Hikes ("spaziergang") zaehlen als Last, ' +
-    'Desktop ueberspringt sie. ATL 5.8 statt 3.3.',
-  'ef_trend/rising':
-    'efSmooth = Median der bereits auf 4 Stellen gerundeten Wochenmediane; Python glaettet die ' +
-    'ungerundeten Werte und rundet danach (Abweichung 1e-4 an 2er-Randfenstern).',
-  'ef_trend/hilly_hot_stable': 'wie ef_trend/rising (efSmooth-Rundungsreihenfolge).',
-  'ef_trend/falling': 'wie ef_trend/rising (efSmooth-Rundungsreihenfolge).',
-  'ef_trend/no_hr': 'no_hr_data-Zweig: deltaPct 0 statt null (TS-Typ number).',
-  'race_predictor/m_fatigued':
-    'bandPct: Math.round(x*1e4)/1e4 rundet .5 auf, Python round(x, 4) half-to-even ' +
-    '(0.03125 -> 0.0313 vs 0.0312). Betrifft jede ungerade Wochenzahl bis Rennen.',
-  'race_predictor/5k_taper_fresh': 'wie race_predictor/m_fatigued (0.01875 -> 0.0188 vs 0.0187).',
-}
+// T-283 fand 8 Eintraege; T-292 hat alle behoben (Hike-Filter, Rundungsreihenfolge, Python-round,
+// deltaPct null). Neue Divergenz -> Eintrag + Ticket.
+const GOLDEN_DIVERGENCES: Record<string, string> = {}
 
 const gold = load('twin_goldens.json')
 const TOL = 1e-9

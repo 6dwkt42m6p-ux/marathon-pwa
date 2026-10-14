@@ -47,7 +47,7 @@ export type {
 } from './strava/trend'
 
 export {
-  bikeTss, runRtss, runHrtss, activityLoad, dailyLoadSeries, computeAtlCtl, ctlRising,
+  bikeTss, runRtss, runHrtss, activityLoad, dailyLoadSeries, computeAtlCtl, ctlRising, classifyHike,
 } from './strava/load'
 export type { AtlCtlResult, SyncedThreshold } from './strava/load'
 

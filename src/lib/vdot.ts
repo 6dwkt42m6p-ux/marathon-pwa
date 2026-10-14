@@ -4,7 +4,9 @@
 //   racePredictor, selectEffectiveVdot, feasibilityCheck, RACE_TARGETS.
 // Abschnitte: Zonen/Paces · Normalisierung · Pace-Tabelle · HF-Zonen · Lauf/Rad-Analyse
 //   · Laps · Prognose/Ziele.
-// Regeln: Blatt-Modul ohne lib-Importe; neue Analysefunktionen hier exportieren.
+// Regeln: Blatt-Modul, importiert nur ./pyRound (selbst importfrei); neue Analysefunktionen hier exportieren.
+
+import { pyRound } from './pyRound'
 
 export const ZONES = {
   E_low:  0.62,
@@ -721,21 +723,22 @@ export function racePredictor(
   if (lowData) bandPct += 0.02
   bandPct = _clampP(bandPct, 0.015, 0.10)
 
-  const bandSec = Math.round(predicted * bandPct)
-  predicted = Math.round(predicted)
+  // Rundungen mit Python-round (half-to-even, exakter Double) wie coach_analysis.race_predictor.
+  const bandSec = pyRound(predicted * bandPct)
+  predicted = pyRound(predicted)
   const confidence: 'hoch' | 'mittel' | 'niedrig' = bandPct < 0.025 ? 'hoch' : (bandPct < 0.05 ? 'mittel' : 'niedrig')
 
   return {
     predictedSec:  predicted,
     rangeLowSec:   predicted - bandSec,
     rangeHighSec:  predicted + bandSec,
-    baseSec:       Math.round(baseSec),
-    bandPct:       Math.round(bandPct * 10000) / 10000,
+    baseSec:       pyRound(baseSec),
+    bandPct:       pyRound(bandPct, 4),
     confidence,
-    effVdot:       Math.round(effVdot * 100) / 100,
-    fitnessGainVdot: Math.round(fitnessGain * 100) / 100,
-    durabilityMult:  Math.round(durabilityMult * 1000) / 1000,
-    taperMult:       Math.round(taperMult * 1000) / 1000,
+    effVdot:       pyRound(effVdot, 2),
+    fitnessGainVdot: pyRound(fitnessGain, 2),
+    durabilityMult:  pyRound(durabilityMult, 3),
+    taperMult:       pyRound(taperMult, 3),
     notes,
   }
 }
