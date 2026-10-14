@@ -19,17 +19,17 @@ src/
                     · load (TSS, ATL/CTL) · bulk (loadAnalyticsStreams) · classify (Workout/Strides, T-171)
                     Graph zyklenfrei; neues öffentliches Symbol → Fachmodul + Eintrag im Index
     analytics.ts    80/20, Stagnation, Adherence, Injury, Execution/Data Quality (coach.py-Ports)
-    durability.ts   Durability-Trend (T-142) · plan.ts Plan-Sicht · injury.ts/notesSync.ts Write-back
+    durability.ts   Durability-Trend (T-142) · plan.ts Plan-Generierung/-Sicht · injury.ts/notesSync.ts Write-back
     vdot.ts         Jack Daniels VDOT logic, pace zones, analysis
-    plan.ts         Training plan generation
     storage.ts      AppSettings interface + localStorage helpers (incl. notes)
     githubSync.ts   GitHub-based device sync
 ```
 
 ## Orientierung (T-222)
 
-Vor dem ersten Read einer großen Datei `../Trainingscoach/docs/SYMBOLS.md` konsultieren →
-gezielt `Read` mit offset/limit. Der Index wird zentral im Trainingscoach-Repo gepflegt
+Zuerst `../Trainingscoach/docs/MODULES.md` lesen (Zweck/Einstieg/Tests je Modul beider Repos, D-065);
+`../Trainingscoach/docs/SYMBOLS.md` nur greppen (`grep -n "symbol" …`), nie voll lesen → gezielt `Read` mit
+offset/limit. Beide Dateien werden zentral im Trainingscoach-Repo gepflegt
 (`python3 tools/gen_symbol_index.py` dort ausführen; das dortige Test-Gate prüft Aktualität).
 Jede Datei unter `src/lib` + `src/components` beginnt mit einem `// Inhalt:`-Kopf (≤ 20 Zeilen:
 Zweck, Einstieg, Abschnitte, Regeln) — Gate `src/lib/orientation.test.ts` (T-275). Erst den Kopf
@@ -37,7 +37,7 @@ lesen, dann gezielt springen.
 
 ## Coding Rules
 
-- **Logic in lib/, never inline in components** — new calculations → `vdot.ts` or the matching `strava/*.ts` module (re-exported via `strava.ts`)
+- **Logic in lib/, never inline in components** — new calculations → `vdot.ts`, `analytics.ts` / `durability.ts` (coach.py ports) or the matching `strava/*.ts` module (re-exported via `strava.ts`)
 - **No Plotly** — mobile-first, CSS bar charts only (`div` with percentage `width`)
 - **No `any` without a comment explaining why**
 - **localStorage keys** — define as constants near usage or in `storage.ts`
