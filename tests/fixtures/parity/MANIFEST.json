@@ -1,6 +1,6 @@
 {
  "fixtures": {
-  "TWINS.json": "970937534b780dd7925f4b9ea9e81c2cc887f870c22a1282f04b7c4a621d3ecc",
+  "TWINS.json": "6c5c6adf6ef80a53cbf8f3f225d4f3de01089971974b548015f4f4173a0bd5eb",
   "analyze_run_golden.json": "c520eb406c9e477d148b9ddbc08aa0a82541ea5d823ad1e814ee5a960db224b5",
   "edge_empty.json": "8ecb8189ff067a25f6fbe0427fc7b07854468ec72fc0f036aefbb22ce58e91b6",
   "real_5km_test_zone_bug.json": "459f70fba015c613ccc3dde209e61fac753c0a6763bda6e8bca456a20fe8ff26",
