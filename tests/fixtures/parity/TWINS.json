@@ -7,7 +7,7 @@
     {"python": "streams.data_quality_score", "ts": "src/lib/analytics.ts#dataQualityScore", "guard": "fixture", "note": "T-171 Stream-Fixtures"},
     {"python": "streams.durability_signals", "ts": "src/lib/durability.ts#durabilitySignals", "guard": "fixture", "note": "T-171 Stream-Fixtures"},
     {"python": "streams.session_execution_quality", "ts": "src/lib/analytics.ts#sessionExecutionQuality", "guard": "fixture", "note": "T-171 Stream-Fixtures"},
-    {"python": "streams.match_blocks_to_plan", "ts": "src/lib/analytics.ts#matchBlocksToPlan", "guard": "fixture", "note": "T-247 Stream-Fixtures"},
+    {"python": "streams.match_blocks_to_plan", "ts": "src/lib/analytics.ts#matchBlocksToPlan", "guard": "fixture", "note": "T-247 Stream-Fixtures; nutzt pyRoundHalfEven (Python-round-Semantik, kein eigener Zwilling)"},
     {"python": "streams.cardiac_drift_pct", "ts": "src/lib/durability.ts#cardiacDriftPct", "guard": "fixture", "note": "indirekt ueber durability_signals (Stream-Fixtures)"},
     {"python": "streams._gap_factor_for_grade", "ts": "src/lib/vdot.ts#gapFactorForGrade", "guard": "fixture", "note": "indirekt ueber durability_signals (Stream-Fixtures)"},
     {"python": "streams.analyze_workout_laps", "ts": "src/lib/vdot.ts#analyzeWorkoutLaps", "guard": "none", "note": ""},
@@ -47,6 +47,9 @@
     {"python": "coach_load.injury_risk", "ts": "src/lib/analytics.ts#injuryRisk", "guard": "none", "note": ""},
     {"python": "coach_load._ramp_zone", "ts": "src/lib/analytics.ts#rampZone", "guard": "none", "note": ""},
     {"python": null, "ts": "src/lib/strava/load.ts#ctlRising", "guard": "none", "note": "Python-Seite inline in app_tabs/paces.py (_ctl_rising, kein Symbol)"},
-    {"python": "coach_sessions.assess_deviation", "ts": "src/lib/plan.ts#assessDeviation", "guard": "none", "note": ""}
+    {"python": "coach_sessions.assess_deviation", "ts": "src/lib/plan.ts#assessDeviation", "guard": "none", "note": ""},
+    {"python": "glossary.help_text", "ts": "src/lib/glossary.ts#helpText", "guard": "fixture", "note": "glossary.json aus glossary.py generiert (tools gen_glossary_json --check, T-234)"},
+    {"python": "glossary.label", "ts": "src/lib/glossary.ts#label", "guard": "fixture", "note": "wie help_text — gleiche generierte Datenbasis"},
+    {"python": "notes.export_notes_for_sync", "ts": "src/lib/notesSync.ts#reconcilePendingNoteMutations", "guard": "none", "note": "PWA-intern desktopText/normRating spiegeln save_note (strip, [:500] Codepoints, rating clamp [1,5]); kein Golden (T-283-Review)"}
   ]
 }
