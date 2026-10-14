@@ -4,11 +4,11 @@
 //   upsertDurability/loadAllDurability (eigener localStorage-Store).
 // Abschnitte: Cardiac Drift · Halb-Pace flach-aequivalent · Longrun-Signal · Trend · Store.
 // Paritaet (T-171): durabilitySignals laeuft gegen die Golden-Fixtures (parity.test.ts).
-// Regeln: importiert ./vdot und ./strava (Index; Modulzyklus mit strava/bulk.ts, T-173).
+// Regeln: importiert ./vdot, ./strava/parse und ./strava/types (nie den Barrel ./strava, T-287).
 
 import { gapFactorForGrade } from './vdot'
-import { localISODate } from './strava'
-import type { ActivityStreams, RunSummary } from './strava'
+import { localISODate } from './strava/parse'
+import type { ActivityStreams, RunSummary } from './strava/types'
 
 export interface DurabilityRecord {
   driftPct:    number | null
