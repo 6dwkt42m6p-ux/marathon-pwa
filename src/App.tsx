@@ -1,5 +1,5 @@
 import { useState, useEffect, lazy, Suspense } from 'react'
-import { loadSettings, saveSettings, isUsingDefaultSettings, mergeRemoteSettings, applyRemoteWeekOverrides, pendingWeekOverrideMaps, clearWeekOverridePending } from './lib/storage'
+import { loadSettings, saveSettings, isUsingDefaultSettings, mergeRemoteSettings, applyRemoteWeekOverrides } from './lib/storage'
 import type { AppSettings } from './lib/storage'
 import TodayWorkout from './components/TodayWorkout'
 import TrainingPlan from './components/TrainingPlan'
@@ -12,12 +12,8 @@ const Settings = lazy(() => import('./components/Settings'))
 // CoachChat import kept intentionally — deaktiviert via COACH_TAB_ENABLED (separate Anthropic-API-Kosten).
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
 const CoachChat = lazy(() => import('./components/CoachChat'))
-import { hasToken, fetchSync, pushSync, type SyncData } from './lib/githubSync'
-import {
-  reconcilePendingNoteMutations,
-  mergeNoteMutationQueue,
-  markNoteMutationsPushed,
-} from './lib/notesSync'
+import { hasToken, fetchSync } from './lib/githubSync'
+import { flushPendingNoteMutations, flushPendingWeekOverrides } from './lib/syncActions'
 import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC, type SyncedThreshold, getStorageWarning, clearStorageWarning } from './lib/strava'
 import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
@@ -39,38 +35,6 @@ const ALL_TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 const TABS = COACH_TAB_ENABLED ? ALL_TABS : ALL_TABS.filter(t => t.id !== 'coach')
-
-// T-156: Flush pending note mutations against just-fetched sync data.
-// Remove applied mutations (Desktop already processed them), re-push remaining once.
-// T-260 P-04: reconcile compacts per activity_id + marks remotely-seen ones as pushed; the payload
-// queue is compacted too, so a superseded older note can never be re-applied after a newer one.
-function flushPendingNoteMutations(data: SyncData, sha: string): void {
-  const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
-  if (remaining.length === 0) return
-  // Re-push remaining once — best-effort, no retry, no await (fire-and-forget).
-  const buildPayload = (base: SyncData): SyncData =>
-    ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, remaining) })
-  pushSync(buildPayload(data), sha, buildPayload)
-    .then(() => { markNoteMutationsPushed(remaining.map(m => m.ts)) })
-    .catch(() => { /* best-effort */ })
-}
-
-// T-260 P-06: re-push local swaps whose push never succeeded (offline/failed). Best-effort,
-// fire-and-forget; marker cleared per week on success only if no newer local edit re-marked it
-// (stamp) — see TodayWorkout.pushOverridesToGitHub for why not "on remote confirmation".
-function flushPendingWeekOverrides(data: SyncData, sha: string): void {
-  const pending = pendingWeekOverrideMaps()
-  const weeks = Object.keys(pending)
-  if (weeks.length === 0) return
-  const buildPayload = (base: SyncData): SyncData => {
-    const wo = { ...(base.weekOverrides ?? {}) }
-    for (const w of weeks) wo[w] = pending[w].map
-    return { ...base, weekOverrides: wo }
-  }
-  pushSync(buildPayload(data), sha, buildPayload)
-    .then(() => { for (const w of weeks) clearWeekOverridePending(w, pending[w].stamp) })
-    .catch(() => { /* best-effort — stays pending */ })
-}
 
 export default function App() {
   const hasOAuthCode = (() => { const q = new URLSearchParams(window.location.search); return q.has('code') || q.has('error') })()
@@ -157,10 +121,11 @@ export default function App() {
       // T-260 P-06: always (a missing field = no swaps remote) — remote is SSoT for non-pending
       // weeks; still-pending local swaps (push failed/offline) are re-pushed once.
       applyRemoteWeekOverrides(data.weekOverrides)
-      flushPendingWeekOverrides(data, result.sha)
+      // Best-effort, fire-and-forget (T-282: flush* rejecten nie, Marker nur nach Erfolg).
+      void flushPendingWeekOverrides(data, result.sha)
       // T-156: Flush pending note mutations — resolve applied ones, re-push remaining.
       // Best-effort: one attempt, no retry, no new timer/poll.
-      flushPendingNoteMutations(data, result.sha)
+      void flushPendingNoteMutations(data, result.sha)
     }).catch(() => { /* silent — sync is best-effort */ })
     return () => { mounted = false }
   }, [])

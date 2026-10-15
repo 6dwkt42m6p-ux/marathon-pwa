@@ -19,10 +19,9 @@ import {
   sessionExecutionQuality, executionBadgeParts, dataQualityScore,
   matchBlocksToPlan, type MatchBlocksToPlanResult,
 } from '../lib/analytics'
-import { fetchSync, pushSync, type SyncData } from '../lib/githubSync'
+import { pushNoteMutations } from '../lib/syncActions'
 import {
   buildSaveNoteMutation, buildDeleteNoteMutation,
-  appendPendingNoteMutation, loadPendingNoteMutations, mergeNoteMutationQueue, markNoteMutationsPushed,
   resolveNote,
   type SyncedNote,
 } from '../lib/notesSync'
@@ -300,21 +299,13 @@ export default function RunDetail({
   // mutation is added to the in-memory payload directly so this immediate push attempt still
   // carries it — the queue write failing must not silently drop the mutation from this flush.
   async function enqueueMutationAndPush(mutation: ReturnType<typeof buildSaveNoteMutation> | ReturnType<typeof buildDeleteNoteMutation>) {
-    const queued = appendPendingNoteMutation(mutation)
     try {
-      const fresh = await fetchSync(true)
-      const allPending = queued ? loadPendingNoteMutations() : [...loadPendingNoteMutations(), mutation]
-      // rebuildFn: append ALL local pending mutations to the fresh remote queue, deduped by ts.
-      // (T-151 pattern: on 409-retry, re-apply own mutations against the freshly fetched state.)
-      // T-260 P-04: merge is compacted per activity_id — an older remote entry for the same
-      // activity is dropped so Desktop can never apply it after (or instead of) this one.
-      const buildPayload = (base: SyncData): SyncData =>
-        ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, allPending) })
-      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
-      if (fresh) markNoteMutationsPushed(allPending.map(m => m.ts))
+      // T-282: enqueue (synchronous, before any await) → fetch(force) → push all pending with
+      // 409-rebuild (compacted per activity_id, T-260 P-04) → pushed marker on success.
+      await pushNoteMutations(mutation)
     } catch {
       // Offline or conflict — mutation stays in pending list for next flush (if it was queued;
-      // if queuing itself failed above, it is lost until the user re-saves — the App-level
+      // if queuing itself failed in pushNoteMutations, it is lost until the user re-saves — the App-level
       // STORAGE_WARNING_KEY banner already fired via safeSetItem).
     }
   }

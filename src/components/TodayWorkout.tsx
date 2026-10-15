@@ -1,5 +1,5 @@
 // Inhalt: Heute-Tab — Wochenplan aus sync.json, Tausch der Tage, Abweichung, Race-Countdown.
-// Einstieg: default export TodayWorkout; buildSettingsPushPayload (T-221).
+// Einstieg: default export TodayWorkout (Sync-Schreibpfade in lib/syncActions, T-282).
 // Abschnitte: weekOverride-/Reset-Persistenz · TodayWorkout · Fallback ohne Plan
 //   · geteilte Unterkomponenten (PaceRow, RaceCountdownCard).
 // Regeln: Plan verbatim rendern (T-024); Tausch als weekOverrides an den Desktop (T-217/T-231).
@@ -17,11 +17,12 @@ import {
   type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
-import { resolvePreRaceEnabled, safeSetItem, applyRemoteWeekOverrides, markWeekOverridePending, clearWeekOverridePending } from '../lib/storage'
+import { resolvePreRaceEnabled, safeSetItem, applyRemoteWeekOverrides, markWeekOverridePending } from '../lib/storage'
 import {
-  hasToken, fetchSync, pushSync,
-  type SyncData, type SyncedPlan, type SyncedPlanSession,
+  hasToken, fetchSync,
+  type SyncedPlan, type SyncedPlanSession,
 } from '../lib/githubSync'
+import { pushWeekOverride, pushPlanRecomputeRequest } from '../lib/syncActions'
 
 interface Props {
   settings: AppSettings
@@ -92,19 +93,6 @@ function planInputFingerprint(s: AppSettings): string {
   return [s.vdot, s.currentWeeklyKm, s.runsPerWeek, s.raceType1, s.raceDate1, s.raceType2, s.raceDate2, s.preRaceEnabled, s.experience].join('|')
 }
 
-// T-221: pure, exported so the pushed shape is unit-testable without mounting the component.
-// Used both as the immediate payload builder (fetchSync(true).then(...)) and as the 409-retry
-// rebuildFn passed to pushSync — closes the RMW race by re-applying against fresh remote state.
-// Previously this also nested settings.vdot/event1/event2 into the payload; removed (T-221):
-// grep across src/ AND Trainingscoach (github_sync.py/app.py/coach.py) found zero readers of
-// those keys — planRecomputeRequested is the only signal Desktop actually consumes here.
-export function buildSettingsPushPayload(base: SyncData): SyncData {
-  return {
-    ...base,
-    planRecomputeRequested: true,
-  }
-}
-
 export default function TodayWorkout({ settings, activitiesVersion = 0, effectiveVdot = settings.vdot, syncedFtp, syncedThreshold }: Props) {
   const raceDate1   = new Date(settings.raceDate1)
   const raceDate2   = new Date(settings.raceDate2)
@@ -155,15 +143,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     // Settings changed — request recompute
     prevFingerprintRef.current = fp
     if (!hasToken()) return
-    // Fire-and-forget: best effort, non-critical; force=true for fresh sha before push
-    fetchSync(true)
-      .then(fresh => {
-        if (!fresh) return
-        // rebuildFn closes the 409 RMW race: re-apply planRecomputeRequested against the
-        // freshly fetched remote state, preserving concurrent Desktop changes.
-        return pushSync(buildSettingsPushPayload(fresh.data), fresh.sha, buildSettingsPushPayload)
-      })
-      .catch(() => { /* non-critical */ })
+    // Fire-and-forget: best effort, non-critical (T-282: fetch(force) → push mit 409-Rebuild).
+    pushPlanRecomputeRequest().catch(() => { /* non-critical */ })
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Common data ─────────────────────────────────────────────────────────────
@@ -281,18 +262,11 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // fetchSync TTL is covered by pushSync seeding the cache with the pushed state.
   async function pushOverridesToGitHub(overrides: DayAssignment[], stamp: string) {
     if (!hasToken()) return
+    const map: Record<string, string> = {}
+    overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
     try {
-      const current = await fetchSync(true)  // force: need fresh sha before push
-      const map: Record<string, string> = {}
-      overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
-      // rebuildFn closes the 409 RMW race: re-apply THIS week's overrides against the
-      // freshly fetched remote state, preserving other weeks and concurrent Desktop changes.
-      const buildPayload = (base: SyncData): SyncData => ({
-        ...base,
-        weekOverrides: { ...(base.weekOverrides ?? {}), [wKey]: map },
-      })
-      await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
-      clearWeekOverridePending(wKey, stamp)
+      // T-282: fetch(force) → nur diese Woche mit 409-Rebuild → Marker-Clear (Stamp) nach Erfolg.
+      await pushWeekOverride(wKey, map, stamp)
     } catch { /* sync failure is non-critical — week stays pending, re-pushed on next App start */ }
   }
 
