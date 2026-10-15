@@ -17,6 +17,7 @@
     {"python": "coach_activity.execution_quality", "ts": "src/lib/analytics.ts#executionQuality", "guard": "fixture", "note": "indirekt ueber session_execution_quality (Stream-Fixtures)"},
     {"python": "coach_activity.intensity_bounds", "ts": "src/lib/analytics.ts#intensityBounds", "guard": "golden", "note": "T-269: test_t269_intensity_lthr.py <-> analytics.test.ts 'T-269 Golden-Paritaet'"},
     {"python": "coach_activity.intensity_distribution", "ts": "src/lib/analytics.ts#intensityDistribution", "guard": "golden", "note": "T-269 (wie intensity_bounds)"},
+    {"python": "coach_activity.zone_minutes_from_hist", "ts": "src/lib/analytics.ts#zoneMinutesFromHist", "guard": "golden", "note": "T-270: test_t270_intensity_hist_sync.py <-> analytics.test.ts 'T-270 Golden-Paritaet'"},
     {"python": "coach_activity.LTHR_EASY_FRAC", "ts": "src/lib/vdot.ts#LTHR_EASY_FRAC", "guard": "golden", "note": "T-269 (Konstante 0.90)"},
     {"python": "coach_activity.LTHR_QUALITY_FRAC", "ts": "src/lib/vdot.ts#LTHR_QUALITY_FRAC", "guard": "golden", "note": "T-269 (Konstante 0.95)"},
     {"python": "coach_activity.FRIEL_Z2_FRAC", "ts": "src/lib/vdot.ts#FRIEL_Z2_FRAC", "guard": "fixture", "note": "indirekt ueber analyze_run_golden.json hr_cases"},
