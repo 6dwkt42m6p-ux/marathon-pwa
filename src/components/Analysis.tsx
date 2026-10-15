@@ -178,6 +178,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   // T-196/D-047: Desktop-resolved test-run results (sync.json `testRuns`), same fetchSync
   // roundtrip as syncedActivityTemps/syncedPlan — read-only, passed through to RunDetail.
   const [syncedTestRuns, setSyncedTestRuns] = useState<SyncData['testRuns']>(undefined)
+  // T-270: Desktop-HF-Histogramme für sekundengenaue 80/20 — State, damit useMemo neu rechnet.
+  const [syncedIntensityHist, setSyncedIntensityHist] = useState<SyncData['intensityHist']>(undefined)
   const [syncLoading, setSyncLoading] = useState(true)
   // T-124-fix: bulk-fetched stream/lap analytics — loaded once per mount when Strava is connected.
   const [localWorkSplits, setLocalWorkSplits]       = useState<Record<string, number[]> | null>(workSplitsProp ?? null)
@@ -210,6 +212,7 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
         setSyncedPlan(result.data.plan ?? null)
         setSyncedActivityTemps(result.data.activityTemps)
         setSyncedTestRuns(result.data.testRuns)
+        setSyncedIntensityHist(result.data.intensityHist)
       })
       .catch(() => { /* offline — keep null */ })
       .finally(() => { if (mounted) setSyncLoading(false) })
@@ -301,8 +304,8 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
   // T-124: four new analytics — each independent signal with its own guard
   const intDist = useMemo(
     // T-269: LTHR verschiebt die Easy-Grenze auf die aerobe Schwelle (0.90·LTHR).
-    () => hasStrava ? intensityDistribution(runs, settings.maxHr, settings.restHr, 12, syncedThreshold?.lthr ?? null) : null,
-    [hasStrava, runs, settings.maxHr, settings.restHr, syncedThreshold],
+    () => hasStrava ? intensityDistribution(runs, settings.maxHr, settings.restHr, 12, syncedThreshold?.lthr ?? null, syncedIntensityHist) : null,
+    [hasStrava, runs, settings.maxHr, settings.restHr, syncedThreshold, syncedIntensityHist],
   )
   const stagnation = useMemo(
     () => hasStrava && trend ? stagnationCheck(
@@ -313,8 +316,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
       // T-168: Kohärenz-Guard — injuryRisk-ACWR-Zone unterdrückt Cause B bei "underload".
       injury?.acwrZone,
       syncedThreshold?.lthr ?? null,
+      syncedIntensityHist,
     ) : null,
-    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr, injury, syncedThreshold],
+    [hasStrava, trend, efTrend, runs, settings.maxHr, settings.restHr, injury, syncedThreshold, syncedIntensityHist],
   )
   // T-124-fix: use local bulk-fetched state; props serve as optional external override.
   const workSplits     = localWorkSplits     ?? workSplitsProp     ?? null
@@ -725,7 +729,9 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
               </div>
             )}
             <div style={{ fontSize: '10px', color: 'var(--text-2)', marginTop: '6px' }}>
-              Aus Ø-HF-Klassifikation — nur Aktivitäten mit HF-Sensor einbezogen
+              {intDist.totalCount > 0
+                ? `${intDist.histCount} von ${intDist.totalCount} Läufen sekundengenau (Desktop), Rest per Ø-HF — nur Aktivitäten mit HF-Sensor einbezogen`
+                : 'Aus Ø-HF-Klassifikation — nur Aktivitäten mit HF-Sensor einbezogen'}
             </div>
           </div>
         </>

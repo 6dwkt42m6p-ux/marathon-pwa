@@ -8,6 +8,7 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   intensityDistribution,
+  zoneMinutesFromHist,
   stagnationCheck,
   vdotAdherenceCheck,
   aggregateStrideTrend,
@@ -769,5 +770,69 @@ describe('T-269 Golden-Parität', () => {
     expect(old.causes.some(c => c.label === 'Zu viel Graue Zone')).toBe(true)
     expect(old.causes.find(c => c.label === 'Zu viel Graue Zone')!.detail).toContain('im Grau-Bereich')
     expect(neu.causes.some(c => c.label.includes('Graue Zone'))).toBe(false)
+  })
+})
+
+// T-270 Golden-Parität — gespiegelt mit Python coach_activity.zone_minutes_from_hist.
+// Werte nur gemeinsam ändern.
+describe('T-270 durMin-Guard', () => {
+  it('ungültige Dauer → null (Rückfall auf Ø-HF statt NaN)', () => {
+    for (const d of [0, -1, NaN, Infinity]) expect(zoneMinutesFromHist({ '150': 60 }, 45, 145, 171, d)).toBeNull()
+  })
+})
+
+describe('T-270 Golden-Parität', () => {
+  const GOLDEN_HIST = { '125': 599.5, '149': 599.5, '170': 1200 }
+  it('zoneMinutesFromHist mit LTHR 171', () => {
+    const r = zoneMinutesFromHist(GOLDEN_HIST, 45, 145, 171, 40)!
+    expect(r[0]).toBeCloseTo(19.9917, 4); expect(r[1]).toBeCloseTo(0, 4); expect(r[2]).toBeCloseTo(20.0083, 4)
+  })
+  it('zoneMinutesFromHist Karvonen', () => {
+    const r = zoneMinutesFromHist(GOLDEN_HIST, 45, 145, null, 40)!
+    expect(r[0]).toBeCloseTo(9.9958, 4); expect(r[1]).toBeCloseTo(9.9958, 4); expect(r[2]).toBeCloseTo(20.0083, 4)
+  })
+  it('leeres Histogramm → null', () => {
+    expect(zoneMinutesFromHist({}, 45, 145, 171, 40)).toBeNull()
+  })
+  it('ungültige bpm-Schlüssel werden ignoriert', () => {
+    expect(zoneMinutesFromHist({ abc: 60, '0': 60 }, 45, 145, 171, 40)).toBeNull()
+  })
+
+  const day = 24 * 3600 * 1000
+  const mk = (i: number, avgHr: number, min: number): RunSummary => ({
+    id: i + 1, name: `Run ${i + 1}`, date: new Date(Date.now() - (i + 1) * day),
+    distanceKm: 10, durationSec: min * 60, paceSec: 300, paceFmt: '5:00', avgHr, elevationM: 0,
+  })
+  const runs = [mk(0, 155, 40), mk(1, 140, 60)]
+  const ih = { '1': { hist: GOLDEN_HIST, durMin: 40 } }
+
+  it('intensityDistribution nutzt Histogramm vor Ø-HF und zählt Abdeckung', () => {
+    const r = intensityDistribution(runs, 190, 45, 12, 171, ih)
+    expect(r.totals.easyMin).toBeCloseTo(80.0, 1)
+    expect(r.totals.qualityMin).toBeCloseTo(20.0, 1)
+    expect(r.totals.greyMin).toBe(0)
+    expect(r.histCount).toBe(1)
+    expect(r.totalCount).toBe(2)
+  })
+  it('ohne intensityHist unverändert (Ø-HF), histCount 0', () => {
+    // Ø-HF 155 ≥ 0.90·171 = 153.9 → ganzer Lauf grau
+    const r = intensityDistribution(runs, 190, 45, 12, 171)
+    expect(r.totals.easyMin).toBe(60)
+    expect(r.totals.greyMin).toBe(40)
+    expect(r.histCount).toBe(0)
+    expect(r.totalCount).toBe(2)
+    const e = intensityDistribution(runs, 190, 45, 12, 171, {})
+    expect(e.totals.greyMin).toBe(40)
+  })
+  it('stagnationCheck reicht intensityHist durch', () => {
+    // 3×60 min Ø-HF 152 (Karvonen grau) — per Histogramm komplett easy → keine Grau-Ursache
+    const grey = [mk(0, 152, 60), mk(1, 152, 60), mk(2, 152, 60)]
+    const easyHist = { hist: { '125': 3600 }, durMin: 60 }
+    const hist = { '1': easyHist, '2': easyHist, '3': easyHist }
+    const trend = { delta: 0.0, insufficientEffortRuns: false }
+    const old = stagnationCheck(grey, trend, 190, 45)!
+    const neu = stagnationCheck(grey, trend, 190, 45, 8, 0.3, null, null, null, hist)!
+    expect(old.causes.some(c => c.label === 'Zu viel Graue Zone')).toBe(true)
+    expect(neu.causes.some(c => c.label === 'Zu viel Graue Zone')).toBe(false)
   })
 })
