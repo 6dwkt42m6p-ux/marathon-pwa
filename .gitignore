@@ -35,3 +35,6 @@ scout_job.json
 scout_runlog.json
 scout_cooldown.json
 proactive_candidates.json
+
+# T-264/D-061: Trainingsdaten liegen im privaten Repo marathon-data, nie hier
+data/sync.json
