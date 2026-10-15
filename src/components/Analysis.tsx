@@ -3,10 +3,10 @@
 // Abschnitte (Render-Reihenfolge): Diese Woche · Trainingsform (TSB) + Verletzungsrisiko
 //   · Fitnesstrend (VDOT/EF/Easy-HF) · Durability · 80/20 · Stagnation · Adherence
 //   · Stride-Trend · Coach-Auswertung · Woechentliche Km · Langzeit-Statistik
-//   · Trainingsverteilung · Pace/HF-Tabelle · Wandern; danach RideDetail.
+//   · Trainingsverteilung · Pace/HF-Tabelle · Wandern.
 // Pace-Format: nur vdot.formatPace (T-288).
 // Regeln: nur UI — Rechenlogik in lib/ (strava, vdot, analytics, durability); kein Plotly.
-// Hinweis: Aufteilung in components/analysis/* folgt nach Merge von T-264/T-270 (T-275 AC2).
+// Aufgeteilt (T-275 AC2, reiner Move): components/analysis/{helpers,DurabilitySparkline,HelpToggle,RideDetail}.
 
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -27,7 +27,6 @@ import {
   DAY_TAGS,
   loadAnalyticsStreams,
   type StravaActivity,
-  type ActivitySummary,
   type StrideDataEntry,
   type SyncedThreshold,
 } from '../lib/strava'
@@ -62,6 +61,10 @@ import { loadNote } from '../lib/storage'
 import { helpText } from '../lib/glossary'
 import { fetchSync, type SyncedPlan, type SyncedPlanSession, type SyncData } from '../lib/githubSync'
 import RunDetail from './RunDetail'
+import { isoWeek, syncedSessionToWorkout } from './analysis/helpers'
+import { DurabilitySparkline } from './analysis/DurabilitySparkline'
+import { HelpToggle } from './analysis/HelpToggle'
+import { RideDetail } from './analysis/RideDetail'
 import { resolveNote } from '../lib/notesSync'
 
 interface Props {
@@ -79,81 +82,6 @@ interface Props {
   workSplits?: Record<string, number[]> | null
   // T-124: stride data by activity id, for stride trend.
   strideDataById?: Record<string, { strideCount: number; strides: { peakPaceSec: number }[]; avgPeakPaceSec?: number }> | null
-}
-
-function isoWeek(d: Date): string {
-  // Use Date.UTC to avoid DST distortion: all operands are treated as UTC midnight,
-  // so the 7-day divisor is always exact (no ±1h DST shift).
-  const jan4   = new Date(d.getFullYear(), 0, 4)
-  const startDay = jan4.getDate() - ((jan4.getDay() + 6) % 7)
-  const startUTC = Date.UTC(jan4.getFullYear(), 0, startDay)
-  const dUTC     = Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())
-  const week     = Math.floor((dUTC - startUTC) / (7 * 24 * 3600 * 1000)) + 1
-  return `KW${week}`
-}
-
-// Convert SyncedPlanSession to the WorkoutSession shape expected by assessDeviation
-function syncedSessionToWorkout(s: SyncedPlanSession): WorkoutSession {
-  return {
-    session:   s.typ,
-    typ:       s.typ,
-    distanzKm: s.km ?? 0,
-    vorgabe:   s.vorgabe,
-    struktur:  s.struktur,
-    dauerMin:  s.dauer,
-    hinweis:   s.hinweis,
-    wochentag: s.tag,
-    // T-247: ohne Durchreichen bliebe struktur_daten (T-246) am RunDetail-Konsumenten immer
-    // undefined — matchBlocksToPlan waere dadurch in der echten App unerreichbar, obwohl der
-    // Desktop-Sync es schon serialisiert (T-247-Reviewer-Hinweis in SyncedPlanSession).
-    struktur_daten: s.struktur_daten ?? null,
-  }
-}
-
-
-// T-142: Inline-SVG-Sparkline für Durability-Signale (Drift + Fade).
-function DurabilitySparkline({ series, color }: { series: Array<[number, number]>; color: string }) {
-  if (!series || series.length < 2) return null
-  const w = 120, h = 32, pad = 3
-  const xs = series.map(p => p[0]), ys = series.map(p => p[1])
-  const xMin = Math.min(...xs), xMax = Math.max(...xs)
-  const yMin = Math.min(...ys), yMax = Math.max(...ys)
-  const sx = (x: number) => xMax === xMin ? w / 2 : pad + (x - xMin) / (xMax - xMin) * (w - 2 * pad)
-  const sy = (y: number) => yMax === yMin ? h / 2 : h - pad - (y - yMin) / (yMax - yMin) * (h - 2 * pad)
-  const pts = series.map(([x, y]) => `${sx(x).toFixed(1)},${sy(y).toFixed(1)}`).join(' ')
-  return (
-    <svg width={w} height={h} style={{ display: 'block', marginTop: 4 }}>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth={1.5} />
-      {series.map(([x, y], i) => (
-        <circle key={i} cx={sx(x)} cy={sy(y)} r={1.8} fill={color} />
-      ))}
-    </svg>
-  )
-}
-
-// T-244: ⓘ-Toggle für Glossar-Erklärungen an KPI-Labels — kein title-Tooltip (funktioniert
-// auf Touch nicht, siehe T-244-Befund), Tap togglet eine sichtbare `kpi-help`-Zeile.
-// `variant="tile"` füllt die volle Breite einer schmalen KPI-Tile (kollisionsfrei in der
-// engen 3-Spalten-Reihe, echtes 44px-Touch-Ziel ohne Overlap mit Nachbar-Buttons);
-// `variant="inline"` ist ein kompaktes rundes Icon für Fließtext-Kontexte (z.B. neben einer
-// Section-Überschrift wie „Verletzungsrisiko").
-function HelpToggle({ glossaryKey, open, onToggle, variant = 'inline' }: {
-  glossaryKey: string
-  open: boolean
-  onToggle: () => void
-  variant?: 'inline' | 'tile'
-}) {
-  return (
-    <button
-      type="button"
-      className={variant === 'tile' ? 'kpi-help-btn kpi-help-btn--tile' : 'kpi-help-btn'}
-      aria-label={`Erklärung ${glossaryKey}`}
-      aria-expanded={open}
-      onClick={onToggle}
-    >
-      ⓘ
-    </button>
-  )
 }
 
 export default function Analysis({ settings, onGoToSettings, effectiveVdot, syncedFtp, syncedThreshold, workSplits: workSplitsProp, strideDataById: strideDataByIdProp }: Props) {
@@ -1253,46 +1181,6 @@ export default function Analysis({ settings, onGoToSettings, effectiveVdot, sync
         )
       })()}
     </div>
-  )
-}
-
-
-function RideDetail({
-  analysis,
-  act,
-}: {
-  analysis: ReturnType<typeof analyzeRide>
-  act: ActivitySummary
-}) {
-  const durationMin = Math.round(act.durationSec / 60)
-  return (
-    <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: 700 }}>{analysis.verdict}</div>
-          <div style={{ fontSize: '12px', color: 'var(--text-2)', marginTop: '3px' }}>{analysis.note}</div>
-        </div>
-        <div
-          style={{
-            fontSize: '11px',
-            padding: '3px 8px',
-            borderRadius: '12px',
-            background: `${analysis.color}22`,
-            color: analysis.color,
-            whiteSpace: 'nowrap',
-            flexShrink: 0,
-          }}
-        >
-          {analysis.hrZone}
-        </div>
-      </div>
-      <div style={{ fontSize: '12px', color: 'var(--text-2)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-        <span>{durationMin} min</span>
-        {analysis.speedKmh > 0 && <span>{analysis.speedKmh} km/h</span>}
-        <span>Laufäquivalent: ~{analysis.runEquivMin} min</span>
-        <span>Nutzen: {analysis.trainingBenefit}</span>
-      </div>
-    </>
   )
 }
 
