@@ -12,6 +12,14 @@ import { SyncAccessError, type SyncData } from './githubSync'
 import { loadPendingNoteMutations, appendPendingNoteMutation, type NoteMutation } from './notesSync'
 import { loadPendingMutation, type InjuryBreakMutation } from './injury'
 import { markWeekOverridePending, isWeekOverridePending, type AppSettings } from './storage'
+import * as storage from './storage'
+
+// Fix-Loop 1: pendingWeekOverrideMaps fängt intern alles ab — um „wirft vor dem try" zu belegen,
+// wird es per Mock werfbar gemacht (Default = echte Implementierung).
+vi.mock('./storage', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./storage')>()
+  return { ...actual, pendingWeekOverrideMaps: vi.fn(actual.pendingWeekOverrideMaps) }
+})
 
 const REPO_URL = 'https://api.github.com/repos/6dwkt42m6p-ux/marathon-data'
 
@@ -126,6 +134,20 @@ describe('pushNoteMutations', () => {
 // ─── flushPendingNoteMutations (App-Start, Settings-Sync) ────────────────────
 
 describe('flushPendingNoteMutations', () => {
+  it('Fix-Loop 1: rejectet nicht bei korruptem Remote (noteMutations als Objekt)', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    appendPendingNoteMutation(noteM(7, '2026-10-15T10:00:00.000Z'))
+    const corrupt = { noteMutations: {} } as unknown as SyncData
+    await expect(flushPendingNoteMutations(corrupt, 'sha-0')).resolves.toBeUndefined()
+    expect(gh.puts).toHaveLength(0)
+  })
+
+  it('Fix-Loop 1: rejectet nicht bei korrupter lokaler Queue (Objekt statt Liste)', async () => {
+    fakeGitHub({ remote: {} })
+    localStorage.setItem('pending_note_mutations', JSON.stringify({ kaputt: true }))
+    await expect(flushPendingNoteMutations({}, 'sha-0')).resolves.toBeUndefined()
+  })
+
   it('Erfolg: nutzt übergebene data/sha (kein GET), pusht Rest-Queue, markiert pushed', async () => {
     const gh = fakeGitHub({ remote: {} })
     const m = noteM(7, '2026-10-15T10:00:00.000Z')
@@ -247,6 +269,13 @@ describe('pushWeekOverride', () => {
 
 describe('flushPendingWeekOverrides', () => {
   const W = '2026-10-12'
+
+  it('Fix-Loop 1: rejectet nicht, wenn das Lesen der Pending-Wochen wirft', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    vi.mocked(storage.pendingWeekOverrideMaps).mockImplementationOnce(() => { throw new Error('storage kaputt') })
+    await expect(flushPendingWeekOverrides({}, 'sha-0')).resolves.toBeUndefined()
+    expect(gh.puts).toHaveLength(0)
+  })
   const swaps = () => localStorage.setItem('week_override_' + W, JSON.stringify([
     { originalDay: 'Di', currentDay: 'Mi' }, { originalDay: 'Mi', currentDay: 'Di' },
   ]))

@@ -3,7 +3,8 @@
 //   409-Rebuild (T-151) → Pending-Marker setzen/löschen erst nach Erfolg.
 // Einstieg: pushNoteMutations (RunDetail), pushInjuryMutation (Settings), pushWeekOverride
 //   (TodayWorkout), pushSettings (Settings), pushPlanRecomputeRequest + buildSettingsPushPayload
-//   (TodayWorkout); flushPendingNoteMutations / flushPendingWeekOverrides (App-Start, Settings-Sync).
+//   (TodayWorkout); flushPendingNoteMutations (App-Start + Settings-Sync),
+//   flushPendingWeekOverrides (nur App-Start).
 // Fehler: push*/pushPlan* reichen jeden Fehler (inkl. SyncAccessError) an den Aufrufer durch —
 //   der entscheidet still vs. UI-Meldung. flush* sind best-effort und rejecten nie.
 // Regeln: lib-only (keine Komponenten); Desktop bleibt SSoT, Queues sind PWA→Desktop.
@@ -31,12 +32,13 @@ export async function pushNoteMutations(mutation: NoteMutation): Promise<void> {
 }
 
 // T-156/T-260 P-04: reconcile against already-fetched data and re-push the rest once (no fetch).
+// Everything inside try: callers fire-and-forget (`void`), so corrupt input must not reject.
 export async function flushPendingNoteMutations(data: SyncData, sha: string): Promise<void> {
-  const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
-  if (remaining.length === 0) return
-  const buildPayload = (base: SyncData): SyncData =>
-    ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, remaining) })
   try {
+    const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
+    if (remaining.length === 0) return
+    const buildPayload = (base: SyncData): SyncData =>
+      ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, remaining) })
     await pushSync(buildPayload(data), sha, buildPayload)
     markNoteMutationsPushed(remaining.map(m => m.ts))
   } catch { /* best-effort — stays pending */ }
@@ -67,16 +69,17 @@ export async function pushWeekOverride(weekKey: string, map: Record<string, stri
 }
 
 // T-260 P-06: re-push local swaps whose push never succeeded, against already-fetched data.
+// Everything inside try: same never-reject contract as flushPendingNoteMutations.
 export async function flushPendingWeekOverrides(data: SyncData, sha: string): Promise<void> {
-  const pending = pendingWeekOverrideMaps()
-  const weeks = Object.keys(pending)
-  if (weeks.length === 0) return
-  const buildPayload = (base: SyncData): SyncData => {
-    const wo = { ...(base.weekOverrides ?? {}) }
-    for (const w of weeks) wo[w] = pending[w].map
-    return { ...base, weekOverrides: wo }
-  }
   try {
+    const pending = pendingWeekOverrideMaps()
+    const weeks = Object.keys(pending)
+    if (weeks.length === 0) return
+    const buildPayload = (base: SyncData): SyncData => {
+      const wo = { ...(base.weekOverrides ?? {}) }
+      for (const w of weeks) wo[w] = pending[w].map
+      return { ...base, weekOverrides: wo }
+    }
     await pushSync(buildPayload(data), sha, buildPayload)
     for (const w of weeks) clearWeekOverridePending(w, pending[w].stamp)
   } catch { /* best-effort — stays pending */ }
