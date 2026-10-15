@@ -34,7 +34,7 @@ function _intensityBucket(bpm: number, restHr: number, hrr: number, lthr?: numbe
   if (!(bpm > 0)) return null
   if (lthr && lthr > 0) return bpm < LTHR_EASY_FRAC * lthr ? 'easy' : bpm < LTHR_QUALITY_FRAC * lthr ? 'grey' : 'quality'
   if (hrr <= 0) return null
-  const z = _hrZoneCode((bpm - restHr) / hrr * 100)
+  const z = hrrZoneCode((bpm - restHr) / hrr * 100)
   return z === 'Z1' || z === 'Z2' ? 'easy' : z === 'Z3' ? 'grey' : 'quality'
 }
 
