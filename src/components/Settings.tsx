@@ -4,25 +4,21 @@
 
 import { useState, useEffect } from 'react'
 import type { AppSettings } from '../lib/storage'
-import { saveSettings, resolvePreRaceEnabled, mergeSettingsForPush } from '../lib/storage'
+import { saveSettings, resolvePreRaceEnabled } from '../lib/storage'
 import { vdotFromRace, buildPaceTable } from '../lib/vdot'
 import {
   isAuthenticated, getAuthUrl, exchangeCode, clearTokens, parseOAuthCallback, STRAVA_REAUTH_KEY,
   syncActivities, loadTokens, getCachedActivities, REDIRECT_URI,
   loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
-import { getToken, setToken, clearToken, hasToken, fetchSync, pushSync, SyncAccessError, SYNC_REPO, type SyncData } from '../lib/githubSync'
+import { getToken, setToken, clearToken, hasToken, fetchSync, SyncAccessError, SYNC_REPO } from '../lib/githubSync'
+import { pushInjuryMutation, pushSettings, flushPendingNoteMutations } from '../lib/syncActions'
 import {
   activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
-  loadPendingMutation, savePendingMutation, clearPendingMutation,
+  loadPendingMutation, clearPendingMutation,
   resolvePendingMutation,
   type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
 } from '../lib/injury'
-import {
-  reconcilePendingNoteMutations,
-  mergeNoteMutationQueue,
-  markNoteMutationsPushed,
-} from '../lib/notesSync'
 import { GLOSSARY, label as glossaryLabel } from '../lib/glossary'
 
 interface Props {
@@ -89,16 +85,9 @@ export default function Settings({ settings, onUpdate }: Props) {
   async function handleStartInjuryBreak() {
     setInjBusy(true); setInjErr(null)
     try {
-      const fresh = await fetchSync(true)
       const mutation = buildStartMutation(injStart, injDays, injSeverity, injNote)
-      // rebuildFn closes the 409 RMW race: on conflict, re-append OWN mutation to the
-      // freshly fetched queue instead of pushing the stale pre-fetch snapshot.
-      const buildPayload = (base: SyncData): SyncData => ({
-        ...base,
-        injuryBreakMutations: [...(base.injuryBreakMutations ?? []), mutation],
-      })
-      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
-      savePendingMutation(mutation)
+      // T-282: fetch(force) → push mit 409-Rebuild → Pending-Marker nach Erfolg; Fehler → injErr.
+      await pushInjuryMutation(mutation)
       setInjuryPending(mutation)
       setInjNote('')
     } catch (e) {
@@ -111,15 +100,8 @@ export default function Settings({ settings, onUpdate }: Props) {
   async function handleEndInjuryBreak(breakId: string) {
     setInjBusy(true); setInjErr(null)
     try {
-      const fresh = await fetchSync(true)
       const mutation = buildEndMutation(breakId, localISODate(new Date()))
-      // rebuildFn closes the 409 RMW race: same pattern as handleStartInjuryBreak.
-      const buildPayload = (base: SyncData): SyncData => ({
-        ...base,
-        injuryBreakMutations: [...(base.injuryBreakMutations ?? []), mutation],
-      })
-      await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
-      savePendingMutation(mutation)
+      await pushInjuryMutation(mutation)
       setInjuryPending(mutation)
     } catch (e) {
       setInjErr(String(e))
@@ -152,16 +134,9 @@ export default function Settings({ settings, onUpdate }: Props) {
             setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
           }
         }
-        // T-156: resolve and re-push pending note mutations on manual sync.
-        // T-260 P-04: shared reconcile/merge helpers (compaction + pushed marker), see notesSync.ts.
-        const stillPending = reconcilePendingNoteMutations({ noteMutations: result.data.noteMutations, notes: result.data.plan?.notes })
-        if (stillPending.length > 0) {
-          const buildPayload = (base: SyncData): SyncData =>
-            ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, stillPending) })
-          pushSync(buildPayload(result.data), result.sha, buildPayload)
-            .then(() => { markNoteMutationsPushed(stillPending.map(m => m.ts)) })
-            .catch(() => { /* best-effort */ })
-        }
+        // T-156/T-260 P-04: resolve and re-push pending note mutations on manual sync
+        // (best-effort, fire-and-forget — flushPendingNoteMutations never rejects).
+        void flushPendingNoteMutations(result.data, result.sha)
       } else {
         setGhMsg('Noch keine Sync-Daten vorhanden.')
       }
@@ -315,17 +290,8 @@ export default function Settings({ settings, onUpdate }: Props) {
     setTimeout(() => setSaved(false), 2000)
     if (hasToken()) {
       try {
-        const current = await fetchSync(true)  // force: need fresh sha before push
-        // rebuildFn: spread fresh remote state, then overwrite only the settings field.
-        // Preserves plan, injuryBreakMutations etc. from any concurrent Desktop write.
-        // T-182 Phase B review fix (Bug 1): settings itself must be MERGED, not replaced —
-        // a stale local preRaceEnabled must never overwrite a fresh Desktop value. See
-        // mergeSettingsForPush (storage.ts) for the exact merge semantics.
-        const buildPayload = (base: SyncData): SyncData => ({
-          ...base,
-          settings: mergeSettingsForPush(s, base.settings),
-        })
-        await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
+        // T-182 Phase B: settings are MERGED into the fresh remote state (mergeSettingsForPush).
+        await pushSettings(s)
         setGhSha(null)
       } catch { /* sync failure is non-critical */ }
     }

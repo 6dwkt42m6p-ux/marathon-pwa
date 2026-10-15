@@ -3,7 +3,7 @@
 // T-170: appendPendingNoteMutation Rückgabewert bei Quota-Fehler — "Queue darf nicht als
 // geschrieben gelten" (Aufrufer in RunDetail.tsx muss false erkennen).
 
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   buildSaveNoteMutation,
   buildDeleteNoteMutation,
@@ -17,6 +17,8 @@ import {
 } from './notesSync'
 import type { ActivityNote } from './storage'
 import { registerEvictCallback, STORAGE_WARNING_KEY } from './storage'
+import { pushNoteMutations } from './syncActions'
+import type { SyncData } from './githubSync'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mutation-Builder
@@ -237,49 +239,59 @@ describe('resolvePendingNoteMutation', () => {
 })
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Enqueue rebuildFn — 409-Szenario (pure function, no network)
-// Verifies that the buildPayload closure used in RunDetail correctly dedupes.
+// Enqueue rebuildFn — 409-Szenario
+// T-282: testet die Prod-Funktion pushNoteMutations (lib/syncActions) gegen eine Fake-GitHub-fetch
+// statt einer lokalen Kopie des buildPayload-Closures.
 // ─────────────────────────────────────────────────────────────────────────────
 
-describe('enqueue rebuildFn — 409-scenario', () => {
-  beforeEach(() => { localStorage.clear() })
+const encSync = (d: SyncData) => btoa(unescape(encodeURIComponent(JSON.stringify(d))))
+const decSync = (b64: string) => JSON.parse(decodeURIComponent(escape(atob(b64)))) as SyncData
 
-  it('appends only new pending mutations to fresh queue (dedupe by ts)', () => {
+// Erster PUT → 409 (Remote wurde zwischenzeitlich auf `fresh` geschrieben), zweiter PUT → 200.
+function stubConflict(initial: SyncData, fresh: SyncData): SyncData[] {
+  let remote = initial
+  let putCount = 0
+  const puts: SyncData[] = []
+  vi.stubGlobal('fetch', vi.fn(async (_url: string, opts?: RequestInit) => {
+    if (opts?.method === 'PUT') {
+      puts.push(decSync(JSON.parse(String(opts.body)).content))
+      if (++putCount === 1) { remote = fresh; return { ok: false, status: 409 } }
+      return { ok: true, status: 200, json: async () => ({ content: { sha: 'sha-2' } }) }
+    }
+    return { ok: true, status: 200, json: async () => ({ sha: `sha-${putCount}`, content: encSync(remote) }) }
+  }))
+  return puts
+}
+
+describe('enqueue rebuildFn — 409-scenario (pushNoteMutations)', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    localStorage.setItem('github_sync_token', 'test-token')
+  })
+  afterEach(() => {
+    localStorage.clear()
+    vi.unstubAllGlobals()
+  })
+
+  it('appends only new pending mutations to fresh queue (dedupe by ts)', async () => {
     const mOld: NoteMutation = { type: 'save', activity_id: 1, text: 'old', rating: 3, ts: '2026-07-04T10:00:00.010Z' }
     const mNew: NoteMutation = { type: 'save', activity_id: 2, text: 'new', rating: 4, ts: '2026-07-04T10:00:00.011Z' }
     appendPendingNoteMutation(mOld)
-    appendPendingNoteMutation(mNew)
-    const allPending = loadPendingNoteMutations()
-
     // fresh queue already has mOld (e.g. pushed before conflict)
-    const freshNoteMutations: NoteMutation[] = [mOld]
-
-    const buildPayload = (base: { noteMutations?: NoteMutation[] }) => {
-      const existingTs = new Set((base.noteMutations ?? []).map((m: NoteMutation) => m.ts))
-      const toAdd = allPending.filter((m: NoteMutation) => !existingTs.has(m.ts))
-      return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
-    }
-
-    const result = buildPayload({ noteMutations: freshNoteMutations })
+    const puts = stubConflict({}, { noteMutations: [mOld] })
+    await pushNoteMutations(mNew)
+    const retry = puts[1]
     // mOld was already in fresh queue, mNew is new → total 2, no duplicate
-    expect(result.noteMutations).toHaveLength(2)
-    expect(result.noteMutations!.filter((m: NoteMutation) => m.ts === mOld.ts)).toHaveLength(1)
-    expect(result.noteMutations!.filter((m: NoteMutation) => m.ts === mNew.ts)).toHaveLength(1)
+    expect(retry.noteMutations).toHaveLength(2)
+    expect(retry.noteMutations!.filter((m: NoteMutation) => m.ts === mOld.ts)).toHaveLength(1)
+    expect(retry.noteMutations!.filter((m: NoteMutation) => m.ts === mNew.ts)).toHaveLength(1)
   })
 
-  it('preserves foreign fields in base when applying buildPayload', () => {
+  it('preserves foreign fields in base when applying buildPayload', async () => {
     const m = buildSaveNoteMutation(5, 'test', 2)
-    appendPendingNoteMutation(m)
-    const allPending = loadPendingNoteMutations()
-
-    const buildPayload = (base: { noteMutations?: NoteMutation[]; settings?: { vdot: number } }) => {
-      const existingTs = new Set((base.noteMutations ?? []).map((m: NoteMutation) => m.ts))
-      const toAdd = allPending.filter((m: NoteMutation) => !existingTs.has(m.ts))
-      return { ...base, noteMutations: [...(base.noteMutations ?? []), ...toAdd] }
-    }
-
-    const result = buildPayload({ settings: { vdot: 48 }, noteMutations: [] })
-    expect(result.settings).toEqual({ vdot: 48 })
-    expect(result.noteMutations).toHaveLength(1)
+    const puts = stubConflict({}, { settings: { vdot: 48 }, noteMutations: [] })
+    await pushNoteMutations(m)
+    expect(puts[1].settings).toEqual({ vdot: 48 })
+    expect(puts[1].noteMutations).toHaveLength(1)
   })
 })
