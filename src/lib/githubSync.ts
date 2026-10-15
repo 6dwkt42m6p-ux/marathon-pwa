@@ -9,10 +9,28 @@
 import { safeSetItem } from './storage'
 import type { WorkoutStrukturDaten } from './plan'
 
+// D-061 / T-264: sync.json liegt im PRIVATEN Daten-Repo (Gesundheits-/Strava-Daten) — nie im
+// öffentlichen PWA-Repo. Lesen nur über die Contents-API mit Token (raw.githubusercontent geht
+// bei privaten Repos ohne Auth nicht). Einzige Stelle für das Ziel.
 const OWNER = '6dwkt42m6p-ux'
-const REPO   = 'marathon-pwa'
+const REPO   = 'marathon-data'
 const PATH   = 'data/sync.json'
 const API    = 'https://api.github.com'
+export const SYNC_REPO = `${OWNER}/${REPO}`
+const REPO_URL = `${API}/repos/${OWNER}/${REPO}`
+export const SYNC_CONTENTS_URL = `${REPO_URL}/contents/${PATH}`
+
+// Token sieht das private Sync-Repo nicht: GitHub antwortet 403 oder (privat, unsichtbar) 404.
+export class SyncAccessError extends Error {
+  readonly status: number
+  constructor(status: number) {
+    super(`GitHub ${status}: Token hat keinen Zugriff auf ${SYNC_REPO} — Token-Scope erweitern ` +
+      `(Fine-grained Token: Repository access inkl. ${REPO}, Permission Contents: Read and write).`)
+    this.name = 'SyncAccessError'
+    this.status = status
+    Object.setPrototypeOf(this, new.target.prototype)
+  }
+}
 
 // T-024: Plan serialized by Streamlit — PWA renders verbatim, never recomputes
 export interface SyncedPlanSession {
@@ -123,9 +141,21 @@ function b64ToUtf8(b64: string): string {
   return new TextDecoder('utf-8').decode(bytes)
 }
 
+async function _repoAccessible(): Promise<boolean> {
+  const res = await fetch(REPO_URL, { headers: headers() })
+  if (res.status === 403 || res.status === 404) return false
+  if (!res.ok) throw new Error(`GitHub ${res.status}`)
+  return true
+}
+
 async function _doFetchSync(): Promise<{ data: SyncData; sha: string } | null> {
-  const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${PATH}`, { headers: headers() })
-  if (res.status === 404) return null
+  const res = await fetch(SYNC_CONTENTS_URL, { headers: headers() })
+  if (res.status === 403) throw new SyncAccessError(403)
+  if (res.status === 404) {
+    // Privates Repo: 404 heißt auch „kein Zugriff". Nur wenn das Repo lesbar ist, fehlt bloß die Datei.
+    if (!(await _repoAccessible())) throw new SyncAccessError(404)
+    return null
+  }
   if (!res.ok) throw new Error(`GitHub ${res.status}`)
   const j = await res.json()
   const data: SyncData = JSON.parse(b64ToUtf8(j.content.replace(/\n/g, '')))
@@ -174,9 +204,10 @@ export async function pushSync(
     content,
   }
   if (sha) body.sha = sha
-  const res = await fetch(`${API}/repos/${OWNER}/${REPO}/contents/${PATH}`, {
+  const res = await fetch(SYNC_CONTENTS_URL, {
     method: 'PUT', headers: headers(), body: JSON.stringify(body),
   })
+  if (res.status === 403 || res.status === 404) throw new SyncAccessError(res.status)
   if (res.status === 409 && !_retried) {
     // Stale sha due to concurrent Streamlit write — fetch fresh sha and retry once.
     // force=true bypasses the 60s TTL cache: the cache sha is exactly what caused the
