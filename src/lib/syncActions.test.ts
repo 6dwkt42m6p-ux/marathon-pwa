@@ -14,7 +14,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { loadPendingNoteMutations, appendPendingNoteMutation, type NoteMutation } from './notesSync'
 import { loadPendingMutation, type InjuryBreakMutation } from './injury'
-import { markWeekOverridePending, isWeekOverridePending, swapsToMap, type AppSettings } from './storage'
+import { markWeekOverridePending, isWeekOverridePending, swapsToMap, applyRemoteWeekOverrides, type AppSettings } from './storage'
 import * as storage from './storage'
 
 // Fix-Loop 1: pendingWeekOverrideMaps fängt intern alles ab — um „wirft vor dem try" zu belegen,
@@ -34,6 +34,7 @@ interface FakeOpts {
   getStatus?: number               // != 200 → GET der Datei antwortet mit diesem Status
   putStatuses?: number[]           // je PUT ein Status, danach 200
   concurrent?: SyncData            // Remote-Stand, der beim 409 „zwischenzeitlich" geschrieben wurde
+  onGet?: () => void               // T-297 FL1: Seiteneffekt beim GET der Datei (z.B. Token weg)
 }
 
 function fakeGitHub(o: FakeOpts) {
@@ -58,6 +59,7 @@ function fakeGitHub(o: FakeOpts) {
       return { ok: true, status: 200, json: async () => ({ content: { sha } }) }
     }
     gets.push(url)
+    if (url !== REPO_URL) o.onGet?.()
     if (url === REPO_URL) return { ok: true, status: 200, json: async () => ({}) }
     if (o.getStatus && o.getStatus !== 200) return { ok: false, status: o.getStatus }
     if (remote === null) return { ok: false, status: 404 }
@@ -540,5 +542,109 @@ describe('T-297 AC4: swapsToMap exportiert und von TodayWorkout genutzt', () => 
     const tw = src('components/TodayWorkout.tsx')
     expect(tw).toMatch(/swapsToMap\(/)
     expect(tw).not.toMatch(/originalDay !== a\.currentDay\) map\[/)
+  })
+})
+
+// ─── T-297 Fix-Loop 1 ────────────────────────────────────────────────────────
+
+describe('T-297 FL1 Punkt 1: Token verschwindet zwischen Fetch und Push', () => {
+  const dropToken = () => localStorage.removeItem('github_sync_token')
+
+  it('pushInjuryMutation → false, kein PUT, kein Overlay-Marker', async () => {
+    const gh = fakeGitHub({ remote: {}, onGet: dropToken })
+    await expect(pushInjuryMutation(injM)).resolves.toBe(false)
+    expect(gh.puts).toHaveLength(0)
+    expect(loadPendingMutation()).toBeNull()
+  })
+
+  it('pushWeekOverride → false, Woche bleibt pending', async () => {
+    const gh = fakeGitHub({ remote: {}, onGet: dropToken })
+    const stamp = markWeekOverridePending('2026-10-12')
+    await expect(pushWeekOverride('2026-10-12', { Di: 'Mi' }, stamp)).resolves.toBe(false)
+    expect(gh.puts).toHaveLength(0)
+    expect(isWeekOverridePending('2026-10-12')).toBe(true)
+  })
+
+  it('pushNoteMutations → false, nicht als pushed markiert', async () => {
+    fakeGitHub({ remote: {}, onGet: dropToken })
+    await expect(pushNoteMutations(noteM(7, '2026-10-15T10:00:00.000Z'))).resolves.toBe(false)
+    expect(loadPendingNoteMutations()[0].pushed).toBeFalsy()
+  })
+})
+
+describe('T-297 FL1 Punkt 2: pending Woche, die remote schon identisch liegt', () => {
+  const W = '2026-10-12'
+  const localSwap = () => {
+    localStorage.setItem('week_override_' + W, JSON.stringify([{ originalDay: 'Di', currentDay: 'Mi' }]))
+    return markWeekOverridePending(W)
+  }
+
+  it('Settings-Sync (flushPendingSync ohne vorheriges applyRemote): 0 PUT, Marker gelöscht', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    localSwap()
+    await flushPendingSync({ weekOverrides: { [W]: { Di: 'Mi' } } }, 'sha-0')
+    expect(gh.puts).toHaveLength(0)
+    expect(isWeekOverridePending(W)).toBe(false)
+  })
+
+  it('App-Start (applyRemoteWeekOverrides → flushPendingSync): 0 PUT, Marker gelöscht', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    localSwap()
+    const data: SyncData = { weekOverrides: { [W]: { Di: 'Mi' } } }
+    applyRemoteWeekOverrides(data.weekOverrides)
+    await flushPendingSync(data, 'sha-0')
+    expect(gh.puts).toHaveLength(0)
+    expect(isWeekOverridePending(W)).toBe(false)
+  })
+
+  it('identische Woche fällt aus dem Push, abweichende Woche wird gepusht', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    localSwap()
+    localStorage.setItem('week_override_2026-10-19', JSON.stringify([{ originalDay: 'Fr', currentDay: 'Sa' }]))
+    markWeekOverridePending('2026-10-19')
+    await flushPendingSync({ weekOverrides: { [W]: { Di: 'Mi' } } }, 'sha-0')
+    expect(gh.puts).toHaveLength(1)
+    expect(gh.puts[0].data.weekOverrides).toEqual({ [W]: { Di: 'Mi' }, '2026-10-19': { Fr: 'Sa' } })
+    expect(isWeekOverridePending(W)).toBe(false)
+    expect(isWeekOverridePending('2026-10-19')).toBe(false)
+  })
+
+  it('remote abweichend → weiterhin Push', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    localSwap()
+    await flushPendingSync({ weekOverrides: { [W]: { Di: 'Do' } } }, 'sha-0')
+    expect(gh.puts).toHaveLength(1)
+    expect(gh.puts[0].data.weekOverrides).toEqual({ [W]: { Di: 'Mi' } })
+  })
+
+  it('ohne Token: auch eine identische Woche bleibt pending (Token-Policy)', async () => {
+    localStorage.removeItem('github_sync_token')
+    fakeGitHub({ remote: {} })
+    localSwap()
+    await flushPendingSync({ weekOverrides: { [W]: { Di: 'Mi' } } }, 'sha-0')
+    expect(isWeekOverridePending(W)).toBe(true)
+  })
+})
+
+describe('T-297 FL1 Punkt 3: Notiz-Mutationen, die remote schon in der Queue liegen', () => {
+  it('nur bereits-remote-Mutationen → 0 PUT, bleiben lokal pending (pushed)', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    const m = noteM(7, '2026-10-15T10:00:00.000Z')
+    appendPendingNoteMutation(m)
+    await flushPendingSync({ noteMutations: [m] }, 'sha-0')
+    expect(gh.puts).toHaveLength(0)
+    expect(loadPendingNoteMutations()).toHaveLength(1)
+    expect(loadPendingNoteMutations()[0].pushed).toBe(true)
+  })
+
+  it('gemischt → Push nur wegen der fehlenden, Remote-Queue bleibt erhalten', async () => {
+    const gh = fakeGitHub({ remote: {} })
+    const a = noteM(7, '2026-10-15T10:00:00.000Z')
+    const b = noteM(8, '2026-10-15T11:00:00.000Z')
+    appendPendingNoteMutation(a); appendPendingNoteMutation(b)
+    await flushPendingSync({ noteMutations: [a] }, 'sha-0')
+    expect(gh.puts).toHaveLength(1)
+    expect(gh.puts[0].data.noteMutations?.map(x => x.ts)).toEqual([a.ts, b.ts])
+    expect(loadPendingNoteMutations().every(x => x.pushed)).toBe(true)
   })
 })
