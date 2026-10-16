@@ -17,9 +17,9 @@ import {
   type SyncedThreshold,
 } from '../lib/strava'
 import type { AppSettings } from '../lib/storage'
-import { resolvePreRaceEnabled, safeSetItem, applyRemoteWeekOverrides, markWeekOverridePending } from '../lib/storage'
+import { resolvePreRaceEnabled, safeSetItem, applyRemoteWeekOverrides, markWeekOverridePending, swapsToMap } from '../lib/storage'
 import {
-  hasToken, fetchSync,
+  fetchSync,
   type SyncedPlan, type SyncedPlanSession,
 } from '../lib/githubSync'
 import { pushWeekOverride, pushPlanRecomputeRequest } from '../lib/syncActions'
@@ -142,8 +142,8 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
     if (fp === prevFingerprintRef.current) return
     // Settings changed — request recompute
     prevFingerprintRef.current = fp
-    if (!hasToken()) return
-    // Fire-and-forget: best effort, non-critical (T-282: fetch(force) → push mit 409-Rebuild).
+    // Fire-and-forget: best effort, non-critical (T-282: fetch(force) → push mit 409-Rebuild;
+    // T-297: Token-Policy liegt in lib/syncActions).
     pushPlanRecomputeRequest().catch(() => { /* non-critical */ })
   }, [settings])  // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -261,12 +261,10 @@ export default function TodayWorkout({ settings, activitiesVersion = 0, effectiv
   // and then re-pushed over the Desktop on every start (Re-Review P1). A remount within the
   // fetchSync TTL is covered by pushSync seeding the cache with the pushed state.
   async function pushOverridesToGitHub(overrides: DayAssignment[], stamp: string) {
-    if (!hasToken()) return
-    const map: Record<string, string> = {}
-    overrides.forEach(a => { if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay })
     try {
-      // T-282: fetch(force) → nur diese Woche mit 409-Rebuild → Marker-Clear (Stamp) nach Erfolg.
-      await pushWeekOverride(wKey, map, stamp)
+      // T-282/T-297: fetch(force) → nur diese Woche mit 409-Rebuild → Marker-Clear (Stamp) nach
+      // Erfolg; ohne Token kein Netz, Woche bleibt pending (Token-Policy in lib/syncActions).
+      await pushWeekOverride(wKey, swapsToMap(overrides), stamp)
     } catch { /* sync failure is non-critical — week stays pending, re-pushed on next App start */ }
   }
 

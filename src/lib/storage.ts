@@ -1,7 +1,7 @@
 // Inhalt: AppSettings + localStorage-Helfer (inkl. Notizen und weekOverrides).
 // Einstieg: safeSetItem (quota-sicher, T-170), loadSettings/saveSettings, mergeSettingsForPush,
 //   mergeRemoteSettings, resolvePreRaceEnabled, resolveRaceTargets, load/save/deleteNote,
-//   applyRemoteWeekOverrides, mark/clear/isWeekOverridePending, STORAGE_WARNING_KEY.
+//   applyRemoteWeekOverrides, mark/clear/isWeekOverridePending, swapsToMap, STORAGE_WARNING_KEY.
 // Regeln: neutrale Basis — importiert KEINE andere lib-Datei (Evict per registerEvictCallback).
 
 // ── T-170: quota-safe write helper ──────────────────────────────────────────
@@ -274,7 +274,7 @@ const WEEK_OVERRIDE_PREFIX = 'week_override_'
 // Not under WEEK_OVERRIDE_PREFIX on purpose — prefix scans over week_override_* must not see it.
 const WEEK_OVERRIDE_PENDING_PREFIX = 'wo_pending_'
 const WEEK_DAYS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So']
-type DaySwap = { originalDay: string; currentDay: string }
+export type DaySwap = { originalDay: string; currentDay: string }
 
 // T-260 P-06: a local swap not yet confirmed in the remote sync.json. Value = stamp of the local
 // edit, so a push that resolves late cannot clear the marker of a newer edit (clear-if-equal).
@@ -301,8 +301,9 @@ function loadWeekSwaps(weekKey: string): DaySwap[] {
   } catch { return [] /* korrupt -> aus Remote neu aufbauen */ }
 }
 
-// Remote shape: only swapped days (originalDay → currentDay), cf. TodayWorkout.pushOverridesToGitHub.
-function swapsToMap(arr: DaySwap[]): Record<string, string> {
+// Remote shape: only swapped days (originalDay → currentDay); shared by the pending flush and
+// TodayWorkout.pushOverridesToGitHub (T-297).
+export function swapsToMap(arr: DaySwap[]): Record<string, string> {
   const map: Record<string, string> = {}
   for (const a of arr) if (a.originalDay !== a.currentDay) map[a.originalDay] = a.currentDay
   return map

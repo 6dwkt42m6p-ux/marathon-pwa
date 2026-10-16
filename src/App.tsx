@@ -13,7 +13,7 @@ const Settings = lazy(() => import('./components/Settings'))
 // Reaktivierung: COACH_TAB_ENABLED auf true setzen, kein weiterer Code-Aufwand.
 const CoachChat = lazy(() => import('./components/CoachChat'))
 import { hasToken, fetchSync } from './lib/githubSync'
-import { flushPendingNoteMutations, flushPendingWeekOverrides } from './lib/syncActions'
+import { flushPendingSync } from './lib/syncActions'
 import { syncActivities, getValidToken, secsSinceLastSync, SYNC_MIN_INTERVAL_SEC, type SyncedThreshold, getStorageWarning, clearStorageWarning } from './lib/strava'
 import { selectEffectiveVdot } from './lib/vdot'
 import './App.css'
@@ -121,11 +121,10 @@ export default function App() {
       // T-260 P-06: always (a missing field = no swaps remote) — remote is SSoT for non-pending
       // weeks; still-pending local swaps (push failed/offline) are re-pushed once.
       applyRemoteWeekOverrides(data.weekOverrides)
-      // Best-effort, fire-and-forget (T-282: flush* rejecten nie, Marker nur nach Erfolg).
-      void flushPendingWeekOverrides(data, result.sha)
-      // T-156: Flush pending note mutations — resolve applied ones, re-push remaining.
-      // Best-effort: one attempt, no retry, no new timer/poll.
-      void flushPendingNoteMutations(data, result.sha)
+      // T-156/T-260/T-297: pending week swaps + remaining note mutations in ONE push (two parallel
+      // PUTs on the same sha → 409). Best-effort, fire-and-forget: never rejects, markers only
+      // after success; one attempt, no retry, no new timer/poll.
+      void flushPendingSync(data, result.sha)
     }).catch(() => { /* silent — sync is best-effort */ })
     return () => { mounted = false }
   }, [])
