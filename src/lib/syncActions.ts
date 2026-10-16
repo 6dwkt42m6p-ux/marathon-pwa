@@ -1,12 +1,14 @@
 // Inhalt: Schreibende sync.json-Aktionen der PWA (T-282) — einzige Stelle für pushSync-Aufrufe.
-// Muster je Aktion: fetchSync(force) → buildPayload(fresh) → pushSync mit buildPayload als
-//   409-Rebuild (T-151) → Pending-Marker setzen/löschen erst nach Erfolg.
+// Muster (T-297): jede Aktion ist nur ihr Builder; fetchAndPush übernimmt Token-Policy,
+//   fetchSync(force) bzw. übergebene data/sha, pushSync mit Builder als 409-Rebuild (T-151).
+//   Pending-Marker setzen/löschen erst nach Erfolg (Rückgabe true).
 // Einstieg: pushNoteMutations (RunDetail), pushInjuryMutation (Settings), pushWeekOverride
 //   (TodayWorkout), pushSettings (Settings), pushPlanRecomputeRequest + buildSettingsPushPayload
-//   (TodayWorkout); flushPendingNoteMutations (App-Start + Settings-Sync),
-//   flushPendingWeekOverrides (nur App-Start).
+//   (TodayWorkout); flushPendingSync (App-Start + Settings-Sync, Notizen + Wochen-Tausche in EINEM
+//   Push, D-070).
+// Token-Policy (T-297): ohne Token kein Netz, kein Marker/Overlay; push* liefern dann false.
 // Fehler: push*/pushPlan* reichen jeden Fehler (inkl. SyncAccessError) an den Aufrufer durch —
-//   der entscheidet still vs. UI-Meldung. flush* sind best-effort und rejecten nie.
+//   der entscheidet still vs. UI-Meldung. flushPendingSync ist best-effort und rejectet nie.
 // Regeln: lib-only (keine Komponenten); Desktop bleibt SSoT, Queues sind PWA→Desktop.
 
 import { fetchSync, pushSync, hasToken, type SyncData } from './githubSync'
@@ -16,83 +18,74 @@ import {
 } from './notesSync'
 import { savePendingMutation, type InjuryBreakMutation } from './injury'
 import {
-  mergeSettingsForPush, pendingWeekOverrideMaps, clearWeekOverridePending, type AppSettings,
+  mergeSettingsForPush, pendingWeekOverrideMaps, clearWeekOverridePending, sameMap, type AppSettings,
 } from './storage'
 
-// T-156/T-170/T-260 P-04: queue first (synchronous, before any await); a failed queue write must
-// not drop the mutation from this push. Marked pushed only when a remote state was fetched.
-export async function pushNoteMutations(mutation: NoteMutation): Promise<void> {
-  const queued = appendPendingNoteMutation(mutation)
-  const fresh = await fetchSync(true)
-  const allPending = queued ? loadPendingNoteMutations() : [...loadPendingNoteMutations(), mutation]
-  const buildPayload = (base: SyncData): SyncData =>
-    ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, allPending) })
-  await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
-  if (fresh) markNoteMutationsPushed(allPending.map(m => m.ts))
+type Builder = (base: SyncData) => SyncData
+
+interface PushOpts {
+  /** Bereits geladener Remote-Stand → kein eigener Fetch (App-Start/Settings-Sync). */
+  base?: { data: SyncData; sha: string }
+  /** true: ohne Remote-Datei (fresh === null) nicht pushen (T-024 Recompute-Flag). */
+  requireRemote?: boolean
 }
 
-// T-156/T-260 P-04: reconcile against already-fetched data and re-push the rest once (no fetch).
-// Everything inside try: callers fire-and-forget (`void`), so corrupt input must not reject.
-export async function flushPendingNoteMutations(data: SyncData, sha: string): Promise<void> {
-  try {
-    const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
-    if (remaining.length === 0) return
-    const buildPayload = (base: SyncData): SyncData =>
-      ({ ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, remaining) })
-    await pushSync(buildPayload(data), sha, buildPayload)
-    markNoteMutationsPushed(remaining.map(m => m.ts))
-  } catch { /* best-effort — stays pending */ }
+interface PushOutcome { sent: boolean; hadRemote: boolean }
+
+// T-297: the single fetch → build → push path; token policy lives only here (githubSync's own
+// check stays as internal safety net, non-goal). `hadRemote` = pushed onto a fetched file.
+async function fetchAndPush(build: Builder, opts: PushOpts = {}): Promise<PushOutcome> {
+  const skipped = { sent: false, hadRemote: false }
+  if (!hasToken()) return skipped
+  const remote = opts.base ?? await fetchSync(true)
+  if (!remote && opts.requireRemote) return skipped
+  // FL1: token may be cleared during the fetch — pushSync would then return silently and the
+  // caller would set markers for a push that never happened. pushSync checks synchronously too.
+  if (!hasToken()) return skipped
+  await pushSync(build(remote?.data ?? {}), remote?.sha, build)
+  return { sent: true, hadRemote: !!remote }
+}
+
+// T-156/T-170/T-260 P-04: queue first (synchronous, before any await) — also without token, so the
+// next flush carries it; a failed queue write must not drop the mutation from this push.
+// Marked pushed only when a remote state was fetched.
+export async function pushNoteMutations(mutation: NoteMutation): Promise<boolean> {
+  const queued = appendPendingNoteMutation(mutation)
+  // Read once after the fetch (first build) and reused by the 409 rebuild — as before T-297.
+  const sent: { list?: NoteMutation[] } = {}
+  const r = await fetchAndPush(base => {
+    sent.list ??= queued ? loadPendingNoteMutations() : [...loadPendingNoteMutations(), mutation]
+    return { ...base, noteMutations: mergeNoteMutationQueue(base.noteMutations, sent.list) }
+  })
+  if (r.hadRemote && sent.list) markNoteMutationsPushed(sent.list.map(m => m.ts))
+  return r.sent
 }
 
 // T-132/T-152: optimistic overlay marker only after a successful push.
-export async function pushInjuryMutation(mutation: InjuryBreakMutation): Promise<void> {
-  const fresh = await fetchSync(true)
-  const buildPayload = (base: SyncData): SyncData => ({
+export async function pushInjuryMutation(mutation: InjuryBreakMutation): Promise<boolean> {
+  const r = await fetchAndPush(base => ({
     ...base,
     injuryBreakMutations: [...(base.injuryBreakMutations ?? []), mutation],
-  })
-  await pushSync(buildPayload(fresh?.data ?? {}), fresh?.sha, buildPayload)
-  savePendingMutation(mutation)
+  }))
+  if (r.sent) savePendingMutation(mutation)
+  return r.sent
 }
 
 // T-217/T-260 P-06: marker set by the caller at edit time; cleared here on success via stamp
 // (clear-if-equal), so a late push cannot clear the marker of a newer edit.
-export async function pushWeekOverride(weekKey: string, map: Record<string, string>, stamp: string): Promise<void> {
-  if (!hasToken()) return
-  const current = await fetchSync(true)
-  const buildPayload = (base: SyncData): SyncData => ({
+export async function pushWeekOverride(weekKey: string, map: Record<string, string>, stamp: string): Promise<boolean> {
+  const r = await fetchAndPush(base => ({
     ...base,
     weekOverrides: { ...(base.weekOverrides ?? {}), [weekKey]: map },
-  })
-  await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
-  clearWeekOverridePending(weekKey, stamp)
-}
-
-// T-260 P-06: re-push local swaps whose push never succeeded, against already-fetched data.
-// Everything inside try: same never-reject contract as flushPendingNoteMutations.
-export async function flushPendingWeekOverrides(data: SyncData, sha: string): Promise<void> {
-  try {
-    const pending = pendingWeekOverrideMaps()
-    const weeks = Object.keys(pending)
-    if (weeks.length === 0) return
-    const buildPayload = (base: SyncData): SyncData => {
-      const wo = { ...(base.weekOverrides ?? {}) }
-      for (const w of weeks) wo[w] = pending[w].map
-      return { ...base, weekOverrides: wo }
-    }
-    await pushSync(buildPayload(data), sha, buildPayload)
-    for (const w of weeks) clearWeekOverridePending(w, pending[w].stamp)
-  } catch { /* best-effort — stays pending */ }
+  }))
+  if (r.sent) clearWeekOverridePending(weekKey, stamp)
+  return r.sent
 }
 
 // T-182 Phase B: settings are merged (mergeSettingsForPush), never replaced.
-export async function pushSettings(local: AppSettings): Promise<void> {
-  const current = await fetchSync(true)
-  const buildPayload = (base: SyncData): SyncData => ({
-    ...base,
-    settings: mergeSettingsForPush(local, base.settings),
-  })
-  await pushSync(buildPayload(current?.data ?? {}), current?.sha, buildPayload)
+export async function pushSettings(local: AppSettings): Promise<boolean> {
+  const r = await fetchAndPush(base => ({ ...base, settings: mergeSettingsForPush(local, base.settings) }))
+  return r.sent
 }
 
 // T-221: only the flag (Desktop reads nothing else here) — settings are pushed by pushSettings.
@@ -102,9 +95,47 @@ export function buildSettingsPushPayload(base: SyncData): SyncData {
 }
 
 // T-024: unlike the other paths, no push when no remote state exists (fresh === null).
-export async function pushPlanRecomputeRequest(): Promise<void> {
-  if (!hasToken()) return
-  const fresh = await fetchSync(true)
-  if (!fresh) return
-  await pushSync(buildSettingsPushPayload(fresh.data), fresh.sha, buildSettingsPushPayload)
+export async function pushPlanRecomputeRequest(): Promise<boolean> {
+  const r = await fetchAndPush(buildSettingsPushPayload, { requireRemote: true })
+  return r.sent
+}
+
+// T-156/T-260 P-04/P-06, T-297/D-070: re-push pending note mutations AND pending week swaps against
+// already-fetched data in ONE push (two parallel PUTs on the same sha → guaranteed 409).
+// Only real work is pushed (FL1): mutations missing from data.noteMutations (the rest stays pending
+// until applied) and weeks whose remote map differs (equal ones are cleared without a push — the
+// Settings path has no applyRemoteWeekOverrides beforehand). Each part is read in its own try so
+// corrupt input of one does not block the other; whole body in try — callers `void`, never rejects.
+export async function flushPendingSync(data: SyncData, sha: string): Promise<void> {
+  try {
+    let notes: NoteMutation[] = []
+    try {
+      const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
+      const remoteTs = new Set((data.noteMutations ?? []).map(m => m.ts))
+      notes = remaining.filter(m => !remoteTs.has(m.ts))
+    } catch { /* corrupt queue/remote — notes stay pending */ }
+    let weeks: ReturnType<typeof pendingWeekOverrideMaps> = {}
+    try { weeks = pendingWeekOverrideMaps() } catch { /* storage unreadable */ }
+    const weekKeys: string[] = []
+    for (const w of Object.keys(weeks)) {
+      const raw = data.weekOverrides?.[w]
+      if (sameMap(weeks[w].map, raw && typeof raw === 'object' ? raw : {})) clearWeekOverridePending(w, weeks[w].stamp)
+      else weekKeys.push(w)
+    }
+    if (notes.length === 0 && weekKeys.length === 0) return
+    const build: Builder = base => {
+      const out: SyncData = { ...base }
+      if (notes.length) out.noteMutations = mergeNoteMutationQueue(base.noteMutations, notes)
+      if (weekKeys.length) {
+        const wo = { ...(base.weekOverrides ?? {}) }
+        for (const w of weekKeys) wo[w] = weeks[w].map
+        out.weekOverrides = wo
+      }
+      return out
+    }
+    const r = await fetchAndPush(build, { base: { data, sha } })
+    if (!r.sent) return
+    if (notes.length) markNoteMutationsPushed(notes.map(m => m.ts))
+    for (const w of weekKeys) clearWeekOverridePending(w, weeks[w].stamp)
+  } catch { /* best-effort — stays pending */ }
 }

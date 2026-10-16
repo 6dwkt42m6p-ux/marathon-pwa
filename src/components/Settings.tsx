@@ -12,7 +12,7 @@ import {
   loadLastSyncTimestamp, localISODate,
 } from '../lib/strava'
 import { getToken, setToken, clearToken, hasToken, fetchSync, SyncAccessError, SYNC_REPO } from '../lib/githubSync'
-import { pushInjuryMutation, pushSettings, flushPendingNoteMutations } from '../lib/syncActions'
+import { pushInjuryMutation, pushSettings, flushPendingSync } from '../lib/syncActions'
 import {
   activeInjuryBreak, effectiveWindow, buildStartMutation, buildEndMutation,
   loadPendingMutation, clearPendingMutation,
@@ -20,6 +20,9 @@ import {
   type RawInjuryBreak, type InjuryBreakMutation, type InjurySeverity,
 } from '../lib/injury'
 import { GLOSSARY, label as glossaryLabel } from '../lib/glossary'
+
+// T-297 FL1: pushInjuryMutation → false (kein Token, auch wenn er während des Fetch entfernt wurde).
+const INJ_NOT_SENT = 'Kein GitHub-Token — Eingabe nicht gesendet.'
 
 interface Props {
   settings: AppSettings
@@ -87,9 +90,11 @@ export default function Settings({ settings, onUpdate }: Props) {
     try {
       const mutation = buildStartMutation(injStart, injDays, injSeverity, injNote)
       // T-282: fetch(force) → push mit 409-Rebuild → Pending-Marker nach Erfolg; Fehler → injErr.
-      await pushInjuryMutation(mutation)
-      setInjuryPending(mutation)
-      setInjNote('')
+      // T-297: Overlay nur, wenn wirklich gesendet (ohne Token false, Buttons sind dann ohnehin aus).
+      if (await pushInjuryMutation(mutation)) {
+        setInjuryPending(mutation)
+        setInjNote('')
+      } else setInjErr(INJ_NOT_SENT)
     } catch (e) {
       setInjErr(String(e))
     } finally {
@@ -101,8 +106,8 @@ export default function Settings({ settings, onUpdate }: Props) {
     setInjBusy(true); setInjErr(null)
     try {
       const mutation = buildEndMutation(breakId, localISODate(new Date()))
-      await pushInjuryMutation(mutation)
-      setInjuryPending(mutation)
+      if (await pushInjuryMutation(mutation)) setInjuryPending(mutation)
+      else setInjErr(INJ_NOT_SENT)
     } catch (e) {
       setInjErr(String(e))
     } finally {
@@ -134,9 +139,10 @@ export default function Settings({ settings, onUpdate }: Props) {
             setInjMsg('Eingabe vom Desktop verworfen (Pause existierte bereits).')
           }
         }
-        // T-156/T-260 P-04: resolve and re-push pending note mutations on manual sync
-        // (best-effort, fire-and-forget — flushPendingNoteMutations never rejects).
-        void flushPendingNoteMutations(result.data, result.sha)
+        // T-156/T-260 P-04, D-070: re-push pending note mutations AND week swaps in one push
+        // (best-effort, fire-and-forget — flushPendingSync never rejects; SyncAccessError of the
+        // manual sync itself still surfaces via the catch below, T-264).
+        void flushPendingSync(result.data, result.sha)
       } else {
         setGhMsg('Noch keine Sync-Daten vorhanden.')
       }
@@ -288,13 +294,11 @@ export default function Settings({ settings, onUpdate }: Props) {
     onUpdate(s)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
-    if (hasToken()) {
-      try {
-        // T-182 Phase B: settings are MERGED into the fresh remote state (mergeSettingsForPush).
-        await pushSettings(s)
-        setGhSha(null)
-      } catch { /* sync failure is non-critical */ }
-    }
+    try {
+      // T-182 Phase B: settings are MERGED into the fresh remote state (mergeSettingsForPush).
+      // T-297: Token-Policy in lib — false = nicht gesendet (kein Token), sha bleibt.
+      if (await pushSettings(s)) setGhSha(null)
+    } catch { /* sync failure is non-critical */ }
   }
 
   // Quick VDOT from a recent race result
