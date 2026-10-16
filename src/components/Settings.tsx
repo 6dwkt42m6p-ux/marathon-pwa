@@ -21,6 +21,9 @@ import {
 } from '../lib/injury'
 import { GLOSSARY, label as glossaryLabel } from '../lib/glossary'
 
+// T-297 FL1: pushInjuryMutation → false (kein Token, auch wenn er während des Fetch entfernt wurde).
+const INJ_NOT_SENT = 'Kein GitHub-Token — Eingabe nicht gesendet.'
+
 interface Props {
   settings: AppSettings
   onUpdate: (s: AppSettings) => void
@@ -91,7 +94,7 @@ export default function Settings({ settings, onUpdate }: Props) {
       if (await pushInjuryMutation(mutation)) {
         setInjuryPending(mutation)
         setInjNote('')
-      }
+      } else setInjErr(INJ_NOT_SENT)
     } catch (e) {
       setInjErr(String(e))
     } finally {
@@ -104,6 +107,7 @@ export default function Settings({ settings, onUpdate }: Props) {
     try {
       const mutation = buildEndMutation(breakId, localISODate(new Date()))
       if (await pushInjuryMutation(mutation)) setInjuryPending(mutation)
+      else setInjErr(INJ_NOT_SENT)
     } catch (e) {
       setInjErr(String(e))
     } finally {

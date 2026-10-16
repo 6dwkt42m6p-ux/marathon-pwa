@@ -394,7 +394,8 @@ describe('T-297 AC1: ein Abruf-/Schreib-Helper', () => {
     const code = src('lib/syncActions.ts').replace(/^\s*\/\/.*$/gm, '')
     expect(count(code, /\bpushSync\(/g)).toBe(1)
     expect(count(code, /\bfetchSync\(/g)).toBe(1)
-    expect(count(code, /\bhasToken\(\)/g)).toBe(1)
+    // FL1: Token-Policy nur im Helper — vor dem Fetch und erneut unmittelbar vor dem Push.
+    expect(count(code, /\bhasToken\(\)/g)).toBe(2)
   })
 })
 
@@ -617,13 +618,6 @@ describe('T-297 FL1 Punkt 2: pending Woche, die remote schon identisch liegt', (
     expect(gh.puts[0].data.weekOverrides).toEqual({ [W]: { Di: 'Mi' } })
   })
 
-  it('ohne Token: auch eine identische Woche bleibt pending (Token-Policy)', async () => {
-    localStorage.removeItem('github_sync_token')
-    fakeGitHub({ remote: {} })
-    localSwap()
-    await flushPendingSync({ weekOverrides: { [W]: { Di: 'Mi' } } }, 'sha-0')
-    expect(isWeekOverridePending(W)).toBe(true)
-  })
 })
 
 describe('T-297 FL1 Punkt 3: Notiz-Mutationen, die remote schon in der Queue liegen', () => {

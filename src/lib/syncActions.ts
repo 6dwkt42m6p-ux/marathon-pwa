@@ -18,7 +18,7 @@ import {
 } from './notesSync'
 import { savePendingMutation, type InjuryBreakMutation } from './injury'
 import {
-  mergeSettingsForPush, pendingWeekOverrideMaps, clearWeekOverridePending, type AppSettings,
+  mergeSettingsForPush, pendingWeekOverrideMaps, clearWeekOverridePending, sameMap, type AppSettings,
 } from './storage'
 
 type Builder = (base: SyncData) => SyncData
@@ -32,12 +32,16 @@ interface PushOpts {
 
 interface PushOutcome { sent: boolean; hadRemote: boolean }
 
-// T-297: the single fetch → build → push path. Token checked once here (pushSync's own check
-// stays as githubSync-internal safety net, D-070 non-goal). `hadRemote` = pushed onto a fetched file.
+// T-297: the single fetch → build → push path; token policy lives only here (githubSync's own
+// check stays as internal safety net, non-goal). `hadRemote` = pushed onto a fetched file.
 async function fetchAndPush(build: Builder, opts: PushOpts = {}): Promise<PushOutcome> {
-  if (!hasToken()) return { sent: false, hadRemote: false }
+  const skipped = { sent: false, hadRemote: false }
+  if (!hasToken()) return skipped
   const remote = opts.base ?? await fetchSync(true)
-  if (!remote && opts.requireRemote) return { sent: false, hadRemote: false }
+  if (!remote && opts.requireRemote) return skipped
+  // FL1: token may be cleared during the fetch — pushSync would then return silently and the
+  // caller would set markers for a push that never happened. pushSync checks synchronously too.
+  if (!hasToken()) return skipped
   await pushSync(build(remote?.data ?? {}), remote?.sha, build)
   return { sent: true, hadRemote: !!remote }
 }
@@ -98,17 +102,26 @@ export async function pushPlanRecomputeRequest(): Promise<boolean> {
 
 // T-156/T-260 P-04/P-06, T-297/D-070: re-push pending note mutations AND pending week swaps against
 // already-fetched data in ONE push (two parallel PUTs on the same sha → guaranteed 409).
-// Each part is read in its own try so corrupt input of one does not block the other; the whole
-// body is inside try because callers fire-and-forget (`void`) — never rejects.
+// Only real work is pushed (FL1): mutations missing from data.noteMutations (the rest stays pending
+// until applied) and weeks whose remote map differs (equal ones are cleared without a push — the
+// Settings path has no applyRemoteWeekOverrides beforehand). Each part is read in its own try so
+// corrupt input of one does not block the other; whole body in try — callers `void`, never rejects.
 export async function flushPendingSync(data: SyncData, sha: string): Promise<void> {
   try {
     let notes: NoteMutation[] = []
     try {
-      notes = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
+      const remaining = reconcilePendingNoteMutations({ noteMutations: data.noteMutations, notes: data.plan?.notes })
+      const remoteTs = new Set((data.noteMutations ?? []).map(m => m.ts))
+      notes = remaining.filter(m => !remoteTs.has(m.ts))
     } catch { /* corrupt queue/remote — notes stay pending */ }
     let weeks: ReturnType<typeof pendingWeekOverrideMaps> = {}
     try { weeks = pendingWeekOverrideMaps() } catch { /* storage unreadable */ }
-    const weekKeys = Object.keys(weeks)
+    const weekKeys: string[] = []
+    for (const w of Object.keys(weeks)) {
+      const raw = data.weekOverrides?.[w]
+      if (sameMap(weeks[w].map, raw && typeof raw === 'object' ? raw : {})) clearWeekOverridePending(w, weeks[w].stamp)
+      else weekKeys.push(w)
+    }
     if (notes.length === 0 && weekKeys.length === 0) return
     const build: Builder = base => {
       const out: SyncData = { ...base }

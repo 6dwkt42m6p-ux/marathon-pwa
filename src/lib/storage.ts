@@ -1,7 +1,7 @@
 // Inhalt: AppSettings + localStorage-Helfer (inkl. Notizen und weekOverrides).
 // Einstieg: safeSetItem (quota-sicher, T-170), loadSettings/saveSettings, mergeSettingsForPush,
 //   mergeRemoteSettings, resolvePreRaceEnabled, resolveRaceTargets, load/save/deleteNote,
-//   applyRemoteWeekOverrides, mark/clear/isWeekOverridePending, swapsToMap, STORAGE_WARNING_KEY.
+//   applyRemoteWeekOverrides, mark/clear/isWeekOverridePending, swapsToMap, sameMap, STORAGE_WARNING_KEY.
 // Regeln: neutrale Basis — importiert KEINE andere lib-Datei (Evict per registerEvictCallback).
 
 // ── T-170: quota-safe write helper ──────────────────────────────────────────
@@ -309,7 +309,8 @@ export function swapsToMap(arr: DaySwap[]): Record<string, string> {
   return map
 }
 
-function sameMap(a: Record<string, string>, b: Record<string, string>): boolean {
+// T-297 FL1: also used by flushPendingSync to drop weeks the remote already carries.
+export function sameMap(a: Record<string, string>, b: Record<string, string>): boolean {
   const ka = Object.keys(a)
   return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k])
 }
